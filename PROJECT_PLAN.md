@@ -130,22 +130,27 @@ bt_ros2/    ROS2 wrapper（可选独立 colcon 包）
 
 ---
 
-## 6. 当前进度（全部完成，2026-06-30）
+## 6. 当前进度（全部完成）
 - [x] Phase 0：目录骨架、计划表、决策固化、架构文档、顶层 CMake
 - [x] Phase 1：bt_core 核心地基（NodeStatus/TreeNode/Blackboard/三大族/NodeFactory/Tree）
 - [x] Phase 2：插件系统（BT_REGISTER_NODES 宏 + 跨平台 PluginLoader）
 - [x] Phase 3：XML 序列化（tinyxml2 + XmlParser，私有端口语义）
-- [x] Phase 4：bt_server HTTP 服务（5 接口 + 插件加载）
-- [x] Phase 5：bt_editor React 前端（npm build 通过）
-- [x] Phase 6：bt_ros2 wrapper（结构/语法验证，需 ROS2 环境实编）
-- [x] Phase 7：内置节点 bt_nodes（11 节点）+ 示例 + blog README
+- [x] Phase 4：bt_server HTTP 服务（7 接口 + 插件加载 + tick 序列回放）
+- [x] Phase 5：bt_editor React 前端（npm build 通过 + 浏览器活体验证）
+- [x] Phase 6：bt_ros2 wrapper（结构/语法验证 + cmake find_package 集成）
+- [x] Phase 7：内置节点 bt_nodes（17 节点：控制 3 + 装饰 5 + 动作/条件 3 + 数据 6）+ 示例 + blog README
+- [x] Phase 8：ROS2 数据接入可复用接口（RosConditionNode<MsgT> / RosInputNode<MsgT> + data_freshness 纯逻辑 + 4 个开箱即用范例节点）
+- [x] Phase 9：6 个数据录入状态节点（SetBlackboard/SetBool/CompareBlackboard/CheckBool/Counter/CooldownCondition）+ test_data_nodes 单测 + NODES_AND_DATA blog 文档
+- [x] Phase 10：vendor GoogleTest v1.15.2 到 third_party/，ctest 构建彻底零网络依赖
 
 ### 验证总证据
-- 从零全量构建：10 target，我方代码 0 error / 0 warning
-- ctest：100% 8/8 passed
+- 全量构建：10 target，我方代码 0 error / 0 warning（已 vendor GoogleTest）
+- ctest：**100% tests passed, 0 tests failed out of 53**（0.33s，离线可复现）
 - 示例 1/2 运行正确；跨模块联调（server 加载 bt_nodes 插件 + HTTP）实测通过
-- 修复 2 个集成期真实 bug：插件析构顺序段错误、同名端口字面量覆盖
+- 编辑器活体验证：节点加载/建树/Tick 运行态高亮/导入导出全闭环（截图存档）
+- cmake install/export 验证：下游独立项目 find_package(bt_core) + link bt::core 编译运行 exit=0
+- 修复 3 个集成期真实 bug：插件析构顺序段错误、同名端口字面量覆盖、编辑器/服务器 id 空间不匹配导致运行态不上色
 
 ### 待用户环境验证
-- bt_ros2：本机无 ROS2，需 humble/jazzy 环境 `colcon build` 实测
-- bt_editor：`npm run dev` 联调（前端 build 已通过）
+- bt_ros2：本机无 ROS2，需 humble/jazzy 环境 `colcon build` 实测；接口契约见 `docs/design/ROS2_DATA_INTERFACE.md`
+- bt_editor：`npm run dev` 联调（前端 build + 浏览器活体均已通过）

@@ -193,10 +193,14 @@ auto node = factory.createNode("SayHello", "inst1", config);
 核心库零 ROS 依赖，那 ROS2 能力怎么来？答案是一个**独立的 ament_cmake 包** `bt_ros2`，它依赖 `bt_core` 但反过来 `bt_core` 完全不知道它的存在。
 
 - `BtExecutorNode`：继承 `rclcpp::Node`，用 ROS2 timer 周期 tick 行为树，把根状态发布到 topic，从 ROS2 param 读取要加载的 XML 路径和频率。
-- `RosTopicConditionNode` / `RosTopicActionNode`：示例适配器，演示怎么把 ROS2 topic 桥接成 bt_core 的条件/动作节点。
+- **可复用数据接入基类**（这次重点设计的）：
+  - `RosConditionNode<MsgT>` —— 把 ROS2 话题数据当条件用，子类**只需实现 `evaluate(msg)->bool`**
+  - `RosInputNode<MsgT>` —— 把 ROS2 话题数据录入黑板，子类**只需实现 `onData(msg)`**（里面 `setOutput` 写黑板）
+  - 自带 `topic` / `timeout_ms` / `qos_depth` 三个公共端口，**数据新鲜度**判定（`data_freshness.hpp` 纯逻辑、可独立单测）一并内置，传感器掉线自动失败
+  - 4 个开箱即用范例：`IsObstacleClose` / `IsFlagTrue` / `ReadBattery` / `ReadScalar`，照抄模板改消息类型即可
 - **关键技巧**：适配器节点拿不到 ROS 句柄怎么办？`BtExecutorNode` 建树前把 `rclcpp::Node*`（非拥有裸指针，避免循环引用）写进共享黑板的保留 key，适配器首次 tick 时取出并惰性创建订阅/发布。这样 bt_core 对 ROS 始终无感知。
 
-> 编译运行需要真实 ROS2 环境（humble / jazzy）。详见 `bt_ros2/README.md`。
+> 编译运行需要真实 ROS2 环境（humble / jazzy）。完整教程见 [`NODES_AND_DATA.md`](./NODES_AND_DATA.md) 第二部分；接口契约见 `docs/design/ROS2_DATA_INTERFACE.md`。
 
 ---
 
