@@ -6,7 +6,8 @@
 
 ## 新增文件
 - `bt_ros2/include/bt_ros2/data_freshness.hpp` — **ROS-free 纯逻辑**，数据新鲜度判定，本机可单测
-- `bt_ros2/include/bt_ros2/ros_subscriber_node.hpp` — 可复用订阅基类（核心）
+- `bt_ros2/include/bt_ros2/ros_subscriber_node.hpp` — 可复用**订阅**基类（ROS2 → 状态）
+- `bt_ros2/include/bt_ros2/ros_publisher_node.hpp` — 可复用**发布**基类（状态 → ROS2，对称设计；mock rclcpp 验证通过）
 - `bt_ros2/include/bt_ros2/example_data_nodes.hpp` — 开箱即用范例节点（需真实 ROS2 msg）
 
 ## data_freshness.hpp（纯逻辑，可本机测）
