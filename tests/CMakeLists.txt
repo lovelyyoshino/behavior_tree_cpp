@@ -1,17 +1,30 @@
 # ============================================================================
-#  tests —— 单元测试(GoogleTest via FetchContent)
+#  tests —— 单元测试(GoogleTest)
+#
+#  GoogleTest 加载策略(零网络依赖):
+#    1) 优先使用 third_party/googletest(已 vendor，无需联网，最稳)
+#    2) 若 vendor 不存在则退化到 FetchContent 从 GitHub 拉取(需联网)
 # ============================================================================
-include(FetchContent)
 
-# 拉取 GoogleTest。优先用本地缓存；离线时可改为 find_package。
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        v1.15.2
-)
-# Windows: 强制使用共享 CRT，避免链接冲突
+# Windows: 强制使用共享 CRT，避免链接冲突(GoogleTest 子构建需要)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+# 不安装 GoogleTest 到本项目 install prefix
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+set(VENDORED_GTEST "${CMAKE_SOURCE_DIR}/third_party/googletest")
+if(EXISTS "${VENDORED_GTEST}/CMakeLists.txt")
+  message(STATUS "[tests] 使用 vendored GoogleTest: ${VENDORED_GTEST}")
+  add_subdirectory(${VENDORED_GTEST} ${CMAKE_BINARY_DIR}/_deps/googletest-build EXCLUDE_FROM_ALL)
+else()
+  message(STATUS "[tests] vendored GoogleTest 不存在，回退 FetchContent(需联网)")
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.15.2
+  )
+  FetchContent_MakeAvailable(googletest)
+endif()
 
 # bt_core 单元测试
 add_executable(test_bt_core test_bt_core.cpp)
