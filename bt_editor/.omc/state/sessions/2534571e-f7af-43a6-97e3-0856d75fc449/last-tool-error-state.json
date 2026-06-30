@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__chrome-devtools__navigate_page",
+  "tool_input_preview": "{\"url\":\"http://localhost:5173/\"}",
+  "error": "Error: The selected page has been closed. Call list_pages to see open pages.",
+  "timestamp": "2026-06-30T04:16:06.722Z",
+  "retry_count": 1
+}
