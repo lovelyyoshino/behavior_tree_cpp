@@ -43,8 +43,9 @@ class CompareBlackboardNode : public bt_core::ConditionNode {
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("key", "", "要比较的黑板键名"),
-        bt_core::InputPort<std::string>("op", "==",
-                                        "运算符: == / != / < / <= / > / >="),
+        // op 是枚举型端口:编辑器据 enum_values 渲染下拉框,杜绝手抖打错。
+        bt_core::InputPort<std::string>("op", "==", "运算符",
+                                        {"==", "!=", "<", "<=", ">", ">="}),
         bt_core::InputPort<std::string>("value", "", "参与比较的右操作数"));
   }
 

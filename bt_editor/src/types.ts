@@ -24,6 +24,8 @@ export interface PortManifest {
   type_name: string;
   default_value: string;
   description: string;
+  /** 枚举可选值——非空时属性面板渲染下拉框，强制取值在该集合内。 */
+  enum_values?: string[];
 }
 
 /** GET /api/nodes 返回数组的单项：一种已注册节点的 manifest */

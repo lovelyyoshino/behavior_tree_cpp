@@ -72,7 +72,14 @@ std::string portToJson(const bt_core::PortInfo& p) {
   out += jsonKV("direction", bt_core::toStr(p.direction)) + ",";
   out += jsonKV("type_name", p.type_name) + ",";
   out += jsonKV("default_value", p.default_value) + ",";
-  out += jsonKV("description", p.description);
+  out += jsonKV("description", p.description) + ",";
+  // enum_values: 字符串数组,空表示该端口为自由文本;非空时编辑器渲染下拉框。
+  out += jsonString("enum_values") + ":[";
+  for (size_t i = 0; i < p.enum_values.size(); ++i) {
+    if (i) out += ",";
+    out += jsonString(p.enum_values[i]);
+  }
+  out += "]";
   out += "}";
   return out;
 }

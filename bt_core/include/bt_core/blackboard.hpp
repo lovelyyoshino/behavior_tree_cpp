@@ -172,6 +172,7 @@ struct PortInfo {
   std::string   type_name;            ///< 值类型名(供展示，来自 typeid)
   std::string   default_value;        ///< 默认值(字符串形式)
   std::string   description;          ///< 说明文字
+  std::vector<std::string> enum_values; ///< 枚举可选值(非空时编辑器属性面板渲染下拉框)
 };
 
 /// @brief 一个节点声明的端口列表：端口名 -> 端口信息。
@@ -195,7 +196,27 @@ inline std::pair<std::string, PortInfo> InputPort(
     const std::string& default_value = "",
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::INPUT, demangleTypeName(typeid(T).name()),
-                         default_value, description}};
+                         default_value, description, {}}};
+}
+
+/**
+ * @brief 声明一个枚举型输入端口(编辑器属性面板会渲染下拉框,值仅限给定集合)。
+ *
+ * @code
+ *   InputPort<std::string>("op", "==", "运算符",
+ *                          {"==","!=","<","<=",">",">="});
+ * @endcode
+ */
+template <typename T>
+inline std::pair<std::string, PortInfo> InputPort(
+    const std::string& name,
+    const std::string& default_value,
+    const std::string& description,
+    std::vector<std::string> enum_values) {
+  return {name, PortInfo{name, PortDirection::INPUT,
+                         demangleTypeName(typeid(T).name()),
+                         default_value, description,
+                         std::move(enum_values)}};
 }
 
 /// @brief 声明一个输出端口。
@@ -204,7 +225,7 @@ inline std::pair<std::string, PortInfo> OutputPort(
     const std::string& name,
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::OUTPUT, demangleTypeName(typeid(T).name()),
-                         "", description}};
+                         "", description, {}}};
 }
 
 /// @brief 声明一个双向端口。
@@ -213,7 +234,7 @@ inline std::pair<std::string, PortInfo> BidirectionalPort(
     const std::string& name,
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::INOUT, demangleTypeName(typeid(T).name()),
-                         "", description}};
+                         "", description, {}}};
 }
 
 /**

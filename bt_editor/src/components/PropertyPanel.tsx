@@ -30,6 +30,8 @@ function PortRow({
 }) {
   // 是否处于黑板重映射模式（值形如 "{key}"）
   const isRemap = /^\{.*\}$/.test(value);
+  // 是否为枚举端口：manifest 给了 enum_values 且非空 → 渲染下拉框
+  const isEnum = !!port.enum_values && port.enum_values.length > 0;
   return (
     <div style={{ marginBottom: 10 }}>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600 }}>
@@ -40,30 +42,82 @@ function PortRow({
         {isRemap && (
           <span style={{ color: '#a855f7', marginLeft: 4 }}>· 黑板重映射</span>
         )}
+        {isEnum && (
+          <span style={{ color: '#0ea5e9', marginLeft: 4 }}>· 枚举</span>
+        )}
       </label>
       {port.description && (
         <div style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0' }}>
           {port.description}
         </div>
       )}
-      <input
-        type="text"
-        value={value}
-        placeholder={
-          port.default_value
-            ? `默认: ${port.default_value}`
-            : '字面量或 {黑板key}'
-        }
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: '100%',
-          boxSizing: 'border-box',
-          padding: '4px 6px',
-          border: `1px solid ${isRemap ? '#a855f7' : '#d1d5db'}`,
-          borderRadius: 4,
-          fontSize: 13,
-        }}
-      />
+      {isEnum ? (
+        // 枚举端口：下拉框严格限定取值;同时保留"切换到黑板重映射"的紧凑入口。
+        <div style={{ display: 'flex', gap: 6 }}>
+          <select
+            value={isRemap ? '__remap__' : value}
+            onChange={(e) => {
+              if (e.target.value === '__remap__') {
+                // 切到重映射模式:占位 {key},用户再编辑
+                onChange('{key}');
+              } else {
+                onChange(e.target.value);
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: '4px 6px',
+              border: `1px solid ${isRemap ? '#a855f7' : '#d1d5db'}`,
+              borderRadius: 4,
+              fontSize: 13,
+              background: 'white',
+            }}
+          >
+            {port.enum_values!.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+            <option value="__remap__">{'{ 黑板重映射 }'}</option>
+          </select>
+          {isRemap && (
+            // 重映射模式下额外显示一个 input 编辑实际黑板 key 名
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="{key}"
+              style={{
+                width: 100,
+                padding: '4px 6px',
+                border: '1px solid #a855f7',
+                borderRadius: 4,
+                fontSize: 13,
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        // 普通端口:自由文本(字面量或 {key} 重映射)
+        <input
+          type="text"
+          value={value}
+          placeholder={
+            port.default_value
+              ? `默认: ${port.default_value}`
+              : '字面量或 {黑板key}'
+          }
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '4px 6px',
+            border: `1px solid ${isRemap ? '#a855f7' : '#d1d5db'}`,
+            borderRadius: 4,
+            fontSize: 13,
+          }}
+        />
+      )}
     </div>
   );
 }
