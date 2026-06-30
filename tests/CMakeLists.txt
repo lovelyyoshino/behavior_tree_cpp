@@ -59,7 +59,23 @@ target_link_libraries(test_data_nodes
     GTest::gtest_main
 )
 
+# bt_ros2 订阅/发布可复用基类的单元测试
+# 用 tests/mock_rclcpp 假冒 rclcpp 让基类模板能在零 ROS2 环境实例化运行。
+# 仅供测试,不进任何发布产物。
+add_executable(test_ros_bases test_ros_bases.cpp)
+target_include_directories(test_ros_bases
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mock_rclcpp            # mock rclcpp 头(必须最优先)
+    ${CMAKE_SOURCE_DIR}/bt_ros2/include                # ros_subscriber/publisher_node.hpp
+)
+target_link_libraries(test_ros_bases
+  PRIVATE
+    bt::core
+    GTest::gtest_main
+)
+
 include(GoogleTest)
 gtest_discover_tests(test_bt_core)
 gtest_discover_tests(test_bt_advanced)
 gtest_discover_tests(test_data_nodes)
+gtest_discover_tests(test_ros_bases)
