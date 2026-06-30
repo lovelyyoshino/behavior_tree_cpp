@@ -74,8 +74,22 @@ target_link_libraries(test_ros_bases
     GTest::gtest_main
 )
 
+# XmlParser <SubTree ID="..."/> 引用支持单测
+# 直接 include bt_nodes 节点头(header-only),无需外部插件
+add_executable(test_subtree test_subtree.cpp)
+target_include_directories(test_subtree
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/bt_nodes
+)
+target_link_libraries(test_subtree
+  PRIVATE
+    bt::core
+    GTest::gtest_main
+)
+
 include(GoogleTest)
 gtest_discover_tests(test_bt_core)
 gtest_discover_tests(test_bt_advanced)
 gtest_discover_tests(test_data_nodes)
 gtest_discover_tests(test_ros_bases)
+gtest_discover_tests(test_subtree)

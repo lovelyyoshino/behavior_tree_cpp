@@ -17,6 +17,8 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "tinyxml2.h"
 
@@ -26,10 +28,47 @@ using namespace tinyxml2;
 
 namespace {
 
+/// @brief 解析期上下文:子树定义索引 + 正在展开的 ID 栈(用于环检测)。
+struct ParseContext {
+  /// 子树 ID(<BehaviorTree ID="X">) → 该 BT 的第一个子元素(即子树根)。
+  std::unordered_map<std::string, const XMLElement*> subtrees;
+  /// 当前递归路径上正在展开的子树 ID 集合,用于检测循环引用。
+  std::unordered_set<std::string> expanding;
+};
+
+/// @brief 子树最大展开深度,防御逻辑错误导致的失控递归。
+constexpr int kMaxSubTreeDepth = 32;
+
 // 从一个 XML 元素递归构建节点。
 TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
-                        Blackboard::Ptr bb) {
+                        Blackboard::Ptr bb, ParseContext& ctx,
+                        int depth = 0) {
   const std::string reg_name = elem->Name();
+
+  // ── <SubTree ID="X"/> 引用:从索引找到目标 BT 的根,带环检测递归内联展开 ──
+  if (reg_name == "SubTree") {
+    const char* id_attr = elem->Attribute("ID");
+    if (!id_attr || !*id_attr) {
+      throw std::runtime_error("<SubTree> 缺少 ID 属性");
+    }
+    const std::string id = id_attr;
+    auto it = ctx.subtrees.find(id);
+    if (it == ctx.subtrees.end()) {
+      throw std::runtime_error("<SubTree ID=\"" + id + "\"> 引用未定义的子树");
+    }
+    if (ctx.expanding.count(id)) {
+      throw std::runtime_error("<SubTree ID=\"" + id + "\"> 检测到循环引用");
+    }
+    if (depth + 1 > kMaxSubTreeDepth) {
+      throw std::runtime_error("子树展开深度超过 " +
+                               std::to_string(kMaxSubTreeDepth) +
+                               " 层(疑似失控递归)");
+    }
+    ctx.expanding.insert(id);
+    TreeNode::Ptr expanded = buildNode(it->second, factory, bb, ctx, depth + 1);
+    ctx.expanding.erase(id);
+    return expanded;
+  }
 
   // 实例名：可由 name 属性指定，否则用注册名。
   std::string inst_name = reg_name;
@@ -62,14 +101,14 @@ TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
   if (auto* ctrl = dynamic_cast<ControlNode*>(node.get())) {
     for (const XMLElement* child = elem->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
-      ctrl->addChild(buildNode(child, factory, bb));
+      ctrl->addChild(buildNode(child, factory, bb, ctx, depth));
     }
   } else if (auto* deco = dynamic_cast<DecoratorNode*>(node.get())) {
     const XMLElement* child = elem->FirstChildElement();
     if (!child) {
       throw std::runtime_error("装饰节点 '" + reg_name + "' 缺少子节点");
     }
-    deco->setChild(buildNode(child, factory, bb));
+    deco->setChild(buildNode(child, factory, bb, ctx, depth));
     if (child->NextSiblingElement()) {
       throw std::runtime_error("装饰节点 '" + reg_name + "' 只能有一个子节点");
     }
@@ -128,31 +167,39 @@ Tree XmlParser::loadFromText(const std::string& xml_text,
     throw std::runtime_error("XML 缺少 <root> 元素");
   }
 
-  // 选定主树：优先 main_tree_to_execute 指定的；否则取第一个 <BehaviorTree>。
+  // 单遍扫描所有 <BehaviorTree>:
+  //   ① 建子树索引 ctx.subtrees[ID] = 该 BT 的第一个子元素(根)
+  //      → buildNode 遇到 <SubTree ID="X"/> 时用它内联展开。
+  //   ② 同时挑出 main_tree_to_execute 指定的主树(未指定则取第一个)。
   const char* main_id = root->Attribute("main_tree_to_execute");
-  const XMLElement* bt = nullptr;
+  const XMLElement* main_bt = nullptr;
+  ParseContext ctx;
   for (const XMLElement* e = root->FirstChildElement("BehaviorTree"); e;
        e = e->NextSiblingElement("BehaviorTree")) {
-    if (main_id) {
-      if (const char* id = e->Attribute("ID")) {
-        if (std::string(id) == main_id) { bt = e; break; }
+    const char* id_attr = e->Attribute("ID");
+    const XMLElement* first_child = e->FirstChildElement();
+    if (id_attr && *id_attr && first_child) {
+      ctx.subtrees[id_attr] = first_child;       // 加入索引
+    }
+    if (!main_bt) {  // 还没定下主树
+      if (main_id) {
+        if (id_attr && std::string(id_attr) == main_id) main_bt = e;
+      } else {
+        main_bt = e;
       }
-    } else {
-      bt = e;
-      break;
     }
   }
-  if (!bt) {
+  if (!main_bt) {
     throw std::runtime_error("找不到目标 <BehaviorTree>");
   }
 
-  const XMLElement* root_node_elem = bt->FirstChildElement();
+  const XMLElement* root_node_elem = main_bt->FirstChildElement();
   if (!root_node_elem) {
     throw std::runtime_error("<BehaviorTree> 为空");
   }
 
   auto bb = blackboard ? blackboard : Blackboard::create();
-  TreeNode::Ptr root_node = buildNode(root_node_elem, factory_, bb);
+  TreeNode::Ptr root_node = buildNode(root_node_elem, factory_, bb, ctx);
   return Tree(root_node, bb);
 }
 

@@ -260,10 +260,57 @@ class CommandSubscriber : public bt_ros2::RosInputNode<std_msgs::msg::String> {
 
 ---
 
-## 局限与未来工作
+## 配方 4(进阶):把状态做成可复用子树 ── `<SubTree ID="..."/>`
 
-- **目前 XmlParser 不支持 `<SubTree ID="..."/>` 引用**。如果想把"巡逻"做成一棵可复用的子树在不同位置引用，目前只能复制 XML 段落。要彻底解决这一点，需要扩展 `bt_core/xml_parser.cpp` 支持子树引用语义。
-- **ROS2 Action / Service** 这类长耗时操作需要异步动作节点，目前 `RosOutputNode<MsgT>` 是同步发送（话题发布本身就是同步操作，所以这是对的；Action 客户端需另写异步节点）。参考 `bt_ros2/src/ros_topic_action_node.cpp` 末尾的异步范式提示。
+之前文档说"不支持 SubTree,只能复制 XML 段落"——**现在已支持**。把一段树定义
+成命名子树,任何地方用 `<SubTree ID="X"/>` 一行引用,解析时自动内联展开。
 
-接口契约：`docs/design/ROS2_DATA_INTERFACE.md`
-节点速查与基础教程：`docs/blog/NODES_AND_DATA.md`
+### 基本用法
+
+```xml
+<root main_tree_to_execute="Robot">
+  <BehaviorTree ID="Robot">
+    <Sequence>
+      <SubTree ID="Patrol"/>
+      <SubTree ID="GoHome"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="Patrol">
+    <Sequence>
+      <PrintMessage message="巡逻中"/>
+      <TaskDoneNotifier topic="/bt/task_done" task_name="patrol"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="GoHome">
+    <Sequence>
+      <PrintMessage message="返航中"/>
+      <TaskDoneNotifier topic="/bt/task_done" task_name="go_home"/>
+    </Sequence>
+  </BehaviorTree>
+</root>
+```
+
+### 语义要点(本机 ctest 7 用例覆盖)
+
+- **同一个子树可被引用多次**(`<SubTree ID="A"/>` 写几次就展开几次)。
+- **子树可嵌套**(子树内部可再引用其它子树)。
+- **循环引用自动检测并报错**(自环 `A→A` 或互引用 `A→B→A` 都抛 `std::runtime_error`)。
+- **未定义 ID 报错**(`<SubTree ID="Ghost"/>` 但没有 `<BehaviorTree ID="Ghost">` 定义)。
+- **缺 ID 属性报错**(`<SubTree/>` 没写 ID)。
+- **嵌套深度上限 32** 层,防御失控递归。
+- **完全向后兼容**:不写 `<SubTree>` 的旧 XML 行为不变。
+
+这意味着上面那棵"端到端机器人决策树"现在可以拆成 5 个小子树
+(命令分发 / Patrol / GoHome / 低电量返航 / 上报)分别写,Robot 主树只需用
+`<SubTree>` 把它们拼起来——XML 不再有"复制粘贴的大段树形结构"。
+
+---
+
+## 仍存在的局限
+
+- **ROS2 Action / Service** 这类长耗时操作需要异步动作节点,目前 `RosOutputNode<MsgT>` 是同步发送(话题发布本身就是同步操作,所以这是对的;Action 客户端需另写异步节点)。参考 `bt_ros2/src/ros_topic_action_node.cpp` 末尾的异步范式提示。
+
+接口契约:`docs/design/ROS2_DATA_INTERFACE.md`
+节点速查与基础教程:`docs/blog/NODES_AND_DATA.md`
