@@ -62,6 +62,28 @@ export interface TickResult {
   nodes: TickNodeStatus[];
 }
 
+export interface RunTransition {
+  node_id: number;
+  from: RunStatus;
+  to: RunStatus;
+  seq: number;
+}
+
+export interface RunResult {
+  final_status: RunStatus;
+  transitions: RunTransition[];
+}
+
+export interface ValidateResult {
+  ok: boolean;
+  node_count?: number;
+  error?: string;
+}
+
+export interface FormatResult extends ValidateResult {
+  xml?: string;
+}
+
 /** GET /api/health 的响应 */
 export interface HealthResult {
   ok: boolean;

@@ -20,7 +20,7 @@ interface Props {
 
 /** 根据 PortManifest.type_name 推断该端口适合的输入控件类型。 */
 type Widget = 'enum' | 'bool' | 'int' | 'float' | 'text';
-function inferWidget(port: PortManifest): Widget {
+export function inferWidget(port: PortManifest): Widget {
   if (port.enum_values && port.enum_values.length > 0) return 'enum';
   const t = port.type_name;
   if (t === 'bool') return 'bool';

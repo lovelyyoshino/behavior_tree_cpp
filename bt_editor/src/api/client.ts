@@ -10,6 +10,9 @@ import type {
   LoadResult,
   ExportResult,
   TickResult,
+  RunResult,
+  ValidateResult,
+  FormatResult,
   HealthResult,
 } from '../types';
 
@@ -39,6 +42,22 @@ export async function loadTree(xml: string): Promise<LoadResult> {
   });
 }
 
+/** POST /api/tree/validate —— 只校验 XML，不替换后端当前树 */
+export async function validateTree(xml: string): Promise<ValidateResult> {
+  return requestJson<ValidateResult>('/api/tree/validate', {
+    method: 'POST',
+    body: JSON.stringify({ xml }),
+  });
+}
+
+/** POST /api/tree/format —— 只格式化 XML，不替换后端当前树 */
+export async function formatTree(xml: string): Promise<FormatResult> {
+  return requestJson<FormatResult>('/api/tree/format', {
+    method: 'POST',
+    body: JSON.stringify({ xml }),
+  });
+}
+
 /** GET /api/tree/export —— 从后端取当前树的 XML */
 export async function exportTree(): Promise<ExportResult> {
   return requestJson<ExportResult>('/api/tree/export');
@@ -47,6 +66,11 @@ export async function exportTree(): Promise<ExportResult> {
 /** POST /api/tree/tick —— 执行一拍并取回每个节点的运行态 */
 export async function tickTree(): Promise<TickResult> {
   return requestJson<TickResult>('/api/tree/tick', { method: 'POST' });
+}
+
+/** POST /api/tree/run —— 跑到终态并返回状态变化序列 */
+export async function runTree(): Promise<RunResult> {
+  return requestJson<RunResult>('/api/tree/run', { method: 'POST' });
 }
 
 /** GET /api/health —— 健康检查，返回后端版本 */

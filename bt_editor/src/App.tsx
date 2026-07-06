@@ -10,7 +10,7 @@
  * - 非法连线由 Canvas 上报原因，这里转成 toast 告知用户。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyNodeChanges,
   applyEdgeChanges,
@@ -27,12 +27,17 @@ import { ToastStack, type ToastItem, type ToastKind } from './components/Toast';
 import {
   fetchNodes,
   loadTree,
+  validateTree,
+  formatTree,
   exportTree,
   tickTree,
+  runTree,
   checkHealth,
 } from './api/client';
 import { exportToXml, importFromXml, dfsPreorderIds } from './utils/xml';
+import { layoutTree } from './utils/layout';
 import { SAMPLE_TREE_XML } from './utils/sampleTree';
+import { XmlPreviewPanel } from './components/XmlPreviewPanel';
 import type {
   BtNode,
   BtEdge,
@@ -63,6 +68,8 @@ export default function App() {
   const [health, setHealth] = useState<string | null>(null);
   const [healthChecking, setHealthChecking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [serverFormattedXml, setServerFormattedXml] = useState<string | null>(null);
+  const [lastRunSummary, setLastRunSummary] = useState<string | null>(null);
   // 全局 toast 列表
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   // 记录每条 toast 的定时器，便于卸载时清理
@@ -192,6 +199,10 @@ export default function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    setServerFormattedXml(null);
+  }, [nodes, edges]);
 
   // -------------------------------------------------------------------------
   // 属性面板编辑
@@ -335,6 +346,47 @@ export default function App() {
     }
   }, [nodes, edges, pushToast]);
 
+  const onRun = useCallback(async () => {
+    setBusy(true);
+    try {
+      const res = await runTree();
+      const preorder = dfsPreorderIds(nodes, edges);
+      const finalByBackendId = new Map<number, RunStatus>();
+      for (const transition of res.transitions) {
+        finalByBackendId.set(transition.node_id, transition.to);
+      }
+      const sortedBackendIds = [...finalByBackendId.keys()].sort((a, b) => a - b);
+      const statusByEditorId = new Map<string, RunStatus>();
+      sortedBackendIds.forEach((backendId, i) => {
+        const editorId = preorder[i];
+        const status = finalByBackendId.get(backendId);
+        if (editorId && status) statusByEditorId.set(editorId, status);
+      });
+      setNodes((nds) =>
+        nds.map((n) => {
+          const s = statusByEditorId.get(n.id) ?? n.data.runStatus;
+          return { ...n, data: { ...n.data, runStatus: s } };
+        }),
+      );
+      const summary = `Run 完成：${res.final_status}，状态变化 ${res.transitions.length} 次`;
+      setLastRunSummary(summary);
+      pushToast('info', summary);
+    } catch (err) {
+      pushToast('error', `Run 失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [nodes, edges, pushToast]);
+
+  const onLayout = useCallback(() => {
+    try {
+      setNodes((nds) => layoutTree(nds, edges));
+      pushToast('success', '布局已整理');
+    } catch (err) {
+      pushToast('error', err instanceof Error ? err.message : String(err));
+    }
+  }, [edges, pushToast]);
+
   /** 把所有节点运行态重置为 IDLE（清除上色，不改结构） */
   const onResetStatus = useCallback(() => {
     setNodes((nds) =>
@@ -354,6 +406,63 @@ export default function App() {
   }, []);
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
+  const preview = useMemo(() => {
+    try {
+      return { xml: serverFormattedXml ?? exportToXml(nodes, edges), error: null };
+    } catch (err) {
+      return {
+        xml: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }, [nodes, edges, serverFormattedXml]);
+
+  const onCopyXml = useCallback(() => {
+    if (preview.error) return;
+    void navigator.clipboard.writeText(preview.xml);
+    pushToast('success', 'XML 已复制到剪贴板');
+  }, [preview, pushToast]);
+
+  const onValidateXml = useCallback(async () => {
+    if (preview.error) {
+      pushToast('error', preview.error);
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await validateTree(preview.xml);
+      if (result.ok) {
+        pushToast('success', `XML 校验通过，节点数：${result.node_count ?? '?'}`);
+      } else {
+        pushToast('error', `XML 校验失败：${result.error ?? '未知错误'}`);
+      }
+    } catch (err) {
+      pushToast('error', `XML 校验请求失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [preview, pushToast]);
+
+  const onFormatXml = useCallback(async () => {
+    if (preview.error) {
+      pushToast('error', preview.error);
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await formatTree(preview.xml);
+      if (result.ok && result.xml) {
+        setServerFormattedXml(result.xml);
+        pushToast('success', `XML 已格式化，节点数：${result.node_count ?? '?'}`);
+      } else {
+        pushToast('error', `XML 格式化失败：${result.error ?? '未知错误'}`);
+      }
+    } catch (err) {
+      pushToast('error', `XML 格式化请求失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [preview, pushToast]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -365,6 +474,8 @@ export default function App() {
         onLoad={onLoad}
         onExport={onExport}
         onTick={onTick}
+        onRun={onRun}
+        onLayout={onLayout}
         onResetStatus={onResetStatus}
         onClear={onClear}
         onRecheckHealth={() => void recheckHealth(true)}
@@ -395,6 +506,16 @@ export default function App() {
           onDelete={onDeleteNode}
         />
       </div>
+      <XmlPreviewPanel
+        xml={preview.xml}
+        error={preview.error}
+        busy={busy}
+        connected={health !== null}
+        lastRunSummary={lastRunSummary}
+        onCopy={onCopyXml}
+        onValidate={onValidateXml}
+        onFormat={onFormatXml}
+      />
       {/* 全局通知浮层 */}
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>

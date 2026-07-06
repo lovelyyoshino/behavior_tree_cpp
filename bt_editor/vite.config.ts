@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // Vite 配置：开发期把 /api 代理到 bt_server (http://localhost:8080)
@@ -14,5 +14,9 @@ export default defineConfig({
         // 后端路由本身就是 /api/xxx，无需重写路径
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts'],
   },
 });

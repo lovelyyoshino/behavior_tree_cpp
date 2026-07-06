@@ -6,6 +6,8 @@
  * - 载入到服务器：把画布转 XML 并 POST /api/tree/load
  * - 从服务器导入：GET /api/tree/export 取 XML 并还原画布
  * - Tick：POST /api/tree/tick 执行一拍并按状态上色
+ * - Run：POST /api/tree/run 跑到终态并按最终状态上色
+ * - 整理布局：按树层级重新排布当前画布
  * - 重置运行态：把所有节点运行态清回 IDLE
  * - 清空画布
  *
@@ -24,6 +26,8 @@ interface Props {
   onLoad: () => void;
   onExport: () => void;
   onTick: () => void;
+  onRun: () => void;
+  onLayout: () => void;
   onResetStatus: () => void;
   onClear: () => void;
   /** 重新检测后端健康 */
@@ -38,6 +42,8 @@ export function Toolbar({
   onLoad,
   onExport,
   onTick,
+  onRun,
+  onLayout,
   onResetStatus,
   onClear,
   onRecheckHealth,
@@ -114,9 +120,24 @@ export function Toolbar({
         >
           ▶ Tick
         </button>
+        <button
+          style={{
+            ...backendBtnStyle,
+            background: connected ? '#e0f2fe' : '#fff',
+            borderColor: connected ? '#7dd3fc' : '#d1d5db',
+          }}
+          disabled={busy || !connected}
+          onClick={onRun}
+          title={connected ? '运行到终态并回放最终节点状态' : '后端未连接'}
+        >
+          ▶ Run
+        </button>
 
         <span style={{ width: 1, height: 24, background: '#e5e7eb' }} />
 
+        <button style={btnStyle} disabled={busy} onClick={onLayout}>
+          整理布局
+        </button>
         <button style={btnStyle} disabled={busy} onClick={onResetStatus}>
           重置运行态
         </button>

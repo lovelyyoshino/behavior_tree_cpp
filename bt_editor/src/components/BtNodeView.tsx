@@ -16,12 +16,16 @@ import type { BtNodeData } from '../types';
 import { isLeafKind } from '../types';
 import { KIND_COLORS, STATUS_BG } from '../theme';
 
-function BtNodeViewImpl({ data, selected }: NodeProps<BtNodeData>) {
+function BtNodeViewImpl({ id, data, selected }: NodeProps<BtNodeData>) {
   const accent = KIND_COLORS[data.kind];
   const leaf = isLeafKind(data.kind);
 
   return (
     <div
+      data-testid="bt-node"
+      data-node-id={id}
+      data-registration={data.registrationName}
+      data-status={data.runStatus}
       style={{
         minWidth: 150,
         borderRadius: 8,

@@ -115,7 +115,11 @@ function CanvasInner({
   );
 
   return (
-    <div ref={wrapperRef} style={{ flex: 1, height: '100%', position: 'relative' }}>
+    <div
+      ref={wrapperRef}
+      data-testid="bt-canvas"
+      style={{ flex: 1, height: '100%', position: 'relative' }}
+    >
       <ReactFlow
         nodes={nodes as Node<BtNodeData>[]}
         edges={edges}
