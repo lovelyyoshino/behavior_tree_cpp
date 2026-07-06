@@ -7,7 +7,7 @@
 >
 > 答案先放在最前面：
 > - **Q1**：用 `RosOutputNode<MsgT>` 基类，继承 + 实现一个 `buildMsg()` 即可。Sequence/Fallback 自动据 SUCCESS/FAILURE 走流程。
-> - **Q2**：**不需要**给每个状态都写 C++ 节点。大部分场景靠**已有 17 个节点的 XML 组合** + 端口重映射就能实现"ROS2 命令切状态"，不写一行 C++。
+> - **Q2**：**不需要**给每个状态都写 C++ 节点。大部分场景靠**已有 25 个节点的 XML 组合** + 端口重映射就能实现"ROS2 命令切状态"，不写一行 C++。
 > - **Q3**：**全部可以**。每个 ROS 节点实例可独立设 `topic` 端口订阅不同话题，独立的 `evaluate(msg)` 各自判断，返回的 SUCCESS/FAILURE 自动驱动控制节点切换分支。
 
 ---
@@ -82,7 +82,7 @@ class TaskDoneNotifier : public bt_ros2::RosOutputNode<std_msgs::msg::String> {
 
 ### 关键洞察
 
-`bt_nodes/` 里已有 17 个节点，其中这几个是"控制流积木"：
+`bt_nodes/` 里已有 25 个节点，其中这几个是"控制流积木"：
 
 | 已有节点 | 用途 |
 |---|---|

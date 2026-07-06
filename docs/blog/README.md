@@ -176,7 +176,7 @@ auto node = factory.createNode("SayHello", "inst1", config);
 - **导入导出**：画布树 ↔ XML，对接 `/api/tree/load` 和 `/api/tree/export`。
 - **运行态高亮**：点 Tick 调 `/api/tree/tick`，按返回的每节点状态上色（运行黄 / 成功绿 / 失败红 / 空闲灰）。
 
-后端 `bt_server` 基于 header-only 的 cpp-httplib，5 个接口：
+后端 `bt_server` 基于 header-only 的 cpp-httplib，当前核心接口：
 
 | 接口 | 作用 |
 |------|------|
@@ -185,6 +185,8 @@ auto node = factory.createNode("SayHello", "inst1", config);
 | `POST /api/tree/load` | XML → 构建树 |
 | `GET /api/tree/export` | 当前树 → XML |
 | `POST /api/tree/tick` | tick 一次，返回每节点状态 |
+| `POST /api/tree/run` | 从 IDLE 跑到终结并返回状态变化序列 |
+| `GET /api/tree/structure` | 返回当前树的父子结构 |
 
 ---
 

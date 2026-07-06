@@ -8,7 +8,9 @@
 - `bt_ros2/include/bt_ros2/data_freshness.hpp` — **ROS-free 纯逻辑**，数据新鲜度判定，本机可单测
 - `bt_ros2/include/bt_ros2/ros_subscriber_node.hpp` — 可复用**订阅**基类（ROS2 → 状态）
 - `bt_ros2/include/bt_ros2/ros_publisher_node.hpp` — 可复用**发布**基类（状态 → ROS2，对称设计；mock rclcpp 验证通过）
-- `bt_ros2/include/bt_ros2/example_data_nodes.hpp` — 开箱即用范例节点（需真实 ROS2 msg）
+- `bt_ros2/include/bt_ros2/example_data_nodes.hpp` — 开箱即用范例节点与回充节点（需真实 ROS2 msg）
+- `bt_ros2/include/bt_ros2/node_registration.hpp` — 默认注册器，使用单例目录与注册函数引用列表统一注册 bt_nodes、ROS topic、数据和回充节点
+- `bt_ros2/trees/recharge.xml` — 外部 BatteryState 驱动回充的完整示例树
 
 ## data_freshness.hpp（纯逻辑，可本机测）
 ```cpp
@@ -65,9 +67,22 @@ static PortsList providedPorts() {
 - `IsFlagTrue`（RosConditionNode<Bool>）
 - `ReadBattery`（RosInputNode<BatteryState>，输出端口 level）
 - `ReadScalar`（RosInputNode<Float64>，输出端口 value）
+- `IsDocked`（RosConditionNode<Bool>，充电桩对接状态）
+- `PublishRechargeCommand`（RosOutputNode<String>，发布 `start_recharge:main_dock`）
+- `TaskDoneNotifier`（RosOutputNode<String>，发布 `task_done:<task>`）
+
+## node_registration.hpp（注册器）
+`BtExecutorNode` 调用 `registerDefaultNodes(factory)`。默认注册组：
+- `registerBtNodes`
+- `registerRosTopicNodes`
+- `registerRosDataNodes`
+- `registerRechargeNodes`
+
+这满足“单例 + 工厂 + 注册函数引用”的扩展方式：`NodeRegistrationCatalog::instance()` 保存注册函数列表，最终仍由 `bt_core::NodeFactory` 创建节点。
 
 ## 已验证（exit=0，mock rclcpp + 纯逻辑单测）
 1. data_freshness 全部边界
 2. RosConditionNode：无数据→FAILURE；evaluate 真→SUCCESS/假→FAILURE；多次数据更新
 3. RosInputNode：onData 写黑板 + SUCCESS
 4. providedPorts 合并自定义端口（共 4 端口）+ 自定义阈值读取
+5. Recharge mock flow：BatteryState mock 消息进入 `ReadBattery`，写入 `battery_level`，`CompareBlackboard` 判断低电量，`PublishRechargeCommand` 发布 String mock 消息

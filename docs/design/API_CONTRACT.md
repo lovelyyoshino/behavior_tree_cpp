@@ -96,3 +96,24 @@ std::string xml = parser.writeToText(t, "MainTree");  // 或 writeToFile(t, path
 3. 运行时 .dylib 插件 load→register→tick，且**正常退出无段错误**（析构顺序已修）
 4. XML 解析+建树+tick+round-trip+字面量保真
 5. ctest 8/8 全绿
+
+## bt_server HTTP API（当前实现）
+
+`bt_server/src/tree_api_service.*` 承载树状态、XML 处理和 workspace 文件访问；`main.cpp` 只负责路由绑定和进程启动。
+
+| Endpoint | 语义 |
+|---|---|
+| `GET /api/health` | 健康检查 |
+| `GET /api/nodes` | 节点 manifest |
+| `POST /api/tree/load` | 解析 XML 并替换当前树 |
+| `POST /api/tree/validate` | 只解析校验 XML，不替换当前树 |
+| `POST /api/tree/format` | 只解析并格式化 XML，不替换当前树 |
+| `GET /api/tree/export` | 导出当前树 XML |
+| `POST /api/tree/tick` | tick 一拍 |
+| `POST /api/tree/run` | 跑到终态并返回状态变化序列 |
+| `GET /api/tree/structure` | 返回父子结构 |
+| `GET /api/trees` | 列出 workspace 内 `.xml` 树文件 |
+| `GET /api/tree/open?name=x.xml` | 打开 workspace 内树文件 |
+| `POST /api/tree/save` | 保存 `{name, xml}` 到 workspace，保存前先解析校验 |
+
+文件 API 限制在 `BT_TREE_WORKSPACE` 或默认 `examples/trees`，只接受普通 `.xml` 文件名，拒绝绝对路径、子目录和 `../`。
