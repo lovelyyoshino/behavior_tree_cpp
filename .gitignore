@@ -37,6 +37,8 @@ core
 node_modules/
 bt_editor/dist/
 bt_editor/.vite/
+bt_editor/test-results/
+bt_editor/playwright-report/
 bt_editor/*.local
 npm-debug.log*
 yarn-debug.log*
@@ -66,6 +68,11 @@ Thumbs.db
 *.log
 *.tmp
 .cc-tmp/
+docs/_build/
 
 # ---- 工具/会话状态(非项目内容) -------------------------------------------
 .omc/
+.ace-tool/
+.codex/
+__pycache__/
+*.pyc
