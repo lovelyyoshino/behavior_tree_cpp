@@ -38,46 +38,226 @@
 <h1>节点目录<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
 <section id="bt-nodes">
 <h2>bt_nodes<a class="headerlink" href="#bt-nodes" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">bt_nodes</span></code> 是开箱插件库，构建产物在 <code class="docutils literal notranslate"><span class="pre">build/lib/libbt_nodes.*</span></code>。运行时由 <code class="docutils literal notranslate"><span class="pre">NodeFactory::loadPlugin</span></code> 加载。</p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes</span></code> 是开箱插件库，构建产物在 <code class="docutils literal notranslate"><span class="pre">build/lib/libbt_nodes.*</span></code>。运行时由 <code class="docutils literal notranslate"><span class="pre">NodeFactory::loadPlugin</span></code> 加载。注册入口是 <code class="docutils literal notranslate"><span class="pre">bt_nodes/register_nodes.cpp</span></code> 里的 <code class="docutils literal notranslate"><span class="pre">BT_REGISTER_NODES</span></code>，当前共注册 <strong>25 个内置节点</strong>，按类别归纳如下。</p>
 <table class="docutils align-default">
 <colgroup>
-<col style="width: 28.0%" />
-<col style="width: 22.0%" />
-<col style="width: 50.0%" />
+<col style="width: 20.0%" />
+<col style="width: 8.0%" />
+<col style="width: 42.0%" />
+<col style="width: 30.0%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>类别</p></th>
+<th class="head"><p>数量</p></th>
 <th class="head"><p>节点</p></th>
 <th class="head"><p>说明</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Control</p></td>
+<td><p>3</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Sequence</span></code>、<code class="docutils literal notranslate"><span class="pre">Fallback</span></code>、<code class="docutils literal notranslate"><span class="pre">Parallel</span></code></p></td>
 <td><p>组织子树流程。</p></td>
 </tr>
 <tr class="row-odd"><td><p>Decorator</p></td>
+<td><p>5</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Inverter</span></code>、<code class="docutils literal notranslate"><span class="pre">Retry</span></code>、<code class="docutils literal notranslate"><span class="pre">Repeat</span></code>、<code class="docutils literal notranslate"><span class="pre">ForceSuccess</span></code>、<code class="docutils literal notranslate"><span class="pre">ForceFailure</span></code></p></td>
 <td><p>包装一个子节点并改写执行策略。</p></td>
 </tr>
 <tr class="row-even"><td><p>Action</p></td>
+<td><p>3</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">AlwaysSuccess</span></code>、<code class="docutils literal notranslate"><span class="pre">AlwaysFailure</span></code>、<code class="docutils literal notranslate"><span class="pre">PrintMessage</span></code></p></td>
 <td><p>示例和调试动作。</p></td>
 </tr>
 <tr class="row-odd"><td><p>Data</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SetBlackboard</span></code>、<code class="docutils literal notranslate"><span class="pre">SetBool</span></code>、<code class="docutils literal notranslate"><span class="pre">Counter</span></code></p></td>
-<td><p>写黑板数据。</p></td>
+<td><p>9</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SetBlackboard</span></code>、<code class="docutils literal notranslate"><span class="pre">SetBool</span></code>、<code class="docutils literal notranslate"><span class="pre">Counter</span></code>、<code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code>、<code class="docutils literal notranslate"><span class="pre">CheckBool</span></code>、<code class="docutils literal notranslate"><span class="pre">CooldownCondition</span></code>、<code class="docutils literal notranslate"><span class="pre">BlackboardExists</span></code>、<code class="docutils literal notranslate"><span class="pre">ClearBlackboard</span></code>、<code class="docutils literal notranslate"><span class="pre">ScalarThreshold</span></code></p></td>
+<td><p>黑板读写、比较、计数、节流与存在性判断。</p></td>
 </tr>
-<tr class="row-even"><td><p>Condition</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code>、<code class="docutils literal notranslate"><span class="pre">CheckBool</span></code>、<code class="docutils literal notranslate"><span class="pre">CooldownCondition</span></code></p></td>
-<td><p>从黑板读取并判断。</p></td>
+<tr class="row-even"><td><p>Timer</p></td>
+<td><p>2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Delay</span></code>、<code class="docutils literal notranslate"><span class="pre">WaitUntilElapsed</span></code></p></td>
+<td><p>基于单调时钟的延时动作与到时条件。</p></td>
 </tr>
-<tr class="row-odd"><td><p>Function</p></td>
+<tr class="row-odd"><td><p>Diagnostic</p></td>
+<td><p>1</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LogEvent</span></code></p></td>
+<td><p>分级诊断日志埋点。</p></td>
+</tr>
+<tr class="row-even"><td><p>Function</p></td>
+<td><p>2</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code>、<code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
 <td><p>调用单例注册表里的 C++ 函数。</p></td>
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>25 = Control 3 + Decorator 5 + Action 3 + Data 9 + Timer 2 + Diagnostic 1 + Function 2。</p>
+</div>
+<section id="id2">
+<h3>新增节点端口详解<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>本轮新增 6 个内置节点（Timer 2 + Diagnostic 1 + Data 3），端口与失败语义以头文件为准。</p>
+<p><strong>Delay</strong> 是异步 Action 节点：从首拍起计时，未到时持续返回 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>，到时返回 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>。是框架里演示 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 语义的关键节点，放入 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> 会阻塞后续节点直到到时；被父节点 halt 时复位计时。时间源为 <code class="docutils literal notranslate"><span class="pre">std::chrono::steady_clock</span></code>。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/delay_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 12.0%" />
+<col style="width: 12.0%" />
+<col style="width: 56.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">delay_ms</span></code></p></td>
+<td><p>int</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
+<td><p>延时时长（毫秒），从首拍起计时；<code class="docutils literal notranslate"><span class="pre">&lt;=0</span></code> 表示不延时，首拍即 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：本节点不产生 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>；只在 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 与 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code> 之间转换。</p>
+<p><strong>WaitUntilElapsed</strong> 是 Condition 节点：节点实例首拍记录起点（只记一次、永不刷新），此后距起点已达 <code class="docutils literal notranslate"><span class="pre">duration_ms</span></code> 返回 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>，否则 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>。表达“自某时刻起已过去至少 N 毫秒”的单调时间条件，区别于 <code class="docutils literal notranslate"><span class="pre">CooldownCondition</span></code> 的周期节流。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/wait_until_elapsed_condition_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 12.0%" />
+<col style="width: 12.0%" />
+<col style="width: 56.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">duration_ms</span></code></p></td>
+<td><p>int</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1000</span></code></p></td>
+<td><p>需经过的时长（毫秒），自首拍起计时；<code class="docutils literal notranslate"><span class="pre">&lt;=0</span></code> 表示立即满足（恒 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>）。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：未到时返回 <code class="docutils literal notranslate"><span class="pre">FAILURE``（首拍通常为</span> <span class="pre">``FAILURE</span></code>，除非 <code class="docutils literal notranslate"><span class="pre">duration_ms&lt;=0</span></code>）。</p>
+<p><strong>BlackboardExists</strong> 是 Condition 节点：黑板中存在该 <code class="docutils literal notranslate"><span class="pre">key</span></code> 则 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>，否则 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>。只看键是否存在（<code class="docutils literal notranslate"><span class="pre">Blackboard::contains</span></code>），不关心类型与取值。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/data/blackboard_exists_condition_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 12.0%" />
+<col style="width: 12.0%" />
+<col style="width: 56.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code></p></td>
+<td><p>要探测存在性的黑板键名。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：<code class="docutils literal notranslate"><span class="pre">key</span></code> 为空、键不存在均返回 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>。</p>
+<p><strong>ClearBlackboard</strong> 是 Action 节点：从黑板删除指定 <code class="docutils literal notranslate"><span class="pre">key``（``Blackboard::remove</span></code>），删除后保证该键不存在。对不存在的键是无害 no-op，因此幂等返回 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/data/clear_blackboard_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 12.0%" />
+<col style="width: 12.0%" />
+<col style="width: 56.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code></p></td>
+<td><p>要从黑板删除的键名。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：<code class="docutils literal notranslate"><span class="pre">key</span></code> 为空返回 <code class="docutils literal notranslate"><span class="pre">FAILURE``（避免静默无效操作）；其余情况恒</span> <span class="pre">``SUCCESS</span></code>。</p>
+<p><strong>LogEvent</strong> 是 Action 节点：把一条带级别前缀 <code class="docutils literal notranslate"><span class="pre">[LEVEL]</span> <span class="pre">message</span></code> 的诊断消息打印出来，恒返回 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>。<code class="docutils literal notranslate"><span class="pre">info</span></code>/<code class="docutils literal notranslate"><span class="pre">warn</span></code> 走 <code class="docutils literal notranslate"><span class="pre">std::cout</span></code>，<code class="docutils literal notranslate"><span class="pre">error</span></code> 走 <code class="docutils literal notranslate"><span class="pre">std::cerr</span></code>；非法或空级别回退为 <code class="docutils literal notranslate"><span class="pre">info</span></code>。日志是副作用，不改变树的成败走向。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/diagnostic/log_event_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 12.0%" />
+<col style="width: 16.0%" />
+<col style="width: 52.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">message</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code></p></td>
+<td><p>要打印的诊断文本，允许为空。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">level</span></code></p></td>
+<td><p>string（枚举）</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">info</span></code></p></td>
+<td><p>日志级别，取值 <code class="docutils literal notranslate"><span class="pre">info</span></code> / <code class="docutils literal notranslate"><span class="pre">warn</span></code> / <code class="docutils literal notranslate"><span class="pre">error</span></code>；编辑器渲染为下拉框。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：无。恒 <code class="docutils literal notranslate"><span class="pre">SUCCESS``（需“打印并失败”可与</span> <span class="pre">``ForceFailure</span></code> 组合）。</p>
+<p><strong>ScalarThreshold</strong> 是 Condition 节点：读黑板 <code class="docutils literal notranslate"><span class="pre">key</span></code> 的数值，与 <code class="docutils literal notranslate"><span class="pre">value</span></code> 按 <code class="docutils literal notranslate"><span class="pre">op</span></code> 比较，成立 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code> 否则 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>。把“传感器/状态读数”变成“行为树判断”的通用阈值节点；<code class="docutils literal notranslate"><span class="pre">value</span></code> 是强类型 <code class="docutils literal notranslate"><span class="pre">double</span></code> 端口，意图比 <code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code> 更聚焦数值门控。头文件：<code class="docutils literal notranslate"><span class="pre">bt_nodes/data/scalar_threshold_condition_node.hpp</span></code>。</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 14.0%" />
+<col style="width: 12.0%" />
+<col style="width: 54.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>端口</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>默认</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code></p></td>
+<td><p>要读取的黑板键名（其值应可解析为数值）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">op</span></code></p></td>
+<td><p>string（枚举）</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&gt;=</span></code></p></td>
+<td><p>运算符，取值 <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;</span></code> / <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code> / <code class="docutils literal notranslate"><span class="pre">==</span></code> / <code class="docutils literal notranslate"><span class="pre">!=</span></code>；编辑器渲染为下拉框。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>double</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>参与比较的阈值（右操作数）。</p></td>
+</tr>
+</tbody>
+</table>
+<p>失败语义：<code class="docutils literal notranslate"><span class="pre">key</span></code> 为空、键不存在、黑板值无法解析为数值、<code class="docutils literal notranslate"><span class="pre">op</span></code> 非法均返回 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code> （绝不抛异常打断树）。</p>
+</section>
 </section>
 <section id="bt-ros2">
 <h2>bt_ros2<a class="headerlink" href="#bt-ros2" title="Link to this heading">¶</a></h2>
@@ -148,6 +328,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>

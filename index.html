@@ -44,6 +44,7 @@
 <ol class="arabic simple">
 <li><p>先跑 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，确认本机 C++、前端、server smoke、Playwright 都能过。</p></li>
 <li><p>再读 <a class="reference internal" href="function_manual.html"><span class="doc">函数手册</span></a>，理解工厂、端口、黑板、函数注册表和常用节点。</p></li>
+<li><p>用 <a class="reference internal" href="singleton_factory_function.html"><span class="doc">单例 + 工厂 + 生成器引用函数</span></a> 打通“单例 + 工厂 + 生成器引用函数”三模式与回充闭环。</p></li>
 <li><p>接着按 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 改出自己的 ROS2 数据流节点。</p></li>
 <li><p>用 <a class="reference internal" href="tree_script_style.html"><span class="doc">行为脚本风格</span></a> 规范 XML 命名、黑板 key、SubTree 和 formatter。</p></li>
 <li><p>最后用 <a class="reference internal" href="developer_workflow.html"><span class="doc">开发流程</span></a> 固化开发、测试和文档构建流程。</p></li>
@@ -63,8 +64,20 @@
 <li class="toctree-l2"><a class="reference internal" href="function_manual.html#id2">核心模型</a></li>
 <li class="toctree-l2"><a class="reference internal" href="function_manual.html#id3">常用节点目录</a></li>
 <li class="toctree-l2"><a class="reference internal" href="function_manual.html#id4">用单例函数注册表接业务函数</a></li>
-<li class="toctree-l2"><a class="reference internal" href="function_manual.html#id5">写一个专用节点</a></li>
-<li class="toctree-l2"><a class="reference internal" href="function_manual.html#id6">开发建议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="function_manual.html#id5">三模式协作：完整回充示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="function_manual.html#id6">写一个专用节点</a></li>
+<li class="toctree-l2"><a class="reference internal" href="function_manual.html#id7">开发建议</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id2">三模式各自负责什么</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id3">业务函数：写成普通函数</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id4">单例：程序启动时登记一次</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id5">工厂：把标签变成节点</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#xml">行为树 XML：只出现函数名</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id6">回充闭环数据流</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#id7">运行与验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#ros2">从示例到真实 ROS2</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a><ul>
@@ -154,6 +167,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>

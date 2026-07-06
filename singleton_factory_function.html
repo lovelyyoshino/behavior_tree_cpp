@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>单例 + 工厂 + 生成器引用函数 &#8212; BehaviorTree.CPP-X 文档</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
+    <script src="_static/documentation_options.js?v=d786bb5c"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/translations.js?v=beaddf03"></script>
+    <link rel="index" title="索引" href="genindex.html" />
+    <link rel="search" title="搜索" href="search.html" />
+    <link rel="next" title="行为脚本风格" href="tree_script_style.html" />
+    <link rel="prev" title="函数手册" href="function_manual.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="id1">
+<h1>单例 + 工厂 + 生成器引用函数<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>本页把 <code class="docutils literal notranslate"><span class="pre">examples/03_function_registry_recharge.cpp``（可执行</span> <span class="pre">``example_function_recharge</span></code>）讲透，回答一个非常具体的诉求：</p>
+<blockquote>
+<div><p>我要做回充：从外部（ROS2 msg 形式）拿到电量数据，然后怎么通过“调用”来完成回充？</p>
+</div></blockquote>
+<p>示例用三种设计模式协作完成“读电量 → 写黑板 → 判低电 → 发回充命令 → 通知完成”的闭环。它不依赖真实 ROS2：用一个普通结构体 <code class="docutils literal notranslate"><span class="pre">BatteryMsg</span></code> 模拟 <code class="docutils literal notranslate"><span class="pre">sensor_msgs/BatteryState</span></code>，用自由函数 <code class="docutils literal notranslate"><span class="pre">pollBatteryFromRos()</span></code> 模拟“从 topic 回调里拿到最新一帧”，因此本机可跑可验。真实项目里只要把这一步换成 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 里的 <code class="docutils literal notranslate"><span class="pre">ReadBattery``（订阅</span> <span class="pre">``/battery_state</span></code> 并写黑板），业务函数完全不用改。</p>
+<section id="id2">
+<h2>三模式各自负责什么<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<a class="reference internal image-reference" href="_images/singleton_factory_function.svg"><img alt="单例、工厂与生成器引用函数的数据流" src="_images/singleton_factory_function.svg" style="width: 100%;" />
+</a>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 30.0%" />
+<col style="width: 48.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>模式</p></th>
+<th class="head"><p>代码落点</p></th>
+<th class="head"><p>负责什么</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>单例 Singleton</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FunctionRegistry::instance()</span></code></p></td>
+<td><p>全局唯一的业务函数注册表。程序启动时登记一次，任何地方都能按名取用；避免到处传递注册表指针。</p></td>
+</tr>
+<tr class="row-odd"><td><p>工厂 Factory</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NodeFactory</span></code></p></td>
+<td><p>按注册名把 XML 标签创建成节点实例。行为树的 XML、编辑器、插件都通过它建树，节点实现与使用解耦。</p></td>
+</tr>
+<tr class="row-even"><td><p>生成器引用函数</p></td>
+<td><p>注册进单例表的 <code class="docutils literal notranslate"><span class="pre">lambda</span></code> / 普通函数</p></td>
+<td><p>把“读电量、判低电、发命令、通知完成”写成普通函数（可捕获状态、可复用），XML 只用函数名引用，不和任何具体节点类耦合。改业务只改函数，不动树。</p></td>
+</tr>
+</tbody>
+</table>
+<p>一句话概括边界：<strong>单例管“函数存在哪”，工厂管“节点怎么造”，生成器函数管“业务做什么”。</strong> 三者通过黑板交换数据。</p>
+</section>
+<section id="id3">
+<h2>业务函数：写成普通函数<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>业务逻辑写成 <code class="docutils literal notranslate"><span class="pre">FunctionRegistry</span></code> 约定的签名 <code class="docutils literal notranslate"><span class="pre">ActionFunction</span></code> / <code class="docutils literal notranslate"><span class="pre">ConditionFunction</span></code>，通过 <code class="docutils literal notranslate"><span class="pre">ctx.blackboard</span></code> 读写共享黑板实现数据流：</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// 动作：读电量 → 写黑板 battery_level。等价于 ROS2 的 ReadBattery 节点。</span>
+<span class="n">NodeStatus</span><span class="w"> </span><span class="nf">readBatteryFn</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">BatteryMsg</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pollBatteryFromRos</span><span class="p">();</span>
+<span class="w">  </span><span class="n">ctx</span><span class="p">.</span><span class="n">blackboard</span><span class="o">-&gt;</span><span class="n">set</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;battery_level&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">.</span><span class="n">percentage</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">NodeStatus</span><span class="o">::</span><span class="n">SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// 条件：电量是否低于 20%（低电量需要回充）。</span>
+<span class="kt">bool</span><span class="w"> </span><span class="nf">isLowBatteryFn</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">blackboard</span><span class="o">-&gt;</span><span class="n">get</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;battery_level&quot;</span><span class="p">).</span><span class="n">value_or</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">0.20</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// 动作：发布回充命令。等价于 ROS2 的 PublishRechargeCommand 节点。</span>
+<span class="n">NodeStatus</span><span class="w"> </span><span class="nf">sendRechargeCommandFn</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">target</span><span class="w"> </span><span class="o">=</span>
+<span class="w">      </span><span class="n">ctx</span><span class="p">.</span><span class="n">blackboard</span><span class="o">-&gt;</span><span class="n">get</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;dock_target&quot;</span><span class="p">).</span><span class="n">value_or</span><span class="p">(</span><span class="s">&quot;main_dock&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">ctx</span><span class="p">.</span><span class="n">blackboard</span><span class="o">-&gt;</span><span class="n">set</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;last_command&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;start_recharge:&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">target</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">NodeStatus</span><span class="o">::</span><span class="n">SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// 动作：上报任务完成。等价于 ROS2 的 TaskDoneNotifier 节点。</span>
+<span class="n">NodeStatus</span><span class="w"> </span><span class="nf">notifyDoneFn</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">FunctionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">ctx</span><span class="p">.</span><span class="n">blackboard</span><span class="o">-&gt;</span><span class="n">set</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;recharge_done&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">NodeStatus</span><span class="o">::</span><span class="n">SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h2>单例：程序启动时登记一次<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">registry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FunctionRegistry</span><span class="o">::</span><span class="n">instance</span><span class="p">();</span>
+<span class="n">registry</span><span class="p">.</span><span class="n">registerAction</span><span class="p">(</span><span class="s">&quot;readBattery&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">readBatteryFn</span><span class="p">);</span>
+<span class="n">registry</span><span class="p">.</span><span class="n">registerAction</span><span class="p">(</span><span class="s">&quot;sendRechargeCommand&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">sendRechargeCommandFn</span><span class="p">);</span>
+<span class="n">registry</span><span class="p">.</span><span class="n">registerAction</span><span class="p">(</span><span class="s">&quot;notifyDone&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">notifyDoneFn</span><span class="p">);</span>
+<span class="n">registry</span><span class="p">.</span><span class="n">registerCondition</span><span class="p">(</span><span class="s">&quot;isLowBattery&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">isLowBatteryFn</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>此后任何 <code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code> 节点都能按名取用。<code class="docutils literal notranslate"><span class="pre">registerAction</span></code> / <code class="docutils literal notranslate"><span class="pre">registerCondition</span></code> 遇到空名或空回调会抛 <code class="docutils literal notranslate"><span class="pre">std::invalid_argument</span></code>；同名注册会覆盖旧回调。</p>
+</section>
+<section id="id5">
+<h2>工厂：把标签变成节点<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">NodeFactory</span><span class="w"> </span><span class="n">factory</span><span class="p">;</span>
+<span class="n">factory</span><span class="p">.</span><span class="n">registerNodeType</span><span class="o">&lt;</span><span class="n">bt_nodes</span><span class="o">::</span><span class="n">SequenceNode</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;Sequence&quot;</span><span class="p">);</span>
+<span class="n">factory</span><span class="p">.</span><span class="n">registerNodeType</span><span class="o">&lt;</span><span class="n">bt_nodes</span><span class="o">::</span><span class="n">FallbackNode</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;Fallback&quot;</span><span class="p">);</span>
+<span class="n">factory</span><span class="p">.</span><span class="n">registerNodeType</span><span class="o">&lt;</span><span class="n">bt_nodes</span><span class="o">::</span><span class="n">CompareBlackboardNode</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;CompareBlackboard&quot;</span><span class="p">);</span>
+<span class="n">factory</span><span class="p">.</span><span class="n">registerNodeType</span><span class="o">&lt;</span><span class="n">bt_nodes</span><span class="o">::</span><span class="n">FunctionActionNode</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;FunctionAction&quot;</span><span class="p">);</span>
+<span class="n">factory</span><span class="p">.</span><span class="n">registerNodeType</span><span class="o">&lt;</span><span class="n">bt_nodes</span><span class="o">::</span><span class="n">FunctionConditionNode</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;FunctionCondition&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>行为树 XML 就是靠工厂按注册名把标签变成节点实例。</p>
+</section>
+<section id="xml">
+<h2>行为树 XML：只出现函数名<a class="headerlink" href="#xml" title="Link to this heading">¶</a></h2>
+<p>XML 里没有任何业务类，只有函数名。用 <code class="docutils literal notranslate"><span class="pre">Fallback</span></code> 做回充守卫：先走“电量充足”分支，失败（电量低）时落到“回充”分支：</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;root</span><span class="w"> </span><span class="na">main_tree_to_execute=</span><span class="s">&quot;RechargeTree&quot;</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="nt">&lt;BehaviorTree</span><span class="w"> </span><span class="na">ID=</span><span class="s">&quot;RechargeTree&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;Fallback</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;battery_guard&quot;</span><span class="nt">&gt;</span>
+<span class="w">      </span><span class="nt">&lt;Sequence</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;battery_ok&quot;</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;FunctionAction</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;read_battery_ok&quot;</span><span class="w"> </span><span class="na">function=</span><span class="s">&quot;readBattery&quot;</span><span class="nt">/&gt;</span>
+<span class="w">        </span><span class="nt">&lt;CompareBlackboard</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;enough_power&quot;</span>
+<span class="w">                           </span><span class="na">key=</span><span class="s">&quot;battery_level&quot;</span><span class="w"> </span><span class="na">op=</span><span class="s">&quot;&amp;gt;=&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;0.20&quot;</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/Sequence&gt;</span>
+<span class="w">      </span><span class="nt">&lt;Sequence</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;recharge_flow&quot;</span><span class="nt">&gt;</span>
+<span class="w">        </span><span class="nt">&lt;FunctionAction</span><span class="w">    </span><span class="na">name=</span><span class="s">&quot;read_battery_low&quot;</span><span class="w">  </span><span class="na">function=</span><span class="s">&quot;readBattery&quot;</span><span class="nt">/&gt;</span>
+<span class="w">        </span><span class="nt">&lt;FunctionCondition</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;needs_recharge&quot;</span><span class="w">    </span><span class="na">function=</span><span class="s">&quot;isLowBattery&quot;</span><span class="nt">/&gt;</span>
+<span class="w">        </span><span class="nt">&lt;FunctionAction</span><span class="w">    </span><span class="na">name=</span><span class="s">&quot;send_command&quot;</span><span class="w">      </span><span class="na">function=</span><span class="s">&quot;sendRechargeCommand&quot;</span><span class="nt">/&gt;</span>
+<span class="w">        </span><span class="nt">&lt;FunctionAction</span><span class="w">    </span><span class="na">name=</span><span class="s">&quot;notify_done&quot;</span><span class="w">       </span><span class="na">function=</span><span class="s">&quot;notifyDone&quot;</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;/Sequence&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/Fallback&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/BehaviorTree&gt;</span>
+<span class="nt">&lt;/root&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h2>回充闭环数据流<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>一次 tick 里数据如何在“外部世界 → 黑板 → 判断 → 命令”之间流动：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 8.0%" />
+<col style="width: 26.0%" />
+<col style="width: 30.0%" />
+<col style="width: 36.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>步</p></th>
+<th class="head"><p>节点</p></th>
+<th class="head"><p>调用的函数</p></th>
+<th class="head"><p>对黑板的影响</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span> <span class="pre">readBattery</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">readBatteryFn</span></code></p></td>
+<td><p>从（模拟）``/battery_state`` 读电量，写入 <code class="docutils literal notranslate"><span class="pre">battery_level</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">isLowBatteryFn</span></code></p></td>
+<td><p>读 <code class="docutils literal notranslate"><span class="pre">battery_level</span></code> 判断是否 <code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">0.20</span></code>。</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span> <span class="pre">sendRechargeCommand</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sendRechargeCommandFn</span></code></p></td>
+<td><p>读 <code class="docutils literal notranslate"><span class="pre">dock_target</span></code>，写 <code class="docutils literal notranslate"><span class="pre">last_command</span> <span class="pre">=</span> <span class="pre">start_recharge:main_dock</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span> <span class="pre">notifyDone</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">notifyDoneFn</span></code></p></td>
+<td><p>写 <code class="docutils literal notranslate"><span class="pre">recharge_done</span> <span class="pre">=</span> <span class="pre">true</span></code>。</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id7">
+<h2>运行与验证<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-S<span class="w"> </span>.<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-DBT_BUILD_NODES<span class="o">=</span>ON<span class="w"> </span>-DBT_BUILD_TESTS<span class="o">=</span>ON
+cmake<span class="w"> </span>--build<span class="w"> </span>build<span class="w"> </span>--target<span class="w"> </span>example_function_recharge
+./build/bin/example_function_recharge
+</pre></div>
+</div>
+<p>真实输出（两个场景）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>已注册业务函数: 3 个动作, 1 个条件
+=== 场景 A：电量 80%（充足） ===
+  [readBattery] ... 读到电量=80%
+根结果: SUCCESS | recharge_done=false
+=== 场景 B：电量 12%（低电量，触发回充） ===
+  [readBattery] ... 读到电量=12%
+  [isLowBattery] ... 低电量, 需要回充
+  [sendRechargeCommand] ... start_recharge:main_dock
+  [notifyDone] ... task_done:recharge
+根结果: SUCCESS | recharge_done=true
+</pre></div>
+</div>
+<p>场景 A 电量充足，<code class="docutils literal notranslate"><span class="pre">Fallback</span></code> 第一个分支直接成功，不回充；场景 B 电量低，第一分支失败落到回充分支，完成整条闭环并把 <code class="docutils literal notranslate"><span class="pre">recharge_done</span></code> 置 <code class="docutils literal notranslate"><span class="pre">true</span></code>。</p>
+</section>
+<section id="ros2">
+<h2>从示例到真实 ROS2<a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
+<p>示例里的 <code class="docutils literal notranslate"><span class="pre">pollBatteryFromRos()</span></code> 是唯一“假”的部分。接真实 ROS2 时只替换数据入口，业务函数与 XML 都不动：</p>
+<ul class="simple">
+<li><p>把 <code class="docutils literal notranslate"><span class="pre">readBattery</span></code> 换成 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 里的 <code class="docutils literal notranslate"><span class="pre">ReadBattery``（``RosInputNode&lt;BatteryState&gt;</span></code>），订阅 <code class="docutils literal notranslate"><span class="pre">/battery_state</span></code> 并 <code class="docutils literal notranslate"><span class="pre">setOutput</span></code> 到黑板 <code class="docutils literal notranslate"><span class="pre">battery_level</span></code>。</p></li>
+<li><p>把 <code class="docutils literal notranslate"><span class="pre">sendRechargeCommand</span></code> / <code class="docutils literal notranslate"><span class="pre">notifyDone</span></code> 换成 <code class="docutils literal notranslate"><span class="pre">PublishRechargeCommand</span></code> / <code class="docutils literal notranslate"><span class="pre">TaskDoneNotifier``（``RosOutputNode&lt;String&gt;</span></code>）。</p></li>
+<li><p>判断分支可继续用 <code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code> / <code class="docutils literal notranslate"><span class="pre">ScalarThreshold</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code>，因为它们只读黑板 <code class="docutils literal notranslate"><span class="pre">battery_level</span></code>，与消息类型无关。</p></li>
+</ul>
+<p>这正是“函数引用 + 黑板解耦”的价值：业务逻辑不绑定传输层，本机 mock 与真机 ROS2 共用同一套树。</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">BehaviorTree.CPP-X</a></h1>
+
+
+
+
+
+
+
+
+<h3>导航</h3>
+<p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">单例 + 工厂 + 生成器引用函数</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">三模式各自负责什么</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">业务函数：写成普通函数</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">单例：程序启动时登记一次</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">工厂：把标签变成节点</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xml">行为树 XML：只出现函数名</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id6">回充闭环数据流</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">运行与验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ros2">从示例到真实 ROS2</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">架构总览</a></li>
+<li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="function_manual.html" title="上一章">函数手册</a></li>
+      <li>Next: <a href="tree_script_style.html" title="下一章">行为脚本风格</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">快速搜索</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -15,7 +15,7 @@
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
-    <link rel="next" title="ROS2 回充教程" href="ros2_recharge_tutorial.html" />
+    <link rel="next" title="单例 + 工厂 + 生成器引用函数" href="singleton_factory_function.html" />
     <link rel="prev" title="快速开始" href="quickstart.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -124,20 +124,49 @@
 <td><p>Action</p></td>
 <td><p>写黑板数据。</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Counter</span></code></p></td>
+<td><p>Action</p></td>
+<td><p>递增计数并写回黑板。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ClearBlackboard</span></code></p></td>
+<td><p>Action</p></td>
+<td><p>删除黑板 key（幂等 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>，空 key <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>）。</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code> / <code class="docutils literal notranslate"><span class="pre">CheckBool</span></code></p></td>
 <td><p>Condition</p></td>
 <td><p>从黑板读取数据并判断。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ScalarThreshold</span></code></p></td>
+<td><p>Condition</p></td>
+<td><p>读黑板数值与阈值按 <code class="docutils literal notranslate"><span class="pre">op</span></code> 比较，聚焦数值门控。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">BlackboardExists</span></code></p></td>
+<td><p>Condition</p></td>
+<td><p>判断黑板是否存在某 key。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CooldownCondition</span></code></p></td>
 <td><p>Condition</p></td>
 <td><p>做频率限制，适合命令节流。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Delay</span></code></p></td>
+<td><p>Action（异步）</p></td>
+<td><p>到时前持续 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>，演示异步动作语义。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WaitUntilElapsed</span></code></p></td>
+<td><p>Condition</p></td>
+<td><p>自首拍起单调到时后放行。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LogEvent</span></code></p></td>
+<td><p>Action</p></td>
+<td><p>分级诊断日志埋点，恒 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
 <td><p>Action / Condition</p></td>
 <td><p>按函数名调用 C++ 函数注册表。</p></td>
 </tr>
 </tbody>
 </table>
+<p>内置节点共 25 个，完整端口表与失败语义见 <a class="reference internal" href="node_catalog.html"><span class="doc">节点目录</span></a>。</p>
 </section>
 <section id="id4">
 <h2>用单例函数注册表接业务函数<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
@@ -224,7 +253,52 @@
 </ul>
 </section>
 <section id="id5">
-<h2>写一个专用节点<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<h2>三模式协作：完整回充示例<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">examples/03_function_registry_recharge.cpp``（可执行</span> <span class="pre">``example_function_recharge</span></code>）把上面三件事串成一个可运行的回充闭环，直接回答“从外部拿到电量数据后怎么通过调用完成回充”。它用普通结构体模拟 <code class="docutils literal notranslate"><span class="pre">sensor_msgs/BatteryState</span></code>，本机无需 ROS2 即可跑通。三模式分工：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24.0%" />
+<col style="width: 30.0%" />
+<col style="width: 46.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>模式</p></th>
+<th class="head"><p>代码落点</p></th>
+<th class="head"><p>负责什么</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>单例</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">FunctionRegistry::instance()</span></code></p></td>
+<td><p>全局唯一注册表，启动时登记业务函数，处处按名取用。</p></td>
+</tr>
+<tr class="row-odd"><td><p>工厂</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">NodeFactory</span></code></p></td>
+<td><p>按 XML 标签创建 <code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code> 节点。</p></td>
+</tr>
+<tr class="row-even"><td><p>生成器引用函数</p></td>
+<td><p>注册的 lambda / 普通函数</p></td>
+<td><p>“读电量、判低电、发命令、通知完成”写成函数，XML 只引用函数名。</p></td>
+</tr>
+</tbody>
+</table>
+<p>真实运行输出（场景 A 电量充足不回充，场景 B 低电触发闭环）：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>已注册业务函数: 3 个动作, 1 个条件
+=== 场景 A：电量 80%（充足） ===
+  [readBattery] ... 读到电量=80%
+根结果: SUCCESS | recharge_done=false
+=== 场景 B：电量 12%（低电量，触发回充） ===
+  [readBattery] ... 读到电量=12%
+  [isLowBattery] ... 低电量, 需要回充
+  [sendRechargeCommand] ... start_recharge:main_dock
+  [notifyDone] ... task_done:recharge
+根结果: SUCCESS | recharge_done=true
+</pre></div>
+</div>
+<p>完整的三模式讲解、数据流图、逐节点闭环表和“从示例到真实 ROS2”的迁移路径见 <a class="reference internal" href="singleton_factory_function.html"><span class="doc">单例 + 工厂 + 生成器引用函数</span></a>。</p>
+</section>
+<section id="id6">
+<h2>写一个专用节点<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
 <p>当业务稳定后，可以沉淀成专用节点，编辑器也能看到更明确的端口说明。</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">RequestDockNode</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">bt_core</span><span class="o">::</span><span class="n">ActionNode</span><span class="w"> </span><span class="p">{</span>
 <span class="w"> </span><span class="k">public</span><span class="o">:</span>
@@ -252,8 +326,8 @@
 </pre></div>
 </div>
 </section>
-<section id="id6">
-<h2>开发建议<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<section id="id7">
+<h2>开发建议<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>临时业务逻辑先用 <code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code> / <code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code>。</p></li>
 <li><p>高频稳定逻辑沉淀成专用节点类。</p></li>
@@ -287,10 +361,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#id2">核心模型</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id3">常用节点目录</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id4">用单例函数注册表接业务函数</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id5">写一个专用节点</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id6">开发建议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">三模式协作：完整回充示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id6">写一个专用节点</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">开发建议</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
@@ -308,7 +385,7 @@
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="quickstart.html" title="上一章">快速开始</a></li>
-      <li>Next: <a href="ros2_recharge_tutorial.html" title="下一章">ROS2 回充教程</a></li>
+      <li>Next: <a href="singleton_factory_function.html" title="下一章">单例 + 工厂 + 生成器引用函数</a></li>
   </ul></li>
 </ul>
 </div>
