@@ -11,6 +11,7 @@
 # 可执行文件:服务进程(源文件均在 src/,头文件 demo_nodes.hpp/json_util.hpp 同目录)
 add_executable(bt_server
   src/main.cpp
+  src/tree_api_service.cpp
 )
 
 # 头文件搜索路径:
