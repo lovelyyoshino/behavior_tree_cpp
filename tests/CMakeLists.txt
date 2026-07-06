@@ -67,6 +67,7 @@ target_include_directories(test_ros_bases
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/mock_rclcpp            # mock rclcpp 头(必须最优先)
     ${CMAKE_SOURCE_DIR}/bt_ros2/include                # ros_subscriber/publisher_node.hpp
+    ${CMAKE_SOURCE_DIR}/bt_nodes                       # header-only bt_nodes for recharge tree test
 )
 target_link_libraries(test_ros_bases
   PRIVATE
