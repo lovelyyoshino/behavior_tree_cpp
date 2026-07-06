@@ -19,6 +19,11 @@
 #include <thread>
 #include <chrono>
 
+#include "bt_core/node_factory.hpp"
+#include "bt_core/xml_parser.hpp"
+#include "control/sequence_node.hpp"
+#include "data/compare_blackboard_node.hpp"
+#include "bt_ros2/example_data_nodes.hpp"
 #include "bt_ros2/ros_publisher_node.hpp"
 #include "bt_ros2/ros_subscriber_node.hpp"
 
@@ -195,4 +200,229 @@ TEST_F(RosBasesTest, OutputNodeMergesCustomPorts) {
   EXPECT_TRUE(ports.count("topic"));
   EXPECT_TRUE(ports.count("qos_depth"));
   EXPECT_TRUE(ports.count("task_name"));
+}
+
+// ─────────────────────────────── Recharge Flow ─────────────────────────────
+
+TEST_F(RosBasesTest, RechargeTreeConsumesBatteryMsgAndPublishesCommand) {
+  NodeFactory factory;
+  factory.registerNodeType<bt_nodes::SequenceNode>("Sequence");
+  factory.registerNodeType<bt_nodes::CompareBlackboardNode>("CompareBlackboard");
+  factory.registerNodeType<bt_ros2::ReadBattery>("ReadBattery");
+  factory.registerNodeType<bt_ros2::PublishRechargeCommand>(
+      "PublishRechargeCommand");
+
+  const char* xml = R"(<root main_tree_to_execute="MainTree">
+    <BehaviorTree ID="MainTree">
+      <Sequence name="recharge_gate">
+        <ReadBattery topic="/battery_state" timeout_ms="0" level="{battery_level}"/>
+        <CompareBlackboard key="battery_level" op="&lt;" value="0.20"/>
+        <PublishRechargeCommand topic="/robot/command"
+                                command="start_recharge"
+                                target="main_dock"/>
+      </Sequence>
+    </BehaviorTree>
+  </root>)";
+
+  bt_core::XmlParser parser(factory);
+  bt_core::Tree tree = parser.loadFromText(xml, bb);
+
+  // 首拍只建立订阅，尚无外部消息，因此录入失败，整棵树 FAILURE。
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::FAILURE);
+
+  auto msg = std::make_shared<sensor_msgs::msg::BatteryState>();
+  msg->percentage = 0.12F;
+  node.deliver(&msg);
+
+  // 第二拍消费外部 BatteryState，把 level 写入黑板，低电量成立，发布回充命令。
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+  ASSERT_TRUE(bb->contains("battery_level"));
+  EXPECT_NEAR(bb->get<double>("battery_level").value(), 0.12, 1e-6);
+
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<std_msgs::msg::String>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(pub->published[0].data, "start_recharge:main_dock");
+  EXPECT_EQ(node.last_topic_, "/robot/command");
+}
+
+TEST_F(RosBasesTest, RechargeCommandAndDoneNotifierExposeManualPorts) {
+  auto command_ports = bt_ros2::PublishRechargeCommand::providedPorts();
+  EXPECT_TRUE(command_ports.count("topic"));
+  EXPECT_TRUE(command_ports.count("qos_depth"));
+  EXPECT_TRUE(command_ports.count("command"));
+  EXPECT_TRUE(command_ports.count("target"));
+
+  auto done_ports = bt_ros2::TaskDoneNotifier::providedPorts();
+  EXPECT_TRUE(done_ports.count("topic"));
+  EXPECT_TRUE(done_ports.count("qos_depth"));
+  EXPECT_TRUE(done_ports.count("task_name"));
+}
+
+// ───────────────────── example_data_nodes.hpp 逐节点覆盖 ─────────────────────
+//  上面的用例用测试内部定义的 IsClose/ReadRange/TaskDone 覆盖了三个模板基类的
+//  逻辑；下面这一组直接实例化 example_data_nodes.hpp 里发布给用户的**具体节点**
+//  (IsDocked / IsFlagTrue / IsObstacleClose / ReadScalar / TaskDoneNotifier)，
+//  确保这些开箱节点本身(providedPorts + evaluate/onData/buildMsg)在 mock 下真的
+//  能实例化、订阅、消费消息并给出正确结果——而不仅仅是"能编译"。
+
+// -- IsDocked (RosConditionNode<std_msgs::msg::Bool>) ------------------------
+TEST_F(RosBasesTest, IsDockedReflectsLatestBoolValue) {
+  auto cfg = makeCfg(bb, {{"topic", "/dock/is_docked"}, {"timeout_ms", "0"}});
+  bt_ros2::IsDocked n("wait_docked", cfg);
+
+  // 首拍惰性订阅，尚无消息 → FAILURE。
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);
+
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver(&docked);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);  // 已对接 → 条件成立
+
+  auto undocked = std::make_shared<std_msgs::msg::Bool>();
+  undocked->data = false;
+  node.deliver(&undocked);
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 脱离充电桩 → 不成立
+}
+
+// -- IsFlagTrue (RosConditionNode<std_msgs::msg::Bool>) ----------------------
+TEST_F(RosBasesTest, IsFlagTrueReflectsLatestBoolValue) {
+  auto cfg = makeCfg(bb, {{"topic", "/robot/ready"}, {"timeout_ms", "0"}});
+  bt_ros2::IsFlagTrue n("ready", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 无消息
+
+  auto flag = std::make_shared<std_msgs::msg::Bool>();
+  flag->data = true;
+  node.deliver(&flag);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+}
+
+// -- IsObstacleClose (RosConditionNode<sensor_msgs::msg::Range> + threshold) --
+TEST_F(RosBasesTest, IsObstacleCloseUsesThresholdPort) {
+  auto cfg = makeCfg(
+      bb, {{"topic", "/ultrasonic"}, {"timeout_ms", "0"}, {"threshold", "0.5"}});
+  bt_ros2::IsObstacleClose n("obstacle", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 无数据
+
+  auto near = std::make_shared<sensor_msgs::msg::Range>();
+  near->range = 0.3F;  // 0.3 < 0.5 → 障碍物近 → 成立
+  node.deliver(&near);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+
+  auto far = std::make_shared<sensor_msgs::msg::Range>();
+  far->range = 1.2F;  // 1.2 不 < 0.5 → 不成立
+  node.deliver(&far);
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);
+}
+
+TEST_F(RosBasesTest, IsObstacleCloseExposesThresholdPort) {
+  auto ports = bt_ros2::IsObstacleClose::providedPorts();
+  EXPECT_EQ(ports.size(), 4u);  // topic / timeout_ms / qos_depth / threshold
+  EXPECT_TRUE(ports.count("threshold"));
+}
+
+// -- ReadScalar (RosInputNode<std_msgs::msg::Float64>) -----------------------
+TEST_F(RosBasesTest, ReadScalarWritesValueToBlackboard) {
+  // 把输出端口 value 重映射到黑板 key "temp"。
+  auto cfg = makeCfg(bb,
+                     {{"topic", "/temperature"}, {"timeout_ms", "0"}},
+                     {{"value", "temp"}});
+  bt_ros2::ReadScalar n("read_temp", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 无数据
+
+  auto scalar = std::make_shared<std_msgs::msg::Float64>();
+  scalar->data = 36.6;
+  node.deliver(&scalar);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  ASSERT_TRUE(bb->contains("temp"));
+  EXPECT_DOUBLE_EQ(bb->get<double>("temp").value(), 36.6);
+}
+
+TEST_F(RosBasesTest, ReadScalarExposesValuePort) {
+  auto ports = bt_ros2::ReadScalar::providedPorts();
+  EXPECT_EQ(ports.size(), 4u);  // topic / timeout_ms / qos_depth / value
+  EXPECT_TRUE(ports.count("value"));
+}
+
+// -- ReadBattery onData 直测(补充,之前只在整棵回充树里间接覆盖) ----------------
+TEST_F(RosBasesTest, ReadBatteryWritesPercentageToBlackboard) {
+  auto cfg = makeCfg(bb,
+                     {{"topic", "/battery_state"}, {"timeout_ms", "0"}},
+                     {{"level", "battery_level"}});
+  bt_ros2::ReadBattery n("read_battery", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 无数据
+
+  auto batt = std::make_shared<sensor_msgs::msg::BatteryState>();
+  batt->percentage = 0.42F;
+  node.deliver(&batt);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  ASSERT_TRUE(bb->contains("battery_level"));
+  EXPECT_NEAR(bb->get<double>("battery_level").value(), 0.42, 1e-6);
+}
+
+// -- TaskDoneNotifier (RosOutputNode<std_msgs::msg::String>) -----------------
+TEST_F(RosBasesTest, TaskDoneNotifierPublishesTaskDoneMessage) {
+  auto cfg = makeCfg(bb, {{"topic", "/bt/task_done"}, {"task_name", "recharge"}});
+  bt_ros2::TaskDoneNotifier n("notify", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<std_msgs::msg::String>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(pub->published[0].data, "task_done:recharge");
+  EXPECT_EQ(node.last_topic_, "/bt/task_done");
+}
+
+TEST_F(RosBasesTest, TaskDoneNotifierUsesDefaultTaskNameWhenPortOmitted) {
+  auto cfg = makeCfg(bb, {{"topic", "/bt/task_done"}});  // 不给 task_name
+  bt_ros2::TaskDoneNotifier n("notify", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<std_msgs::msg::String>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(pub->published[0].data, "task_done:recharge");  // 端口默认值
+}
+
+// -- PublishRechargeCommand 直测(补充命令拼装 + 默认值) -----------------------
+TEST_F(RosBasesTest, PublishRechargeCommandComposesCommandTarget) {
+  auto cfg = makeCfg(bb, {{"topic", "/robot/command"},
+                          {"command", "start_recharge"},
+                          {"target", "dock_b"}});
+  bt_ros2::PublishRechargeCommand n("cmd", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<std_msgs::msg::String>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(pub->published[0].data, "start_recharge:dock_b");
+}
+
+// -- IsDocked / IsFlagTrue timeout 语义直测(数据过期回到 FAILURE) -------------
+TEST_F(RosBasesTest, IsDockedRespectsTimeoutMs) {
+  auto cfg =
+      makeCfg(bb, {{"topic", "/dock/is_docked"}, {"timeout_ms", "50"}});
+  bt_ros2::IsDocked n("wait_docked", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 触发惰性订阅
+
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver(&docked);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);  // 刚收到,新鲜
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(120));
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 数据过期 → onNoFreshData
 }

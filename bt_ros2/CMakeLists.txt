@@ -29,6 +29,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 # ---- 解析 bt::core target（方式 A / B 自适应）-----------------------------
 if(NOT TARGET bt::core)
@@ -60,6 +61,7 @@ endif()
 # ---- 库：把适配器节点 + 执行器节点编译成一个库，供可执行文件与下游复用 ----
 add_library(bt_ros2_lib
   src/bt_executor_node.cpp
+  src/node_registration.cpp
   src/ros_topic_condition_node.cpp
   src/ros_topic_action_node.cpp
 )
@@ -73,13 +75,14 @@ target_include_directories(bt_ros2_lib
     $<INSTALL_INTERFACE:include>
     # bt_nodes 是仓库内 header-only 目录，位于本包上一级。
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../bt_nodes>
 )
 
 target_compile_features(bt_ros2_lib PUBLIC cxx_std_17)
 
 # 链接 bt::core（核心库）；rclcpp 等用 ament 方式注入。
 target_link_libraries(bt_ros2_lib PUBLIC bt::core)
-ament_target_dependencies(bt_ros2_lib PUBLIC rclcpp rclcpp_action std_msgs)
+ament_target_dependencies(bt_ros2_lib PUBLIC rclcpp rclcpp_action std_msgs sensor_msgs)
 
 # ---- 可执行：bt_executor 入口 --------------------------------------------
 add_executable(bt_executor src/main.cpp)
@@ -116,7 +119,7 @@ endif()
 # ---- 导出给下游 ament 包 --------------------------------------------------
 ament_export_include_directories(include)
 ament_export_libraries(bt_ros2_lib)
-ament_export_dependencies(rclcpp rclcpp_action std_msgs)
+ament_export_dependencies(rclcpp rclcpp_action std_msgs sensor_msgs)
 
 ament_package()
 

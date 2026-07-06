@@ -68,6 +68,7 @@ private:
   double      tick_rate_hz_{10.0}; ///< tick 频率（Hz）
   std::string status_topic_{"~/bt_status"};  ///< 根状态发布 topic
   bool        autostart_{true};    ///< 是否构造后自动开始
+  bool        stop_on_terminal_{false};  ///< 根节点终结后是否停止 tick
 
   // -- bt_core 运行期对象 ---------------------------------------------------
   bt_core::NodeFactory     factory_;     ///< 节点工厂（注册 + 建树）

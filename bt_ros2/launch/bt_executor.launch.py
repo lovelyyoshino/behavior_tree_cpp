@@ -43,6 +43,11 @@ def generate_launch_description():
         default_value='true',
         description='是否在节点构造后自动开始 tick')
 
+    stop_on_terminal_arg = DeclareLaunchArgument(
+        'stop_on_terminal',
+        default_value='false',
+        description='根节点 SUCCESS/FAILURE 后是否停止 tick；topic 驱动建议 false')
+
     # ---- 执行器节点 ----
     bt_executor_node = Node(
         package='bt_ros2',
@@ -55,6 +60,7 @@ def generate_launch_description():
             'tick_rate_hz': LaunchConfiguration('tick_rate_hz'),
             'status_topic': LaunchConfiguration('status_topic'),
             'autostart': LaunchConfiguration('autostart'),
+            'stop_on_terminal': LaunchConfiguration('stop_on_terminal'),
         }],
     )
 
@@ -63,5 +69,6 @@ def generate_launch_description():
         tick_rate_arg,
         status_topic_arg,
         autostart_arg,
+        stop_on_terminal_arg,
         bt_executor_node,
     ])

@@ -7,17 +7,8 @@
 #include <chrono>
 #include <stdexcept>
 
+#include "bt_ros2/node_registration.hpp"
 #include "bt_ros2/ros_blackboard_keys.hpp"
-#include "bt_ros2/ros_topic_action_node.hpp"
-#include "bt_ros2/ros_topic_condition_node.hpp"
-
-// bt_nodes 是 header-only 的常用控制/装饰节点（位于仓库 bt_nodes/ 目录）。
-// 这样 XML 树里就能直接用 <Sequence>/<Fallback> 等标签组织 ROS 适配器节点。
-#include "bt_nodes/control/fallback_node.hpp"
-#include "bt_nodes/control/parallel_node.hpp"
-#include "bt_nodes/control/sequence_node.hpp"
-#include "bt_nodes/decorator/inverter_node.hpp"
-#include "bt_nodes/decorator/retry_node.hpp"
 
 #include "bt_core/blackboard.hpp"
 #include "bt_core/xml_parser.hpp"
@@ -51,6 +42,7 @@ void BtExecutorNode::declareAndLoadParameters() {
   tick_rate_hz_  = declare_parameter<double>("tick_rate_hz", 10.0);
   status_topic_  = declare_parameter<std::string>("status_topic", "~/bt_status");
   autostart_     = declare_parameter<bool>("autostart", true);
+  stop_on_terminal_ = declare_parameter<bool>("stop_on_terminal", false);
 
   if (tree_file_.empty()) {
     throw std::runtime_error(
@@ -61,22 +53,15 @@ void BtExecutorNode::declareAndLoadParameters() {
   }
 
   RCLCPP_INFO(get_logger(),
-              "参数: tree_file=%s tick_rate_hz=%.2f status_topic=%s autostart=%s",
+              "参数: tree_file=%s tick_rate_hz=%.2f status_topic=%s autostart=%s stop_on_terminal=%s",
               tree_file_.c_str(), tick_rate_hz_, status_topic_.c_str(),
-              autostart_ ? "true" : "false");
+              autostart_ ? "true" : "false",
+              stop_on_terminal_ ? "true" : "false");
 }
 
 void BtExecutorNode::registerNodeTypes() {
-  // 1) ROS 适配器节点（本包提供）。
-  factory_.registerNodeType<RosTopicConditionNode>("RosTopicCondition");
-  factory_.registerNodeType<RosTopicActionNode>("RosTopicAction");
-
-  // 2) bt_nodes 的常用控制/装饰节点（header-only），让 XML 能用标准组合标签。
-  factory_.registerNodeType<bt_nodes::SequenceNode>("Sequence");
-  factory_.registerNodeType<bt_nodes::FallbackNode>("Fallback");
-  factory_.registerNodeType<bt_nodes::ParallelNode>("Parallel");
-  factory_.registerNodeType<bt_nodes::InverterNode>("Inverter");
-  factory_.registerNodeType<bt_nodes::RetryNode>("Retry");
+  // 单例注册目录 + 注册函数引用列表，集中注册 bt_nodes / ROS topic / 数据录入 / 回充节点。
+  registerDefaultNodes(factory_);
 
   RCLCPP_INFO(get_logger(), "已注册 %zu 种节点类型。", factory_.size());
 }
@@ -129,9 +114,9 @@ void BtExecutorNode::onTick() {
   msg.data = bt_core::toStr(status);
   status_pub_->publish(msg);
 
-  // 根节点到达终结状态(SUCCESS/FAILURE)时，本示例选择停止定时器（跑完一轮即停）。
-  // 若需要“无限循环执行”，删掉下面这段、或在此处 tree_->halt() 后继续即可。
-  if (bt_core::isStatusCompleted(status)) {
+  // ROS2 topic 驱动的树通常要持续 tick：首拍无消息可能是 FAILURE，但不能因此停掉。
+  // 若用户要“一轮跑完即停”的 demo 行为，可通过 stop_on_terminal=true 开启。
+  if (stop_on_terminal_ && bt_core::isStatusCompleted(status)) {
     RCLCPP_INFO(get_logger(), "行为树到达终结状态: %s，停止 tick。",
                 msg.data.c_str());
     if (timer_) {

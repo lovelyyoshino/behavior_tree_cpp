@@ -11,6 +11,7 @@
 #ifndef BT_ROS2_EXAMPLE_DATA_NODES_HPP
 #define BT_ROS2_EXAMPLE_DATA_NODES_HPP
 
+#include "bt_ros2/ros_publisher_node.hpp"
 #include "bt_ros2/ros_subscriber_node.hpp"
 
 // 这些是 ROS2 常见标准消息；按需替换成你项目里的消息类型。
@@ -18,6 +19,7 @@
 #include "sensor_msgs/msg/range.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64.hpp"
+#include "std_msgs/msg/string.hpp"
 
 namespace bt_ros2 {
 
@@ -58,6 +60,19 @@ public:
  * @endcode
  */
 class IsFlagTrue : public RosConditionNode<std_msgs::msg::Bool> {
+public:
+  using RosConditionNode::RosConditionNode;
+  bool evaluate(const std_msgs::msg::Bool& msg) override { return msg.data; }
+};
+
+/**
+ * @brief 机器人是否已经到达/占用充电桩。订阅 std_msgs/Bool，true 表示已对接。
+ *
+ * @code{.xml}
+ *   <IsDocked topic="/dock/is_docked" timeout_ms="1000"/>
+ * @endcode
+ */
+class IsDocked : public RosConditionNode<std_msgs::msg::Bool> {
 public:
   using RosConditionNode::RosConditionNode;
   bool evaluate(const std_msgs::msg::Bool& msg) override { return msg.data; }
@@ -112,6 +127,69 @@ public:
   }
 };
 
+// ───────────────────────────── 用法 C：回充动作发布 ───────────────────────
+
+/**
+ * @brief 发布回充命令。适合放在“低电量”分支里作为动作节点。
+ *
+ * 输出消息格式保持简单：`<command>:<target>`，例如
+ * `start_recharge:main_dock`。实际项目可把 MsgT 替换成自己的任务消息。
+ *
+ * @code{.xml}
+ *   <PublishRechargeCommand topic="/robot/command"
+ *                           command="start_recharge"
+ *                           target="main_dock"/>
+ * @endcode
+ */
+class PublishRechargeCommand : public RosOutputNode<std_msgs::msg::String> {
+public:
+  using RosOutputNode::RosOutputNode;
+
+  static bt_core::PortsList providedPorts() {
+    auto ports = publisherPorts();
+    ports.insert(bt_core::InputPort<std::string>(
+        "command", "start_recharge", "要发布的回充命令"));
+    ports.insert(bt_core::InputPort<std::string>(
+        "target", "main_dock", "目标充电桩/站点名"));
+    return ports;
+  }
+
+  bool buildMsg(std_msgs::msg::String& out) override {
+    const std::string command =
+        getInput<std::string>("command").value_or("start_recharge");
+    const std::string target =
+        getInput<std::string>("target").value_or("main_dock");
+    out.data = command + ":" + target;
+    return true;
+  }
+};
+
+/**
+ * @brief 发布任务完成通知。回充完成、巡逻完成等场景可复用。
+ *
+ * @code{.xml}
+ *   <TaskDoneNotifier topic="/bt/task_done" task_name="recharge"/>
+ * @endcode
+ */
+class TaskDoneNotifier : public RosOutputNode<std_msgs::msg::String> {
+public:
+  using RosOutputNode::RosOutputNode;
+
+  static bt_core::PortsList providedPorts() {
+    auto ports = publisherPorts();
+    ports.insert(bt_core::InputPort<std::string>(
+        "task_name", "recharge", "要上报完成的任务名"));
+    return ports;
+  }
+
+  bool buildMsg(std_msgs::msg::String& out) override {
+    const std::string task =
+        getInput<std::string>("task_name").value_or("recharge");
+    out.data = "task_done:" + task;
+    return true;
+  }
+};
+
 // ───────────────────────────── 注册范式 ────────────────────────────────
 //
 //  把这些节点注册进工厂(在你的 bt_ros2 可执行/插件里)：
@@ -121,6 +199,9 @@ public:
 //      f.registerNodeType<IsFlagTrue>("IsFlagTrue");
 //      f.registerNodeType<ReadBattery>("ReadBattery");
 //      f.registerNodeType<ReadScalar>("ReadScalar");
+//      f.registerNodeType<IsDocked>("IsDocked");
+//      f.registerNodeType<PublishRechargeCommand>("PublishRechargeCommand");
+//      f.registerNodeType<TaskDoneNotifier>("TaskDoneNotifier");
 //    }
 //
 //  BtExecutorNode 在建树前调用它 + setRosNodeHandle(bb, this)，
