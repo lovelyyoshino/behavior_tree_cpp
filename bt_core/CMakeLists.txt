@@ -4,12 +4,14 @@
 #        bt_core，供其它模块 link。后续 PluginLoader / XmlParser 的实现文件加这里。
 # ============================================================================
 
+get_filename_component(BT_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+
 # 核心库源文件(非模板实现)
 set(BT_CORE_SOURCES
   src/node_factory.cpp
   src/plugin_loader.cpp
   src/xml_parser.cpp
-  ${CMAKE_SOURCE_DIR}/third_party/tinyxml2.cpp
+  ${BT_REPO_ROOT}/third_party/tinyxml2.cpp
 )
 
 add_library(bt_core ${BT_CORE_SOURCES})
@@ -25,7 +27,7 @@ target_include_directories(bt_core
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
   PRIVATE
-    ${CMAKE_SOURCE_DIR}/third_party    # tinyxml2.h(实现细节，不对外暴露)
+    ${BT_REPO_ROOT}/third_party    # tinyxml2.h(实现细节，不对外暴露)
 )
 
 target_compile_features(bt_core PUBLIC cxx_std_17)
@@ -72,7 +74,7 @@ install(EXPORT bt_coreTargets
 
 # 由模板生成 Config 文件
 configure_package_config_file(
-  ${CMAKE_SOURCE_DIR}/cmake/bt_coreConfig.cmake.in
+  ${BT_REPO_ROOT}/cmake/bt_coreConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/bt_coreConfig.cmake
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bt_core)
 

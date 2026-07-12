@@ -15,9 +15,12 @@
 #include "bt_nodes/control/parallel_node.hpp"
 #include "bt_nodes/control/sequence_node.hpp"
 #include "bt_nodes/data/check_bool_node.hpp"
+#include "bt_nodes/data/blackboard_exists_condition_node.hpp"
+#include "bt_nodes/data/clear_blackboard_node.hpp"
 #include "bt_nodes/data/compare_blackboard_node.hpp"
 #include "bt_nodes/data/cooldown_condition_node.hpp"
 #include "bt_nodes/data/counter_node.hpp"
+#include "bt_nodes/data/scalar_threshold_condition_node.hpp"
 #include "bt_nodes/data/set_blackboard_node.hpp"
 #include "bt_nodes/data/set_bool_node.hpp"
 #include "bt_nodes/decorator/force_failure_node.hpp"
@@ -25,7 +28,10 @@
 #include "bt_nodes/decorator/inverter_node.hpp"
 #include "bt_nodes/decorator/repeat_node.hpp"
 #include "bt_nodes/decorator/retry_node.hpp"
+#include "bt_nodes/diagnostic/log_event_node.hpp"
 #include "bt_nodes/function/function_registry.hpp"
+#include "bt_nodes/timer/delay_node.hpp"
+#include "bt_nodes/timer/wait_until_elapsed_condition_node.hpp"
 
 namespace bt_ros2 {
 namespace {
@@ -65,6 +71,17 @@ void registerBtNodes(bt_core::NodeFactory& factory) {
   registerIfMissing<bt_nodes::CounterNode>(factory, "Counter");
   registerIfMissing<bt_nodes::CooldownConditionNode>(factory, "CooldownCondition");
   registerIfMissing<bt_nodes::SetBoolNode>(factory, "SetBool");
+  registerIfMissing<bt_nodes::BlackboardExistsConditionNode>(
+      factory, "BlackboardExists");
+  registerIfMissing<bt_nodes::ClearBlackboardNode>(factory, "ClearBlackboard");
+  registerIfMissing<bt_nodes::ScalarThresholdConditionNode>(
+      factory, "ScalarThreshold");
+
+  registerIfMissing<bt_nodes::DelayNode>(factory, "Delay");
+  registerIfMissing<bt_nodes::WaitUntilElapsedConditionNode>(
+      factory, "WaitUntilElapsed");
+
+  registerIfMissing<bt_nodes::LogEventNode>(factory, "LogEvent");
 
   registerIfMissing<bt_nodes::FunctionActionNode>(factory, "FunctionAction");
   registerIfMissing<bt_nodes::FunctionConditionNode>(factory, "FunctionCondition");

@@ -58,6 +58,29 @@ else()
   message(STATUS "[bt_ros2] 复用上层已定义的 bt::core target（方式 B：主仓库子目录构建）。")
 endif()
 
+# ---- 解析 bt::nodes target（已安装包 / 源码子目录自适应）-------------------
+if(NOT TARGET bt::nodes)
+  find_package(bt_nodes QUIET)
+
+  if(NOT TARGET bt::nodes)
+    set(BT_NODES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../bt_nodes"
+        CACHE PATH "bt_nodes 源码目录（当未通过 find_package 提供时使用）")
+    if(EXISTS "${BT_NODES_DIR}/CMakeLists.txt")
+      message(STATUS "[bt_ros2] 未找到 bt_nodesConfig，改用源码子目录: ${BT_NODES_DIR}")
+      add_subdirectory("${BT_NODES_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/bt_nodes_build")
+    else()
+      message(FATAL_ERROR
+        "[bt_ros2] 找不到 bt::nodes target。请二选一：\n"
+        "  1) 安装 bt_nodes，使其提供 bt_nodesConfig.cmake；\n"
+        "  2) 传入 -DBT_NODES_DIR=<bt_nodes 源码目录> 以源码子目录方式集成。")
+    endif()
+  else()
+    message(STATUS "[bt_ros2] 通过 find_package(bt_nodes) 找到 bt::nodes target。")
+  endif()
+else()
+  message(STATUS "[bt_ros2] 复用上层已定义的 bt::nodes target。")
+endif()
+
 # ---- 库：把适配器节点 + 执行器节点编译成一个库，供可执行文件与下游复用 ----
 add_library(bt_ros2_lib
   src/bt_executor_node.cpp
@@ -80,8 +103,8 @@ target_include_directories(bt_ros2_lib
 
 target_compile_features(bt_ros2_lib PUBLIC cxx_std_17)
 
-# 链接 bt::core（核心库）；rclcpp 等用 ament 方式注入。
-target_link_libraries(bt_ros2_lib PUBLIC bt::core)
+# 链接 bt::core 与共享 FunctionRegistry 所在的 bt::nodes；rclcpp 等用 ament 方式注入。
+target_link_libraries(bt_ros2_lib PUBLIC bt::core bt::nodes)
 ament_target_dependencies(bt_ros2_lib PUBLIC rclcpp rclcpp_action std_msgs sensor_msgs)
 
 # ---- 可执行：bt_executor 入口 --------------------------------------------

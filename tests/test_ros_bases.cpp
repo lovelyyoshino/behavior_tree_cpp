@@ -18,12 +18,15 @@
 #include <memory>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include "bt_core/node_factory.hpp"
 #include "bt_core/xml_parser.hpp"
 #include "control/sequence_node.hpp"
 #include "data/compare_blackboard_node.hpp"
 #include "bt_ros2/example_data_nodes.hpp"
+#include "bt_ros2/node_registration.hpp"
 #include "bt_ros2/ros_publisher_node.hpp"
 #include "bt_ros2/ros_subscriber_node.hpp"
 
@@ -142,11 +145,71 @@ TEST_F(RosBasesTest, ConditionRespectsTimeoutMs) {
 
 TEST_F(RosBasesTest, ConditionMergesCustomPorts) {
   auto ports = IsClose::providedPorts();
-  EXPECT_EQ(ports.size(), 4u);  // topic / timeout_ms / qos_depth / threshold
+  EXPECT_EQ(ports.size(), 5u);  // topic / timeout_ms / qos_depth / qos_profile / threshold
   EXPECT_TRUE(ports.count("topic"));
   EXPECT_TRUE(ports.count("timeout_ms"));
   EXPECT_TRUE(ports.count("qos_depth"));
+  ASSERT_TRUE(ports.count("qos_profile"));
+  EXPECT_EQ(ports.at("qos_profile").default_value, "default");
+  EXPECT_EQ(ports.at("qos_profile").enum_values,
+            (std::vector<std::string>{"default", "sensor_data"}));
   EXPECT_TRUE(ports.count("threshold"));
+}
+
+TEST_F(RosBasesTest, SubscriberUsesSensorDataProfileAndConfiguredDepth) {
+  auto cfg = makeCfg(bb, {{"topic", "/range"},
+                          {"qos_depth", "7"},
+                          {"qos_profile", "sensor_data"}});
+  IsClose n("c", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);
+
+  auto sub = node.subscription<RangeMsg>("/range");
+  ASSERT_NE(sub, nullptr);
+  EXPECT_EQ(sub->qos.profile, "sensor_data");
+  EXPECT_EQ(sub->qos.depth(), 7u);
+}
+
+TEST_F(RosBasesTest, SubscriberUsesDefaultProfileAndConfiguredDepth) {
+  auto cfg = makeCfg(bb, {{"topic", "/range"}, {"qos_depth", "3"}});
+  IsClose n("c", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);
+
+  auto sub = node.subscription<RangeMsg>("/range");
+  ASSERT_NE(sub, nullptr);
+  EXPECT_EQ(sub->qos.profile, "default");
+  EXPECT_EQ(sub->qos.depth(), 3u);
+}
+
+TEST_F(RosBasesTest, SubscriberRejectsUnknownQosProfile) {
+  auto cfg = makeCfg(bb, {{"topic", "/range"},
+                          {"qos_profile", "unknown"}});
+  IsClose n("c", cfg);
+
+  try {
+    (void)n.tick();
+    FAIL() << "expected an unknown QoS profile to be rejected";
+  } catch (const std::runtime_error& error) {
+    const std::string message = error.what();
+    EXPECT_NE(message.find("unknown"), std::string::npos);
+    EXPECT_NE(message.find("default"), std::string::npos);
+    EXPECT_NE(message.find("sensor_data"), std::string::npos);
+  }
+}
+
+TEST_F(RosBasesTest, SubscriberRejectsNonPositiveQosDepth) {
+  auto cfg = makeCfg(bb, {{"topic", "/range"}, {"qos_depth", "-4"}});
+  IsClose n("c", cfg);
+
+  try {
+    (void)n.tick();
+    FAIL() << "expected a negative QoS depth to be rejected";
+  } catch (const std::runtime_error& error) {
+    const std::string message = error.what();
+    EXPECT_NE(message.find("-4"), std::string::npos);
+    EXPECT_NE(message.find("greater than zero"), std::string::npos);
+  }
 }
 
 // ─────────────────────────────── RosInputNode ──────────────────────────────
@@ -164,6 +227,104 @@ TEST_F(RosBasesTest, InputNodeWritesBlackboardAndSucceeds) {
   node.deliver(&m);
   EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
   EXPECT_DOUBLE_EQ(bb->get<double>("r").value(), 2.71);
+}
+
+TEST_F(RosBasesTest, MockRoutesMessagesByTopicWithoutCrossTalk) {
+  auto cfg_a = makeCfg(bb,
+                       {{"topic", "/scalar/a"}, {"timeout_ms", "0"}},
+                       {{"value", "a"}});
+  auto cfg_b = makeCfg(bb,
+                       {{"topic", "/scalar/b"}, {"timeout_ms", "0"}},
+                       {{"value", "b"}});
+  bt_ros2::ReadScalar read_a("read_a", cfg_a);
+  bt_ros2::ReadScalar read_b("read_b", cfg_b);
+
+  EXPECT_EQ(read_a.tick(), NodeStatus::FAILURE);
+  EXPECT_EQ(read_b.tick(), NodeStatus::FAILURE);
+
+  auto msg = std::make_shared<std_msgs::msg::Float64>();
+  msg->data = 12.5;
+  node.deliver("/scalar/a", &msg);
+
+  EXPECT_EQ(read_a.tick(), NodeStatus::SUCCESS);
+  EXPECT_EQ(read_b.tick(), NodeStatus::FAILURE);
+  ASSERT_TRUE(bb->contains("a"));
+  EXPECT_DOUBLE_EQ(bb->get<double>("a").value(), 12.5);
+  EXPECT_FALSE(bb->contains("b"));
+}
+
+TEST_F(RosBasesTest, MockReleasesExpiredBehaviorSubscription) {
+  {
+    auto cfg = makeCfg(bb, {{"topic", "/scalar/expired"}});
+    bt_ros2::ReadScalar read("read_expired", cfg);
+
+    EXPECT_EQ(read.tick(), NodeStatus::FAILURE);
+    ASSERT_NE(node.subscription<std_msgs::msg::Float64>("/scalar/expired"),
+              nullptr);
+  }
+
+  // This assertion is fatal so the RED run cannot invoke the stale callback.
+  ASSERT_EQ(node.subscription<std_msgs::msg::Float64>("/scalar/expired"),
+            nullptr);
+
+  auto msg = std::make_shared<std_msgs::msg::Float64>();
+  EXPECT_THROW(node.deliver("/scalar/expired", &msg), std::runtime_error);
+  EXPECT_THROW(node.deliver(&msg), std::runtime_error);
+}
+
+TEST_F(RosBasesTest, MockFansOutToSameTopicAndIsolatesMessageTypes) {
+  auto first_calls = std::make_shared<int>(0);
+  auto second_calls = std::make_shared<int>(0);
+  auto string_calls = std::make_shared<int>(0);
+  const auto qos = rclcpp::QoS(rclcpp::KeepLast(4));
+
+  auto first = node.create_subscription<RangeMsg>(
+      "/shared", qos,
+      [first_calls](const RangeMsg::SharedPtr) { ++*first_calls; });
+  auto second = node.create_subscription<RangeMsg>(
+      "/shared", qos,
+      [second_calls](const RangeMsg::SharedPtr) { ++*second_calls; });
+  auto other_type = node.create_subscription<StringMsg>(
+      "/shared", qos,
+      [string_calls](const StringMsg::SharedPtr) { ++*string_calls; });
+
+  EXPECT_EQ(node.subscription<RangeMsg>("/shared"), second);
+  EXPECT_EQ(node.subscription<StringMsg>("/shared"), other_type);
+
+  auto msg = std::make_shared<RangeMsg>();
+  node.deliver("/shared", &msg);
+
+  EXPECT_EQ(*first_calls, 1);
+  EXPECT_EQ(*second_calls, 1);
+  EXPECT_EQ(*string_calls, 0);
+  EXPECT_NE(first, second);
+}
+
+TEST_F(RosBasesTest, MockSubscriptionLookupSkipsExpiredNewestDuplicate) {
+  const auto qos = rclcpp::QoS(rclcpp::KeepLast(4));
+  auto first = node.create_subscription<RangeMsg>(
+      "/duplicate", qos, [](const RangeMsg::SharedPtr) {});
+
+  {
+    auto newest = node.create_subscription<RangeMsg>(
+        "/duplicate", qos, [](const RangeMsg::SharedPtr) {});
+    EXPECT_EQ(node.subscription<RangeMsg>("/duplicate"), newest);
+  }
+
+  EXPECT_EQ(node.subscription<RangeMsg>("/duplicate"), first);
+}
+
+TEST_F(RosBasesTest, MockRejectsTopicDeliveryWithoutMatchingEndpoint) {
+  const auto qos = rclcpp::QoS(rclcpp::KeepLast(4));
+  auto sub = node.create_subscription<RangeMsg>(
+      "/shared", qos, [](const RangeMsg::SharedPtr) {});
+
+  auto range = std::make_shared<RangeMsg>();
+  EXPECT_THROW(node.deliver("/wrong-topic", &range), std::runtime_error);
+
+  auto wrong_type = std::make_shared<StringMsg>();
+  EXPECT_THROW(node.deliver("/shared", &wrong_type), std::runtime_error);
+  EXPECT_NE(sub, nullptr);
 }
 
 // ─────────────────────────────── RosOutputNode ─────────────────────────────
@@ -227,8 +388,8 @@ TEST_F(RosBasesTest, RechargeTreeConsumesBatteryMsgAndPublishesCommand) {
   bt_core::XmlParser parser(factory);
   bt_core::Tree tree = parser.loadFromText(xml, bb);
 
-  // 首拍只建立订阅，尚无外部消息，因此录入失败，整棵树 FAILURE。
-  EXPECT_EQ(tree.tickOnce(), NodeStatus::FAILURE);
+  // 首拍只建立订阅，尚无外部消息，整棵树等待电量数据。
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
 
   auto msg = std::make_shared<sensor_msgs::msg::BatteryState>();
   msg->percentage = 0.12F;
@@ -259,6 +420,71 @@ TEST_F(RosBasesTest, RechargeCommandAndDoneNotifierExposeManualPorts) {
   EXPECT_TRUE(done_ports.count("topic"));
   EXPECT_TRUE(done_ports.count("qos_depth"));
   EXPECT_TRUE(done_ports.count("task_name"));
+}
+
+TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
+  bt_ros2::NodeRegistrationCatalog::instance().resetToDefaults();
+
+  NodeFactory factory;
+  bt_ros2::registerDefaultNodes(factory);
+
+  const std::vector<std::string> expected = {
+      "Sequence",
+      "Fallback",
+      "Parallel",
+      "Inverter",
+      "Retry",
+      "Repeat",
+      "ForceSuccess",
+      "ForceFailure",
+      "AlwaysSuccess",
+      "AlwaysFailure",
+      "PrintMessage",
+      "SetBlackboard",
+      "CompareBlackboard",
+      "CheckBool",
+      "Counter",
+      "CooldownCondition",
+      "SetBool",
+      "BlackboardExists",
+      "ClearBlackboard",
+      "ScalarThreshold",
+      "Delay",
+      "WaitUntilElapsed",
+      "LogEvent",
+      "FunctionAction",
+      "FunctionCondition",
+      "RosTopicCondition",
+      "RosTopicAction",
+      "IsObstacleClose",
+      "IsFlagTrue",
+      "ReadBattery",
+      "ReadScalar",
+      "IsDocked",
+      "PublishRechargeCommand",
+      "TaskDoneNotifier",
+  };
+
+  EXPECT_EQ(factory.size(), expected.size());
+  for (const auto& name : expected) {
+    EXPECT_TRUE(factory.isRegistered(name)) << "missing registration: " << name;
+  }
+}
+
+TEST_F(RosBasesTest, DefaultRegistrationCatalogLoadsPackagedRechargeTree) {
+  bt_ros2::NodeRegistrationCatalog::instance().resetToDefaults();
+
+  NodeFactory factory;
+  bt_ros2::registerDefaultNodes(factory);
+
+  bt_core::XmlParser parser(factory);
+  const std::string tree_path =
+      std::string(BT_SOURCE_DIR) + "/bt_ros2/trees/recharge.xml";
+
+  EXPECT_NO_THROW({
+    bt_core::Tree tree = parser.loadFromFile(tree_path, bb);
+    EXPECT_NE(tree.root(), nullptr);
+  });
 }
 
 // ───────────────────── example_data_nodes.hpp 逐节点覆盖 ─────────────────────
@@ -321,7 +547,9 @@ TEST_F(RosBasesTest, IsObstacleCloseUsesThresholdPort) {
 
 TEST_F(RosBasesTest, IsObstacleCloseExposesThresholdPort) {
   auto ports = bt_ros2::IsObstacleClose::providedPorts();
-  EXPECT_EQ(ports.size(), 4u);  // topic / timeout_ms / qos_depth / threshold
+  EXPECT_EQ(ports.size(), 5u);  // subscriber ports + threshold
+  ASSERT_TRUE(ports.count("qos_profile"));
+  EXPECT_EQ(ports.at("qos_profile").default_value, "default");
   EXPECT_TRUE(ports.count("threshold"));
 }
 
@@ -345,18 +573,52 @@ TEST_F(RosBasesTest, ReadScalarWritesValueToBlackboard) {
 
 TEST_F(RosBasesTest, ReadScalarExposesValuePort) {
   auto ports = bt_ros2::ReadScalar::providedPorts();
-  EXPECT_EQ(ports.size(), 4u);  // topic / timeout_ms / qos_depth / value
+  EXPECT_EQ(ports.size(), 5u);  // subscriber ports + value
+  ASSERT_TRUE(ports.count("qos_profile"));
+  EXPECT_EQ(ports.at("qos_profile").default_value, "default");
   EXPECT_TRUE(ports.count("value"));
 }
 
 // -- ReadBattery onData 直测(补充,之前只在整棵回充树里间接覆盖) ----------------
+TEST_F(RosBasesTest, ReadBatteryReturnsRunningBeforeFirstMessage) {
+  auto cfg = makeCfg(bb,
+                     {{"topic", "/battery_state"}, {"timeout_ms", "0"}},
+                     {{"level", "battery_level"}});
+  bt_ros2::ReadBattery n("read_battery", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+  EXPECT_FALSE(bb->contains("battery_level"));
+}
+
+TEST_F(RosBasesTest, ReadBatteryReturnsRunningAfterMessageExpires) {
+  auto cfg = makeCfg(bb,
+                     {{"topic", "/battery_state"}, {"timeout_ms", "1"}},
+                     {{"level", "battery_level"}});
+  bt_ros2::ReadBattery n("read_battery", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+
+  auto msg = std::make_shared<sensor_msgs::msg::BatteryState>();
+  msg->percentage = 0.31F;
+  node.deliver("/battery_state", &msg);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  ASSERT_TRUE(bb->contains("battery_level"));
+  EXPECT_NEAR(bb->get<double>("battery_level").value(), 0.31, 1e-6);
+  constexpr double sentinel = 0.99;
+  bb->set<double>("battery_level", sentinel);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+  EXPECT_DOUBLE_EQ(bb->get<double>("battery_level").value(), sentinel);
+}
+
 TEST_F(RosBasesTest, ReadBatteryWritesPercentageToBlackboard) {
   auto cfg = makeCfg(bb,
                      {{"topic", "/battery_state"}, {"timeout_ms", "0"}},
                      {{"level", "battery_level"}});
   bt_ros2::ReadBattery n("read_battery", cfg);
 
-  EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 无数据
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);  // 无数据时等待首帧
 
   auto batt = std::make_shared<sensor_msgs::msg::BatteryState>();
   batt->percentage = 0.42F;

@@ -45,6 +45,11 @@ struct NodeManifest {
   PortsList   ports;              ///< 端口声明
 };
 
+class NodeFactory;
+
+std::shared_ptr<void> loadPluginLibrary(const std::string& library_path,
+                                        NodeFactory& factory);
+
 // ---------------------------------------------------------------------------
 //  SFINAE：检测某类型是否定义了静态 providedPorts()
 // ---------------------------------------------------------------------------
@@ -81,12 +86,13 @@ public:
     static_assert(std::is_base_of<TreeNode, T>::value,
                   "注册类型必须继承自 bt_core::TreeNode");
 
-    if (builders_.count(registration_name)) {
+    if (builders_.count(registration_name) ||
+        manifests_.count(registration_name)) {
       throw std::logic_error("节点类型重复注册: " + registration_name);
     }
 
-    // 构造器：捕获类型 T，按名建实例并回填注册名。
-    builders_[registration_name] =
+    // 先完成所有可能执行用户代码或分配内存的工作，随后才修改注册表。
+    NodeBuilder builder =
         [registration_name](const std::string& inst_name,
                             const NodeConfig& cfg) -> TreeNode::Ptr {
       auto node = std::make_shared<T>(inst_name, cfg);
@@ -94,18 +100,36 @@ public:
       return node;
     };
 
-    // 收集 manifest：类别用一个临时实例探知，端口用 SFINAE 收集。
-    NodeManifest manifest;
-    manifest.registration_name = registration_name;
-    manifest.ports = collectPorts<T>();
+    PortsList ports = collectPorts<T>();
+    NodeType type = NodeType::UNDEFINED;
     {
-      // 用临时实例读取 type()(节点 type() 不依赖运行期数据)。
       NodeConfig tmp_cfg;
       tmp_cfg.blackboard = Blackboard::create();
       T probe(registration_name, tmp_cfg);
-      manifest.type = probe.type();
+      type = probe.type();
     }
-    manifests_[registration_name] = std::move(manifest);
+
+    NodeManifest manifest;
+    manifest.registration_name = registration_name;
+    manifest.type = type;
+    manifest.ports = std::move(ports);
+
+    auto [builder_it, builder_inserted] =
+        builders_.emplace(registration_name, std::move(builder));
+    if (!builder_inserted) {
+      throw std::logic_error("节点类型重复注册: " + registration_name);
+    }
+
+    try {
+      const bool manifest_inserted =
+          manifests_.emplace(registration_name, std::move(manifest)).second;
+      if (!manifest_inserted) {
+        throw std::logic_error("节点类型重复注册: " + registration_name);
+      }
+    } catch (...) {
+      builders_.erase(builder_it);
+      throw;
+    }
   }
 
   /**
@@ -158,6 +182,9 @@ public:
   }
 
 private:
+  friend std::shared_ptr<void> loadPluginLibrary(
+      const std::string& library_path, NodeFactory& factory);
+
   // ⚠️ 成员声明顺序即析构逆序：plugin_handles_ 必须是首个成员，使其最后析构。
   //    这样 builders_/manifests_(可能引用插件代码)先于库卸载而析构，避免段错误。
   std::vector<std::shared_ptr<void>>            plugin_handles_;

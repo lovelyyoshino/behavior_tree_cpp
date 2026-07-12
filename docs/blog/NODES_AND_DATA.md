@@ -371,8 +371,9 @@ bt_core::NodeStatus tickImpl() {
     <Sequence name="low_battery_return">
 
       <!-- ① 从 /battery 订阅电量，录入黑板 key: battery_level。
-           timeout_ms=2000：2 秒拿不到新电量就算数据过期(节点 FAILURE)，
-           Sequence 随之失败，本拍不做返航判断，等下一拍拿到新鲜电量再说。-->
+           timeout_ms=2000：2 秒拿不到新电量就算数据过期(节点 RUNNING)，
+           Sequence 会停在这里等待；过期期间不调用 onData，也不会把缓存中的旧消息
+           重新写入黑板。拿到新鲜电量后再继续判断。-->
       <ReadBattery topic="/battery" timeout_ms="2000" level="{battery_level}"/>
 
       <!-- ② 读黑板 battery_level，判断是否低于 20。
@@ -391,7 +392,7 @@ bt_core::NodeStatus tickImpl() {
 
 **数据怎么流的，一句话复盘**：ROS2 话题 `/battery` 的 `BatteryState.percentage`，经 `ReadBattery` 的 `onData` → `setOutput("level", ...)` → 黑板 key `battery_level`（XML 的 `level="{battery_level}"` 接线）→ `CompareBlackboard` 的 `getInput("battery_level")` 读出来比较。一条数据从 ROS 世界流进了黑板，再流进了决策。
 
-**新鲜度在这里的作用**：如果电池话题断流超过 2 秒，`ReadBattery` 返回 FAILURE，整个 `Sequence` 失败——这一拍**不会**用一个陈旧的电量值去误判"电量充足"而不返航。下一拍拿到新鲜数据后再正常决策。这正是 `timeout_ms` 在传感器场景的价值。
+**新鲜度在这里的作用**：如果电池话题断流超过 2 秒，`ReadBattery` 返回 RUNNING，整个 `Sequence` 停在该节点等待新鲜数据——这一拍不会进入 `CompareBlackboard`，也不会调用 `onData` 把缓存中的旧消息重新写入黑板。新鲜数据到达后，`ReadBattery` 才更新 `battery_level` 并让 `Sequence` 继续决策。这正是 `timeout_ms` 在传感器场景的价值。
 
 > 把它跑起来：用 `BtExecutorNode` 加载这份 XML（`tree_file` 参数指向它），`BtExecutorNode` 会通过 `registerDefaultNodes(factory_)` 注册 `ReadBattery`、`CompareBlackboard`、`PublishRechargeCommand` 等默认节点、注入句柄、按 `tick_rate_hz` 周期 tick。
 

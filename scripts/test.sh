@@ -45,6 +45,9 @@ bash -n \
   "$SCRIPT_DIR/build_docs.sh" \
   "$SCRIPT_DIR/build_pages.sh"
 
+echo "[test] run install-smoke loader path regression"
+bash "$REPO_ROOT/tests/test_install_smoke_loader_path.sh"
+
 echo "[test] configure C++ build"
 cmake -S "$REPO_ROOT" -B "$BUILD_DIR" \
   -DBT_BUILD_NODES=ON \
@@ -57,6 +60,9 @@ cmake --build "$BUILD_DIR"
 
 echo "[test] run C++ unit tests"
 ctest --test-dir "$BUILD_DIR" --output-on-failure
+
+echo "[test] run installed SDK consumer smoke"
+"$SCRIPT_DIR/smoke_install.sh"
 
 echo "[test] run XML example trees"
 PLUGIN="${BT_NODES_PLUGIN:-$(find_plugin || true)}"

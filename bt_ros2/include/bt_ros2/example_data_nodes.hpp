@@ -83,6 +83,8 @@ public:
 /**
  * @brief 读电量并录入黑板。订阅 sensor_msgs/BatteryState，把 percentage 写到
  *        输出端口 level(可在 XML 里重映射到任意黑板 key)。
+ *        首帧尚未到达或数据过期时返回 RUNNING，且不调用 onData，
+ *        因而不会把缓存中的旧消息重新写入黑板。
  *
  * @code{.xml}
  *   <!-- 把电量录入黑板 key: battery_level，供后续节点 getInput 读取 -->
@@ -101,6 +103,11 @@ public:
 
   void onData(const sensor_msgs::msg::BatteryState& msg) override {
     setOutput<double>("level", static_cast<double>(msg.percentage));
+  }
+
+protected:
+  bt_core::NodeStatus onNoFreshData() override {
+    return bt_core::NodeStatus::RUNNING;
   }
 };
 

@@ -38,6 +38,7 @@
 //    topic      (input)  订阅的话题名
 //    timeout_ms (input)  数据时效窗口；<=0 表示永不过期(只要收到过就算有效)
 //    qos_depth  (input)  订阅 QoS 队列深度(默认 10)
+//    qos_profile(input)  QoS 配置：default 或 sensor_data
 // ============================================================================
 #ifndef BT_ROS2_ROS_SUBSCRIBER_NODE_HPP
 #define BT_ROS2_ROS_SUBSCRIBER_NODE_HPP
@@ -49,6 +50,7 @@
 #include "bt_core/node_status.hpp"
 #include "bt_ros2/data_freshness.hpp"
 #include "bt_ros2/ros_blackboard_keys.hpp"
+#include "bt_ros2/ros_qos.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace bt_ros2 {
@@ -69,14 +71,17 @@ class RosSubscriberNodeBase : public BaseLeaf {
 public:
   using BaseLeaf::BaseLeaf;  // 继承 (std::string, NodeConfig) 构造
 
-  /// @brief 公共端口：topic / timeout_ms / qos_depth。
+  /// @brief 公共端口：topic / timeout_ms / qos_depth / qos_profile。
   ///        子类如需额外端口，可在自己的 providedPorts() 里合并本函数返回值。
   static bt_core::PortsList subscriberPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("topic", "", "要订阅的话题名"),
         bt_core::InputPort<int>("timeout_ms", "0",
                                 "数据时效窗口(ms)，<=0 表示永不过期"),
-        bt_core::InputPort<int>("qos_depth", "10", "订阅 QoS 队列深度"));
+        bt_core::InputPort<int>("qos_depth", "10", "订阅 QoS 队列深度"),
+        bt_core::InputPort<std::string>(
+            "qos_profile", "default", "订阅 QoS 配置",
+            {"default", "sensor_data"}));
   }
 
   /// 默认 providedPorts 即公共端口（子类可覆盖以追加自有端口）。
@@ -122,9 +127,11 @@ private:
     }
     timeout_ms_ = this->template getInput<int>("timeout_ms").value_or(0);
     const int depth = this->template getInput<int>("qos_depth").value_or(10);
+    const std::string profile =
+        this->template getInput<std::string>("qos_profile").value_or("default");
 
     sub_ = node->template create_subscription<MsgT>(
-        topic, rclcpp::QoS(rclcpp::KeepLast(depth)),
+        topic, makeSubscriptionQos(depth, profile),
         [this](const typename MsgT::SharedPtr msg) {
           // 回调与 tick 同线程(单线程 executor)，直接写缓存即可。
           last_msg_ = *msg;

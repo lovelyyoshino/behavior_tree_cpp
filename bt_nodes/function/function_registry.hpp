@@ -14,7 +14,6 @@
 #include <functional>
 #include <mutex>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -24,6 +23,7 @@
 #include "bt_core/leaf_node.hpp"
 #include "bt_core/node_status.hpp"
 #include "bt_core/tree_node.hpp"
+#include "bt_nodes/export.hpp"
 
 namespace bt_nodes {
 
@@ -50,102 +50,37 @@ using ConditionFunction = std::function<bool(const FunctionContext&)>;
  * 线程安全边界：注册/查询内部加锁；invoke/evaluate 会先复制回调再释放锁，
  * 避免回调里再次注册或访问注册表造成死锁。
  */
-class FunctionRegistry {
+class BT_NODES_EXPORT FunctionRegistry {
  public:
-  static FunctionRegistry& instance() {
-    static FunctionRegistry registry;
-    return registry;
-  }
+  static FunctionRegistry& instance();
+
+  ~FunctionRegistry();
 
   FunctionRegistry(const FunctionRegistry&) = delete;
   FunctionRegistry& operator=(const FunctionRegistry&) = delete;
 
-  void registerAction(std::string name, ActionFunction fn) {
-    if (name.empty()) {
-      throw std::invalid_argument("FunctionRegistry: action name is empty");
-    }
-    if (!fn) {
-      throw std::invalid_argument("FunctionRegistry: action callback is empty");
-    }
-    std::lock_guard<std::mutex> lock(mutex_);
-    actions_[std::move(name)] = std::move(fn);
-  }
+  void registerAction(std::string name, ActionFunction fn);
+  void registerCondition(std::string name, ConditionFunction fn);
 
-  void registerCondition(std::string name, ConditionFunction fn) {
-    if (name.empty()) {
-      throw std::invalid_argument("FunctionRegistry: condition name is empty");
-    }
-    if (!fn) {
-      throw std::invalid_argument(
-          "FunctionRegistry: condition callback is empty");
-    }
-    std::lock_guard<std::mutex> lock(mutex_);
-    conditions_[std::move(name)] = std::move(fn);
-  }
+  bool unregisterAction(const std::string& name);
+  bool unregisterCondition(const std::string& name);
 
-  bool hasAction(const std::string& name) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return actions_.count(name) != 0;
-  }
-
-  bool hasCondition(const std::string& name) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return conditions_.count(name) != 0;
-  }
+  bool hasAction(const std::string& name) const;
+  bool hasCondition(const std::string& name) const;
 
   bt_core::NodeStatus invokeAction(const std::string& name,
-                                   const FunctionContext& ctx) const {
-    ActionFunction fn;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      auto it = actions_.find(name);
-      if (it == actions_.end()) {
-        return bt_core::NodeStatus::FAILURE;
-      }
-      fn = it->second;
-    }
-    return fn(ctx);
-  }
-
+                                   const FunctionContext& ctx) const;
   bool evaluateCondition(const std::string& name,
-                         const FunctionContext& ctx) const {
-    ConditionFunction fn;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      auto it = conditions_.find(name);
-      if (it == conditions_.end()) {
-        return false;
-      }
-      fn = it->second;
-    }
-    return fn(ctx);
-  }
+                         const FunctionContext& ctx) const;
 
-  std::vector<std::string> actionNames() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> names;
-    names.reserve(actions_.size());
-    for (const auto& item : actions_) names.push_back(item.first);
-    return names;
-  }
-
-  std::vector<std::string> conditionNames() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> names;
-    names.reserve(conditions_.size());
-    for (const auto& item : conditions_) names.push_back(item.first);
-    return names;
-  }
+  std::vector<std::string> actionNames() const;
+  std::vector<std::string> conditionNames() const;
 
   /// @brief 测试/示例重置入口。生产代码通常不需要调用。
-  void clear() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    actions_.clear();
-    conditions_.clear();
-  }
+  void clear();
 
  private:
-  FunctionRegistry() = default;
+  FunctionRegistry();
 
   mutable std::mutex mutex_;
   std::unordered_map<std::string, ActionFunction> actions_;

@@ -7,15 +7,16 @@
 //    BT_RegisterNodes 并调用它，把插件里的节点注册进给定的 NodeFactory。
 //    封装了 POSIX(dlopen) 与 Windows(LoadLibrary) 的差异。
 //
-//    句柄生命周期：PluginLoader 持有所有已加载库的句柄，析构时统一卸载。
-//    注意：卸载库后，该库注册的节点的构造器将失效，因此 PluginLoader 通常
-//    应与 NodeFactory 生命周期一致或更长。
+//    句柄生命周期：每个插件注册的 builder 和它创建的节点都会共享持有库句柄。
+//    因此 Tree 可安全地存活到 NodeFactory 或 PluginLoader 之后；PluginLoader
+//    仅额外保留显式加载者持有的句柄。
 // ============================================================================
 #ifndef BT_CORE_PLUGIN_LOADER_HPP
 #define BT_CORE_PLUGIN_LOADER_HPP
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "bt_core/node_factory.hpp"
@@ -27,9 +28,8 @@ namespace bt_core {
  * @param library_path 动态库文件路径(.so/.dll/.dylib)。
  * @param factory 目标工厂。
  * @return 一个持有原生库句柄的 shared_ptr<void>，其自定义删除器会在引用计数
- *         归零时卸载库。**调用方必须保证该句柄的存活时间不短于 factory**，
- *         否则 factory 内引用插件代码的构造器在析构时会访问已卸载内存。
- *         推荐用法是 NodeFactory::loadPlugin()，它自动维护正确的析构顺序。
+ *         归零时卸载库。插件新注册的 builders 及其创建的节点也会持有同一
+ *         句柄，因此 Tree 可以安全地超过 factory 或返回句柄的生命周期。
  * @throws std::runtime_error 加载失败 / 找不到入口符号。
  */
 std::shared_ptr<void> loadPluginLibrary(const std::string& library_path,
@@ -38,9 +38,8 @@ std::shared_ptr<void> loadPluginLibrary(const std::string& library_path,
 /**
  * @brief 动态库插件加载器(显式持有句柄的便捷封装)。
  *
- * @warning 生命周期约束：PluginLoader 必须比使用其所注册节点的 NodeFactory
- *          以及任何相关 Tree **更晚析构**。若不确定析构顺序，请改用
- *          NodeFactory::loadPlugin()，它把句柄存进工厂内部并保证安全顺序。
+ * @details PluginLoader 可在调用者不再需要显式加载记录时析构：成功注册的
+ *          builders 和从它们创建的节点会分别保留 DSO 直到自身销毁。
  */
 class PluginLoader {
 public:
@@ -52,7 +51,9 @@ public:
    * @throws std::runtime_error 加载失败 / 找不到入口符号。
    */
   void load(const std::string& library_path, NodeFactory& factory) {
-    handles_.push_back(loadPluginLibrary(library_path, factory));
+    handles_.reserve(handles_.size() + 1);
+    auto handle = loadPluginLibrary(library_path, factory);
+    handles_.push_back(std::move(handle));
   }
 
   /// @brief 已成功加载的库数量。
