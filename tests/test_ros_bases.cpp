@@ -464,9 +464,10 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
       "IsDocked",
       "PublishRechargeCommand",
       "TaskDoneNotifier",
+      "RechargeTask",
   };
 
-  EXPECT_EQ(factory.size(), expected.size());
+  EXPECT_EQ(factory.size(), 35u);
   for (const auto& name : expected) {
     EXPECT_TRUE(factory.isRegistered(name)) << "missing registration: " << name;
   }
@@ -482,10 +483,32 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogLoadsPackagedRechargeTree) {
   const std::string tree_path =
       std::string(BT_SOURCE_DIR) + "/bt_ros2/trees/recharge.xml";
 
-  EXPECT_NO_THROW({
-    bt_core::Tree tree = parser.loadFromFile(tree_path, bb);
-    EXPECT_NE(tree.root(), nullptr);
-  });
+  bt_core::Tree tree = parser.loadFromFile(tree_path, bb);
+  EXPECT_EQ(tree.nodes().size(), 8u);
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
+
+  auto battery = std::make_shared<sensor_msgs::msg::BatteryState>();
+  battery->percentage = 0.18F;
+  node.deliver("/battery_state", &battery);
+
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  ASSERT_EQ(command->published.size(), 1u);
+
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
+  EXPECT_EQ(command->published.size(), 1u);
+
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver("/dock/is_docked", &docked);
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+
+  auto done = node.publisher<std_msgs::msg::String>("/bt/task_done");
+  ASSERT_NE(done, nullptr);
+  ASSERT_EQ(done->published.size(), 1u);
+  EXPECT_EQ(done->published.front().data, "task_done:recharge");
 }
 
 // ───────────────────── example_data_nodes.hpp 逐节点覆盖 ─────────────────────

@@ -85,6 +85,7 @@ endif()
 add_library(bt_ros2_lib
   src/bt_executor_node.cpp
   src/node_registration.cpp
+  src/recharge_task.cpp
   src/ros_topic_condition_node.cpp
   src/ros_topic_action_node.cpp
 )

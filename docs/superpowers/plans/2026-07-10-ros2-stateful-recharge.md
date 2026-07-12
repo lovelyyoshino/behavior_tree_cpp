@@ -473,7 +473,7 @@ Expected: every state transition, latch, timeout, precedence, and retry assertio
 - Modify: bt_ros2/trees/recharge.xml
 - Modify: tests/test_ros_bases.cpp
 
-- [ ] **Step 1: Write failing registration and packaged-flow tests**
+- [x] **Step 1: Write failing registration and packaged-flow tests**
 
 Extend DefaultRegistrationCatalogExposesFullNodeSet:
 
@@ -518,11 +518,11 @@ ASSERT_EQ(done->published.size(), 1u);
 EXPECT_EQ(done->published.front().data, "task_done:recharge");
 ~~~
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the two registration/tree tests. Expected: RechargeTask is unregistered, the factory has 34 types, and the current XML has 11 nodes.
 
-- [ ] **Step 3: Register and compile RechargeTask**
+- [x] **Step 3: Register and compile RechargeTask**
 
 Add src/recharge_task.cpp to bt_ros2_lib. Include bt_ros2/recharge_task.hpp in node_registration.cpp and add:
 
@@ -532,7 +532,7 @@ registerIfMissing<RechargeTask>(factory, "RechargeTask");
 
 Keep IsDocked, PublishRechargeCommand, and TaskDoneNotifier registered for source/XML compatibility.
 
-- [ ] **Step 4: Replace the XML choreography**
+- [x] **Step 4: Replace the XML choreography**
 
 The final tree body is:
 
@@ -572,7 +572,7 @@ The final tree body is:
 
 This is exactly eight nodes: one Fallback, two Sequences, one ReadBattery, two CompareBlackboard nodes, one RechargeTask, and one notifier.
 
-- [ ] **Step 5: Verify GREEN and legacy compatibility**
+- [x] **Step 5: Verify GREEN and legacy compatibility**
 
 Run:
 

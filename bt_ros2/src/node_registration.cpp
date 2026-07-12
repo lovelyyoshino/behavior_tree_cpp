@@ -5,6 +5,7 @@
 #include "bt_ros2/node_registration.hpp"
 
 #include "bt_ros2/example_data_nodes.hpp"
+#include "bt_ros2/recharge_task.hpp"
 #include "bt_ros2/ros_topic_action_node.hpp"
 #include "bt_ros2/ros_topic_condition_node.hpp"
 
@@ -103,6 +104,7 @@ void registerRechargeNodes(bt_core::NodeFactory& factory) {
   registerIfMissing<IsDocked>(factory, "IsDocked");
   registerIfMissing<PublishRechargeCommand>(factory, "PublishRechargeCommand");
   registerIfMissing<TaskDoneNotifier>(factory, "TaskDoneNotifier");
+  registerIfMissing<RechargeTask>(factory, "RechargeTask");
 }
 
 NodeRegistrationCatalog& NodeRegistrationCatalog::instance() {

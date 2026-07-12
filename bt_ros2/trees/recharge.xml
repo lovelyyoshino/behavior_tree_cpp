@@ -8,9 +8,10 @@
   <BehaviorTree ID="RechargeTree">
     <Fallback name="battery_guard">
       <Sequence name="battery_ok">
-        <ReadBattery name="read_battery_ok"
+        <ReadBattery name="read_battery"
                      topic="/battery_state"
                      timeout_ms="2000"
+                     qos_profile="sensor_data"
                      level="{battery_level}"/>
         <CompareBlackboard name="enough_power"
                            key="battery_level"
@@ -19,23 +20,18 @@
       </Sequence>
 
       <Sequence name="recharge_flow">
-        <ReadBattery name="read_battery_low"
-                     topic="/battery_state"
-                     timeout_ms="2000"
-                     level="{battery_level}"/>
         <CompareBlackboard name="needs_recharge"
                            key="battery_level"
                            op="&lt;"
                            value="0.20"/>
-        <CooldownCondition name="command_rate_limit"
-                           cooldown_ms="5000"/>
-        <PublishRechargeCommand name="send_recharge_command"
-                                topic="/robot/command"
-                                command="start_recharge"
-                                target="main_dock"/>
-        <IsDocked name="wait_docked"
-                  topic="/dock/is_docked"
-                  timeout_ms="1000"/>
+        <RechargeTask name="recharge"
+                      command_topic="/robot/command"
+                      dock_topic="/dock/is_docked"
+                      target="main_dock"
+                      timeout_ms="30000"
+                      command_qos_depth="10"
+                      dock_qos_depth="10"
+                      dock_qos_profile="default"/>
         <TaskDoneNotifier name="notify_recharge_done"
                           topic="/bt/task_done"
                           task_name="recharge"/>
