@@ -64,8 +64,14 @@ struct Publisher {
   using SharedPtr = std::shared_ptr<Publisher<MsgT>>;
   std::string topic;
   QoS qos{KeepLast(10)};
+  bool throw_on_publish{false};          ///< 测试钩子:模拟中间件发布异常
   std::vector<MsgT> published;          ///< 测试钩子:记录所有 publish 调用
-  void publish(const MsgT& m) { published.push_back(m); }
+  void publish(const MsgT& m) {
+    if (throw_on_publish) {
+      throw std::runtime_error("mock rclcpp publisher failure");
+    }
+    published.push_back(m);
+  }
 };
 
 class Node {

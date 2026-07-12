@@ -290,7 +290,7 @@ Run the ReadBattery tests and the generic subscriber tests. Expected: ReadBatter
 - Modify: tests/CMakeLists.txt
 - Modify: tests/test_ros_bases.cpp
 
-- [ ] **Step 1: Add the source to the mock test target**
+- [x] **Step 1: Add the source to the mock test target**
 
 Add the future source beside node_registration.cpp:
 
@@ -304,7 +304,7 @@ add_executable(test_ros_bases
 )
 ~~~
 
-- [ ] **Step 2: Write all failing state-machine tests**
+- [x] **Step 2: Write all failing state-machine tests**
 
 Add named tests for:
 
@@ -351,7 +351,7 @@ Timeout and precedence tests use timeout_ms=1 and a 10 ms wait. Deliver true aft
 
 The halt/retry test saves the publisher and subscription pointers, calls task.halt(), delivers stale true while idle, then requires the next tick to return RUNNING, reuse both pointers, and raise the command count from one to exactly two.
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 Run:
 
@@ -361,7 +361,7 @@ cmake --build build --target test_ros_bases --parallel
 
 Expected: compilation fails because recharge_task.hpp/.cpp and RechargeTask do not exist.
 
-- [ ] **Step 4: Declare the action and exact seven ports**
+- [x] **Step 4: Declare the action and exact seven ports**
 
 Use this class shape:
 
@@ -408,7 +408,7 @@ return bt_core::makePorts(
         {"default", "sensor_data"}));
 ~~~
 
-- [ ] **Step 5: Implement lazy interfaces and terminal latching**
+- [x] **Step 5: Implement lazy interfaces and terminal latching**
 
 ensureRosInterfaces() reads and validates the two topics and depths once, creates the command publisher with default QoS, and creates the dock subscription with makeSubscriptionQos(). The callback only updates docked_; the documented single-thread executor supplies serialization.
 
@@ -454,7 +454,7 @@ return bt_core::NodeStatus::RUNNING;
 
 onHalted() sets phase_ to IDLE, docked_ to false, and clears attempt_started_. It must not reset command_pub_ or dock_sub_.
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 

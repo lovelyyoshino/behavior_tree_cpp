@@ -27,6 +27,7 @@
 #include "data/compare_blackboard_node.hpp"
 #include "bt_ros2/example_data_nodes.hpp"
 #include "bt_ros2/node_registration.hpp"
+#include "bt_ros2/recharge_task.hpp"
 #include "bt_ros2/ros_publisher_node.hpp"
 #include "bt_ros2/ros_subscriber_node.hpp"
 
@@ -670,6 +671,282 @@ TEST_F(RosBasesTest, PublishRechargeCommandComposesCommandTarget) {
   ASSERT_NE(pub, nullptr);
   ASSERT_EQ(pub->published.size(), 1u);
   EXPECT_EQ(pub->published[0].data, "start_recharge:dock_b");
+}
+
+TEST_F(RosBasesTest, RechargeTaskExposesDocumentedPortsAndDefaults) {
+  const auto ports = bt_ros2::RechargeTask::providedPorts();
+
+  ASSERT_EQ(ports.size(), 7u);
+  ASSERT_TRUE(ports.count("command_topic"));
+  EXPECT_EQ(ports.at("command_topic").default_value, "/robot/command");
+  ASSERT_TRUE(ports.count("dock_topic"));
+  EXPECT_EQ(ports.at("dock_topic").default_value, "/dock/is_docked");
+  ASSERT_TRUE(ports.count("target"));
+  EXPECT_EQ(ports.at("target").default_value, "main_dock");
+  ASSERT_TRUE(ports.count("timeout_ms"));
+  EXPECT_EQ(ports.at("timeout_ms").default_value, "30000");
+  ASSERT_TRUE(ports.count("command_qos_depth"));
+  EXPECT_EQ(ports.at("command_qos_depth").default_value, "10");
+  ASSERT_TRUE(ports.count("dock_qos_depth"));
+  EXPECT_EQ(ports.at("dock_qos_depth").default_value, "10");
+  ASSERT_TRUE(ports.count("dock_qos_profile"));
+  EXPECT_EQ(ports.at("dock_qos_profile").default_value, "default");
+  EXPECT_EQ(ports.at("dock_qos_profile").enum_values,
+            (std::vector<std::string>{"default", "sensor_data"}));
+  for (const auto& port : ports) {
+    EXPECT_EQ(port.second.direction, PortDirection::INPUT);
+  }
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskFirstTickCreatesInterfacesPublishesOnceAndRuns) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  auto dock = node.subscription<std_msgs::msg::Bool>("/dock/is_docked");
+  ASSERT_NE(command, nullptr);
+  ASSERT_NE(dock, nullptr);
+  ASSERT_EQ(command->published.size(), 1u);
+  EXPECT_EQ(command->published.front().data,
+            "start_recharge:main_dock");
+}
+
+TEST_F(RosBasesTest, RechargeTaskUsesConfiguredTopicsAndQos) {
+  auto cfg = makeCfg(bb, {{"command_topic", "/charger/command"},
+                          {"dock_topic", "/charger/is_docked"},
+                          {"target", "dock_b"},
+                          {"command_qos_depth", "4"},
+                          {"dock_qos_depth", "7"},
+                          {"dock_qos_profile", "sensor_data"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/charger/command");
+  auto dock =
+      node.subscription<std_msgs::msg::Bool>("/charger/is_docked");
+  ASSERT_NE(command, nullptr);
+  ASSERT_NE(dock, nullptr);
+  EXPECT_EQ(command->qos.profile, "default");
+  EXPECT_EQ(command->qos.depth(), 4u);
+  EXPECT_EQ(dock->qos.profile, "sensor_data");
+  EXPECT_EQ(dock->qos.depth(), 7u);
+  ASSERT_EQ(command->published.size(), 1u);
+  EXPECT_EQ(command->published.front().data, "start_recharge:dock_b");
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskRemainsRunningWithoutDockAndDoesNotRepublish) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  ASSERT_EQ(command->published.size(), 1u);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  EXPECT_EQ(command->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest, RechargeTaskSucceedsAfterDockMessage) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver("/dock/is_docked", &docked);
+
+  EXPECT_EQ(task.tick(), NodeStatus::SUCCESS);
+}
+
+TEST_F(RosBasesTest, RechargeTaskFalseDockMessageKeepsRunning) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  auto undocked = std::make_shared<std_msgs::msg::Bool>();
+  undocked->data = false;
+  node.deliver("/dock/is_docked", &undocked);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  EXPECT_EQ(command->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest, RechargeTaskFailsAfterTimeout) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  EXPECT_EQ(task.tick(), NodeStatus::FAILURE);
+}
+
+TEST_F(RosBasesTest, RechargeTaskNonPositiveTimeoutDisablesTimeout) {
+  for (const int timeout_ms : {0, -1}) {
+    SCOPED_TRACE(timeout_ms);
+    auto cfg = makeCfg(
+        bb, {{"timeout_ms", std::to_string(timeout_ms)}});
+    bt_ros2::RechargeTask task("recharge", cfg);
+
+    ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+    auto command =
+        node.publisher<std_msgs::msg::String>("/robot/command");
+    ASSERT_NE(command, nullptr);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+    EXPECT_EQ(command->published.size(), 1u);
+  }
+}
+
+TEST_F(RosBasesTest, RechargeTaskDockSuccessWinsWhenTimeoutAlsoElapsed) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver("/dock/is_docked", &docked);
+
+  EXPECT_EQ(task.tick(), NodeStatus::SUCCESS);
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskSuccessStaysLatchedWithoutRepublishing) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  auto docked = std::make_shared<std_msgs::msg::Bool>();
+  docked->data = true;
+  node.deliver("/dock/is_docked", &docked);
+  ASSERT_EQ(task.tick(), NodeStatus::SUCCESS);
+
+  auto late_undocked = std::make_shared<std_msgs::msg::Bool>();
+  late_undocked->data = false;
+  node.deliver("/dock/is_docked", &late_undocked);
+  EXPECT_EQ(task.tick(), NodeStatus::SUCCESS);
+  EXPECT_EQ(command->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskFailureStaysLatchedWithoutRepublishing) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  ASSERT_EQ(task.tick(), NodeStatus::FAILURE);
+
+  auto late_docked = std::make_shared<std_msgs::msg::Bool>();
+  late_docked->data = true;
+  node.deliver("/dock/is_docked", &late_docked);
+  EXPECT_EQ(task.tick(), NodeStatus::FAILURE);
+  EXPECT_EQ(command->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskPublishFailureLatchesFailureWithoutRetry) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  ASSERT_NE(command, nullptr);
+  ASSERT_EQ(command->published.size(), 1u);
+
+  task.halt();
+  command->throw_on_publish = true;
+  EXPECT_THROW(task.tick(), std::runtime_error);
+  EXPECT_EQ(command->published.size(), 1u);
+
+  command->throw_on_publish = false;
+  EXPECT_EQ(task.tick(), NodeStatus::FAILURE);
+  EXPECT_EQ(command->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskHaltStartsFreshAttemptWithoutRecreatingInterfaces) {
+  auto cfg = makeCfg(bb, {{"timeout_ms", "1000"}});
+  bt_ros2::RechargeTask task("recharge", cfg);
+
+  ASSERT_EQ(task.tick(), NodeStatus::RUNNING);
+  auto command =
+      node.publisher<std_msgs::msg::String>("/robot/command");
+  auto dock = node.subscription<std_msgs::msg::Bool>("/dock/is_docked");
+  ASSERT_NE(command, nullptr);
+  ASSERT_NE(dock, nullptr);
+  ASSERT_EQ(command->published.size(), 1u);
+
+  task.halt();
+  auto stale_docked = std::make_shared<std_msgs::msg::Bool>();
+  stale_docked->data = true;
+  node.deliver("/dock/is_docked", &stale_docked);
+
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+  EXPECT_EQ(node.publisher<std_msgs::msg::String>("/robot/command"),
+            command);
+  EXPECT_EQ(node.subscription<std_msgs::msg::Bool>("/dock/is_docked"),
+            dock);
+  EXPECT_EQ(command->published.size(), 2u);
+  EXPECT_EQ(task.tick(), NodeStatus::RUNNING);
+
+  auto fresh_docked = std::make_shared<std_msgs::msg::Bool>();
+  fresh_docked->data = true;
+  node.deliver("/dock/is_docked", &fresh_docked);
+  EXPECT_EQ(task.tick(), NodeStatus::SUCCESS);
+}
+
+TEST_F(RosBasesTest,
+       RechargeTaskRejectsInvalidInterfaceConfigurationWithoutPartialEndpoints) {
+  struct InvalidConfig {
+    const char* port;
+    const char* value;
+    const char* error_fragment;
+  };
+  const std::vector<InvalidConfig> invalid_configs = {
+      {"command_topic", "", "command_topic"},
+      {"dock_topic", "", "dock_topic"},
+      {"command_qos_depth", "0", "command_qos_depth"},
+      {"dock_qos_depth", "-1", "greater than zero"},
+      {"dock_qos_profile", "unknown", "Unknown subscription QoS"},
+  };
+
+  for (const auto& invalid : invalid_configs) {
+    SCOPED_TRACE(invalid.port);
+    auto cfg = makeCfg(bb, {{invalid.port, invalid.value}});
+    bt_ros2::RechargeTask task("recharge", cfg);
+
+    try {
+      (void)task.tick();
+      FAIL() << "expected invalid RechargeTask configuration to throw";
+    } catch (const std::runtime_error& error) {
+      EXPECT_NE(std::string(error.what()).find(invalid.error_fragment),
+                std::string::npos);
+    }
+    EXPECT_EQ(node.publisher<std_msgs::msg::String>("/robot/command"),
+              nullptr);
+    EXPECT_EQ(node.subscription<std_msgs::msg::Bool>("/dock/is_docked"),
+              nullptr);
+  }
 }
 
 // -- IsDocked / IsFlagTrue timeout 语义直测(数据过期回到 FAILURE) -------------

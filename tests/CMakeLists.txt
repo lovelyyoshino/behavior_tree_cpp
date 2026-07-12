@@ -67,6 +67,7 @@ if(TARGET bt::nodes)
   # 仅供测试,不进任何发布产物。
   add_executable(test_ros_bases
     test_ros_bases.cpp
+    ${CMAKE_SOURCE_DIR}/bt_ros2/src/recharge_task.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/node_registration.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_topic_action_node.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_topic_condition_node.cpp
