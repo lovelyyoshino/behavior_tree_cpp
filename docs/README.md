@@ -13,6 +13,7 @@
 7. [API 契约](design/API_CONTRACT.md)：`bt_core` 代码接口约束。
 8. [ROS2 数据接口契约](design/ROS2_DATA_INTERFACE.md)：订阅/发布基类和新鲜度逻辑。
 9. [工程笔记](blog/README.md)：更完整的项目 walkthrough。
+10. [商用发布检查表](COMMERCIAL_RELEASE_CHECKLIST.md)：区分工程 gate 与 owner/legal gate。
 
 ## 关键能力对应文件
 

@@ -1,18 +1,22 @@
 /**
  * @author lovelyyoshino
  * @date 2026-06-30
- * @version v1.1.2
+ * @version v1.2.0
  * @last_modified 2026-07-13
  * @changelog
  *   - v1.1.0 (2026-07-13): 第四张截图改为真实属性/XML 编辑状态
  *   - v1.1.1 (2026-07-13): 首图聚焦空画布工作区，避免把无树导出提示当成功状态
  *   - v1.1.2 (2026-07-13): 收紧首图裁剪范围，完整排除空树 XML 提示区
+ *   - v1.2.0 (2026-07-13): 支持临时输出目录，供发布 gate 无损验证截图
  */
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-const screenshotDir = path.resolve(process.cwd(), '../docs/blog/screenshots');
+const screenshotDir = path.resolve(
+  process.cwd(),
+  process.env.BT_SCREENSHOT_DIR ?? '../docs/blog/screenshots',
+);
 
 const manifests = [
   { registration_name: 'Sequence', type: 'Control', ports: [] },

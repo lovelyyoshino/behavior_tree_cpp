@@ -26,13 +26,14 @@
 验证覆盖：
 
 * C++ 配置与构建。
-* ``ctest`` 全量非 ROS 单测。
+* Release ``ctest`` 全量非 ROS 单测，以及 ASan/UBSan ``PluginRuntime`` focused suite。
+* 安装后的 SDK 外部 consumer smoke。
 * ``bt_server`` 真实进程 smoke，覆盖 ``health/nodes/load/export/tick/run/structure``。
 * ROS2 launch Python 语法和 XML 文件解析。
 * Vitest 前端单元测试。
 * React/TypeScript 前端 build。
-* Playwright Chromium E2E。
-* Sphinx HTML 文档构建。
+* mocked Playwright Chromium 连续三轮、真实后端 Playwright 和临时截图/hash gate。
+* Sphinx HTML 与 linkcheck（warning-as-error）。
 
 Vitest 覆盖 XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局和端口控件推断。默认 Playwright 用 mocked API 稳定验证 UI 和 HTTP 500 告警；``npm run test:e2e:live`` 另行连接真实 ``bt_server + libbt_nodes``。完整构建命令见 :doc:`editor_playwright`。
 

@@ -2,7 +2,7 @@
 
 > 当前版本目标：把已有的 C++ 行为树核心、插件节点、HTTP 后端和 Web 编辑器，推进成一个可编辑、可排版、可测试、可读脚本、可一键启动的工程化工具链。
 
-更新时间：2026-07-06
+更新时间：2026-07-13
 
 ---
 
@@ -26,14 +26,14 @@
 | `bt_core` | C++17 行为树核心：节点基类、黑板、端口、工厂、插件加载、树 tick、XML parser、SubTree 展开 | 已形成可用核心 |
 | `bt_nodes` | 25 个内置插件节点：控制、装饰、动作/条件、数据、时间、诊断、函数节点 | 已可给编辑器动态枚举 |
 | `bt_server` | `cpp-httplib` HTTP 服务，`TreeApiService` 承载树状态/API 逻辑；支持 health/nodes/load/validate/format/export/tick/run/structure/trees/open/save | 后端协议已能支撑编辑器核心闭环和 workspace 文件管理 |
-| `bt_editor` | React + TypeScript + React Flow，支持节点面板、拖拽建树、连线约束、属性编辑、XML 导入导出、Tick 上色、Playwright E2E | 已有可视化编辑基础，但缺显式自动排版按钮和 Vitest 单元测试 |
-| `bt_ros2` | 可选 ROS2 wrapper、ROS 数据接入基类、mock rclcpp 单测 | 本机无 ROS2，只能做非 ROS 环境语法/逻辑验证 |
-| `tests` | GoogleTest 覆盖核心、端口、XML、数据节点、ROS base mock、SubTree | C++ 侧覆盖较完整 |
-| `docs` | README、架构文档、API 契约、blog 式说明、Sphinx 文档站 | 已有可查询手册/教程；后续继续补 API 自动化和更多图示 |
+| `bt_editor` | React + TypeScript + React Flow；稳定布局、类型化属性、XML 导入导出、Tick 上色、Vitest 4/13、6 个 mocked Playwright 和 1 个 live-backend 用例 | 编辑与浏览器闭环已验证 |
+| `bt_ros2` | 可选 ROS2 wrapper、35 节点默认注册、八节点 `RechargeTask` 回充树、幂等 start/stop、mock 和 Humble DDS smoke | Humble 回充闭环已验证；Jazzy 未验证 |
+| `tests` | GoogleTest 覆盖核心、严格 XML、数据/ROS mock、SubTree、插件回滚/生命周期；另有安装 consumer 和 HTTP smoke | Release 与 sanitizer gate 已接入统一脚本 |
+| `docs` | 25 节点完整契约、函数手册、ROS2 教程、四张截图、Sphinx HTML/linkcheck | 查询手册与验证说明完整 |
 
 ### 1.2 本次实测证据
 
-在项目根目录 `/Users/pony.ai/Documents/文档/behavior_tree_cpp/behavior_tree_cpp` 执行：
+在项目根目录执行：
 
 ```bash
 cmake --build build
@@ -46,13 +46,13 @@ npx playwright test
 
 结果：
 
-- `cmake --build build` 通过，目标包括 `bt_core`、`bt_nodes`、`bt_server`、examples、5 个测试二进制。
-- `ctest --test-dir build --output-on-failure`：**112/112 passed**。
+- `cmake --build build` 通过，目标包括 `bt_core`、`bt_nodes`、`bt_server`、examples、6 个测试二进制。
+- fresh Release `ctest`：当前配置发现的全部用例 100% 通过；不固化历史总数。
 - `bt_editor/npm run build`：`tsc --noEmit && vite build` 通过。
 - `bt_editor/npm test`：Vitest 4 个测试文件、13 个用例通过，覆盖 XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局算法、端口控件推断。
-- `bt_editor/npx playwright test`：Chromium E2E 通过，mock 当前编辑器 smoke 用到的后端端点，验证浏览器基础闭环。
-- `./scripts/build_docs.sh`：Sphinx HTML 文档构建通过。
-- 临时启动 `bt_server 127.0.0.1 18080 ./build/lib/libbt_nodes.dylib` 后，接口 smoke 通过：
+- mocked Chromium 6/6 连续三轮；live-backend Chromium 1/1；临时截图用例 1/1 且四个 hash 互异。
+- `./scripts/build_docs.sh`：Sphinx HTML 与 linkcheck 均以 warning-as-error 通过。
+- 临时启动 `bt_server` 并加载当前平台的 `libbt_nodes.so` / `libbt_nodes.dylib` 后，接口 smoke 通过：
   - `/api/health` 返回 `ok=true`
   - `/api/nodes` 枚举到 25 个插件节点
   - `/api/tree/load` 加载 3 节点 XML 成功
@@ -66,10 +66,9 @@ npx playwright test
 
 | 缺口 | 影响 | 优先级 |
 |---|---|---|
-| 前端已有 Playwright smoke，但缺 Vitest 单元测试 | XML/连线/布局/端口推断等纯逻辑仍缺快速防回归 | P0 |
-| 编辑器只有导入时的简单自动布局，没有显式“整理布局/排版”功能 | 大树可读性会快速下降 | P1 |
 | 行为脚本仍主要是原始 XML | 兼容性好，但人工阅读和维护体验一般 | P1 |
-| ROS2 未在真实 humble/jazzy 环境验证 | ROS2 侧只能声明待环境验证 | P2 |
+| ROS2 Jazzy 尚未验证 | Humble 已通过，Jazzy 仍需目标环境补跑 | P2 |
+| 缺少 owner 批准的根许可证和真实 maintainer 身份 | 工程可发布不等于取得对外商用分发授权 | Release blocker |
 
 ---
 
@@ -156,7 +155,6 @@ ctest --test-dir build --output-on-failure
 
 ```bash
 cd bt_editor && npm run build
-cd bt_editor && npm run build
 cd bt_editor && npm test
 cd bt_editor && npm run test:e2e
 ```
@@ -189,8 +187,8 @@ Vitest 已覆盖 `xml.ts`、`connection.ts` 和端口控件推断；后续可继
 - [x] 增加 Playwright 文档截图生成入口：
   - `cd bt_editor && npm run screenshots`
   - 生成 `docs/blog/screenshots/01_editor_loaded.png`、`02_sample_tree.png`、`03_tick_colored.png`、`04_tick_highlight_fixed.png`
-  - 默认 E2E/CI 不运行截图 spec，避免普通测试修改图片
-- [x] CI 后续可接 GitHub Actions：macOS/Linux 至少跑 C++ + frontend build。
+  - 发布 CI 把截图写入临时目录；Linux gate 与已提交文档图对比，不修改仓库图片
+- [x] GitHub Actions 已在 macOS/Linux 运行完整 `scripts/test.sh` 非 ROS 发布 gate。
 
 验收证据：
 
@@ -198,7 +196,7 @@ Vitest 已覆盖 `xml.ts`、`connection.ts` 和端口控件推断；后续可继
 ./scripts/test.sh
 ```
 
-输出必须包含 C++、server smoke、前端 unit、前端 build、Playwright 5 个 smoke、Sphinx docs 的通过记录。文档截图刷新用独立命令 `cd bt_editor && npm run screenshots` 验证。
+输出必须包含 Release CTest、sanitizer、安装 consumer、server smoke、前端 unit/build、mocked Playwright 6 个用例连续三轮、live Playwright 1 个用例、临时截图/hash 和 Sphinx HTML/linkcheck。
 
 ### Phase 15 — 行为脚本文档与范例（P1）
 
@@ -214,7 +212,7 @@ Vitest 已覆盖 `xml.ts`、`connection.ts` 和端口控件推断；后续可继
 
 ```bash
 ./scripts/test.sh
-./build/bin/example_load_xml ./build/lib/libbt_nodes.dylib examples/trees/<new-example>.xml
+./build/bin/example_load_xml ./build/lib/libbt_nodes.so examples/trees/<new-example>.xml  # macOS 使用 .dylib
 ```
 
 本阶段已纳入 `./scripts/test.sh`：
@@ -225,19 +223,46 @@ Vitest 已覆盖 `xml.ts`、`connection.ts` 和端口控件推断；后续可继
 
 ### Phase 16 — ROS2 真环境验证（P2）
 
-- [ ] 在 ROS2 humble 或 jazzy 环境执行 `colcon build`。
-- [ ] 跑 `bt_ros2/launch/bt_executor.launch.py` 最小 demo。
-- [ ] 验证 topic 条件/输入/输出节点的端到端行为。
+- [x] 在 ROS2 humble 环境执行 `colcon build`。
+- [x] 跑 `bt_ros2/launch/bt_executor.launch.py` 回充 demo。
+- [x] 验证 topic 条件/输入/输出节点的端到端行为。
 - [x] 把 ROS2 环境验证步骤写入 `bt_ros2/README.md`。
 
 验收证据：
 
 ```bash
-colcon build --packages-select bt_ros2
-ros2 launch bt_ros2 bt_executor.launch.py tree_file:=...
+./scripts/smoke_ros2.sh
 ```
 
-当前机器无 ROS2 环境，因此这项不能在本机声明完成。
+Humble smoke 已覆盖 35 个注册、八节点安装树、幂等 start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。Jazzy 状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
+
+### Phase 17 — SDK、插件生命周期与安装消费（P0）
+
+- [x] `FunctionRegistry` 单例改为跨 DSO 共享实现，插件可调用宿主注册函数。
+- [x] 插件注册异常原子回滚，树可安全晚于工厂析构。
+- [x] 安装 `bt::core` / `bt::nodes`，外部 same-toolchain consumer 可加载安装插件。
+- [x] ASan/UBSan `PluginRuntime` 与安装 smoke 纳入统一发布 gate。
+
+### Phase 18 — 严格 XML 与状态化 ROS2 回充（P0）
+
+- [x] 拒绝叶子子节点、装饰 arity、重复/空树 ID、未知端口和非法 SubTree shape。
+- [x] 所有定义（含未引用定义）都校验，序列化端口按字典序稳定输出。
+- [x] `RechargeTask` 每次尝试只发一条命令，支持 dock 等待、超时、锁存和 halt/retry。
+- [x] Humble 真实 DDS smoke 验证八节点树和幂等 service；Jazzy 保持明确未验证。
+
+### Phase 19 — 手册与浏览器证据（P0）
+
+- [x] Sphinx 25 节点契约、严格 XML 迁移、ROS2 教程和函数手册完成。
+- [x] mocked 浏览器错误路径、真实 `bt_server + libbt_nodes` 流程完成。
+- [x] 四张 mocked 文档图来源如实标注并通过 hash/pixel gate。
+
+### Phase 20 — 发布验证与法律审批（Release）
+
+- [x] 统一非 ROS 发布 gate 在最终提交快照上通过 Release、sanitizer、安装/server、前端/browser/screenshots、Sphinx HTML/linkcheck。
+- [x] 第三方依赖清单和商用发布检查表已建立。
+- [ ] 产品 owner 批准根许可证文本并提交根 `LICENSE`。
+- [ ] 产品 owner 提供真实 copyright/maintainer 名称与联系方式，替换 ROS package placeholder。
+- [ ] 法务/产品 owner 审核第三方 notice bundle 和目标分发方式。
 
 ---
 
@@ -257,8 +282,9 @@ ros2 launch bt_ros2 bt_executor.launch.py tree_file:=...
 
 - 一条命令能启动：`./scripts/dev.sh`
 - 一条命令能验证：`./scripts/test.sh`
-- C++ 单测全绿，当前基线为 112/112。
+- fresh Release CTest 100% 通过，以当前配置输出为准。
 - 前端不只 build 通过，还要有 unit/E2E 覆盖核心编辑流程。
 - 后端接口有自动 smoke 或集成测试。
 - 编辑器能整理布局，导出的行为脚本稳定、可读、可复现。
 - README 对新用户的启动路径不超过 3 步。
+- 对外商用分发前，Phase 20 的三项 owner/legal gate 全部关闭。

@@ -39,3 +39,4 @@ BehaviorTree.CPP-X 是一个插件化、ROS 解耦的 C++17 行为树框架。�
    node_catalog
    api_reference
    testing_matrix
+   commercial_release
