@@ -4,181 +4,245 @@
 bt_nodes
 --------
 
-``bt_nodes`` 是开箱插件库，构建产物在 ``build/lib/libbt_nodes.*``。运行时由 ``NodeFactory::loadPlugin`` 加载。注册入口是 ``bt_nodes/register_nodes.cpp`` 里的 ``BT_REGISTER_NODES``，当前共注册 **25 个内置节点**，按类别归纳如下。
+``bt_nodes`` 是开箱即用的动态插件，构建产物位于 ``build/lib/libbt_nodes.*``，
+由 ``NodeFactory::loadPlugin`` 加载。``bt_nodes/register_nodes.cpp`` 当前注册 25 个
+节点。下表中的端口均为 input；``无`` 表示节点没有端口。XML 片段需要放在
+``<root><BehaviorTree>...</BehaviorTree></root>`` 中运行。
 
-.. list-table::
+.. list-table:: 25 个内置节点完整契约
    :header-rows: 1
-   :widths: 20 8 42 30
+   :widths: 12 9 18 25 20 16
 
-   * - 类别
-     - 数量
-     - 节点
-     - 说明
-   * - Control
-     - 3
-     - ``Sequence``、``Fallback``、``Parallel``
-     - 组织子树流程。
-   * - Decorator
-     - 5
-     - ``Inverter``、``Retry``、``Repeat``、``ForceSuccess``、``ForceFailure``
-     - 包装一个子节点并改写执行策略。
-   * - Action
-     - 3
-     - ``AlwaysSuccess``、``AlwaysFailure``、``PrintMessage``
-     - 示例和调试动作。
-   * - Data
-     - 9
-     - ``SetBlackboard``、``SetBool``、``Counter``、``CompareBlackboard``、``CheckBool``、``CooldownCondition``、``BlackboardExists``、``ClearBlackboard``、``ScalarThreshold``
-     - 黑板读写、比较、计数、节流与存在性判断。
-   * - Timer
-     - 2
-     - ``Delay``、``WaitUntilElapsed``
-     - 基于单调时钟的延时动作与到时条件。
-   * - Diagnostic
-     - 1
-     - ``LogEvent``
-     - 分级诊断日志埋点。
-   * - Function
-     - 2
-     - ``FunctionAction``、``FunctionCondition``
-     - 调用单例注册表里的 C++ 函数。
+   * - 注册名
+     - 类型
+     - 端口（类型=默认）
+     - 状态转换
+     - 失败与边界
+     - 最小 XML / 源码
+   * - ``Sequence``
+     - Control
+     - 无
+     - 空节点成功；子节点成功后推进，运行时保留游标；全部成功后复位并成功。
+     - 任一子节点失败或 tick 后为 ``IDLE`` 时 halt 子树、复位并失败。
+     - ``<Sequence><AlwaysSuccess/></Sequence>``
+
+       ``bt_nodes/control/sequence_node.hpp``
+   * - ``Fallback``
+     - Control
+     - 无
+     - 从当前游标尝试；失败/``IDLE`` 后推进，运行时保留游标；首个成功时 halt、复位并成功。
+     - 空节点或全部候选失败/``IDLE`` 时失败。
+     - ``<Fallback><AlwaysFailure/><AlwaysSuccess/></Fallback>``
+
+       ``bt_nodes/control/fallback_node.hpp``
+   * - ``Parallel``
+     - Control
+     - ``success_count:int=-1``；``failure_count:int=1``
+     - 每拍 tick 未终结子节点；先判断成功阈值，再判断失败阈值或剩余节点已无法满足成功阈值，否则运行。
+     - 空节点成功；``IDLE`` 子节点保持未决。成功与失败阈值同时满足时成功优先。
+     - ``<Parallel success_count="1" failure_count="1"><AlwaysSuccess/><AlwaysFailure/></Parallel>``
+
+       ``bt_nodes/control/parallel_node.hpp``
+   * - ``Inverter``
+     - Decorator
+     - 无
+     - 子节点 ``SUCCESS→FAILURE``、``FAILURE→SUCCESS``、``RUNNING→RUNNING``。
+     - 子节点为 ``IDLE`` 时失败；严格 XML 要求恰好一个子节点。
+     - ``<Inverter><AlwaysFailure/></Inverter>``
+
+       ``bt_nodes/decorator/inverter_node.hpp``
+   * - ``Retry``
+     - Decorator
+     - ``num_attempts:int=1``
+     - 成功时复位并成功；运行时透传；失败后未耗尽则 halt 子节点并运行，耗尽后复位并失败。
+     - 无子节点、``IDLE`` 或尝试耗尽时失败；负数表示无限重试，``0`` 仍执行一次。
+     - ``<Retry num_attempts="3"><AlwaysFailure/></Retry>``
+
+       ``bt_nodes/decorator/retry_node.hpp``
+   * - ``Repeat``
+     - Decorator
+     - ``num_cycles:int=1``
+     - 子节点成功后计数；未达次数则 halt 并运行，达到次数后复位并成功；运行时透传。
+     - 无子节点、失败或 ``IDLE`` 时失败；负数表示无限重复，``0`` 仍执行一次。
+     - ``<Repeat num_cycles="2"><AlwaysSuccess/></Repeat>``
+
+       ``bt_nodes/decorator/repeat_node.hpp``
+   * - ``ForceSuccess``
+     - Decorator
+     - 无
+     - 子节点运行时透传；其他状态转为成功。
+     - 自身不产生失败；严格 XML 仍要求恰好一个子节点。
+     - ``<ForceSuccess><AlwaysFailure/></ForceSuccess>``
+
+       ``bt_nodes/decorator/force_success_node.hpp``
+   * - ``ForceFailure``
+     - Decorator
+     - 无
+     - 子节点运行时透传；其他状态转为失败。
+     - 子节点终结或 ``IDLE`` 时失败；严格 XML 要求恰好一个子节点。
+     - ``<ForceFailure><AlwaysSuccess/></ForceFailure>``
+
+       ``bt_nodes/decorator/force_failure_node.hpp``
+   * - ``AlwaysSuccess``
+     - Condition
+     - 无
+     - 每拍直接成功，永不运行。
+     - 无失败路径。
+     - ``<AlwaysSuccess/>``
+
+       ``bt_nodes/action/always_success_node.hpp``
+   * - ``AlwaysFailure``
+     - Condition
+     - 无
+     - 每拍直接失败，永不运行。
+     - 恒失败。
+     - ``<AlwaysFailure/>``
+
+       ``bt_nodes/action/always_failure_node.hpp``
+   * - ``PrintMessage``
+     - Action
+     - ``message:string="hello bt"``
+     - 输出 ``[PrintMessage] <message>`` 后成功。
+     - 无失败路径。
+     - ``<PrintMessage message="hello"/>``
+
+       ``bt_nodes/action/print_message_node.hpp``
+   * - ``SetBlackboard``
+     - Action
+     - ``value:string=""``；``output_key:string=""``
+     - 把字符串 ``value`` 写入 ``output_key`` 指定的黑板键后成功。
+     - ``output_key`` 为空时失败。
+     - ``<SetBlackboard value="42" output_key="score"/>``
+
+       ``bt_nodes/data/set_blackboard_node.hpp``
+   * - ``CompareBlackboard``
+     - Condition
+     - ``key:string=""``；``op:string="=="``；``value:string=""``
+     - 双方都可转 ``double`` 时数值比较，否则字符串比较；成立成功。
+     - 空 key、键缺失、类型或运算符不支持、比较不成立时失败。运算符：``== != < <= > >=``。
+     - ``<CompareBlackboard key="score" op="&gt;=" value="60"/>``
+
+       ``bt_nodes/data/compare_blackboard_node.hpp``
+   * - ``CheckBool``
+     - Condition
+     - ``key:string=""``；``expected:bool=true``
+     - 读取 bool；字符串仅 ``true``/``1`` 为真，实际值等于期望时成功。
+     - 空 key、键缺失或不等于期望时失败；其他受支持值按假处理。
+     - ``<CheckBool key="is_ready" expected="true"/>``
+
+       ``bt_nodes/data/check_bool_node.hpp``
+   * - ``Counter``
+     - Action
+     - ``key:string=""``；``step:int=1``
+     - 当前值转为数值并截断为 int，加 ``step`` 后写回；缺失或不可解析时从 0 开始。
+     - ``key`` 为空时失败。
+     - ``<Counter key="tick_count" step="1"/>``
+
+       ``bt_nodes/data/counter_node.hpp``
+   * - ``CooldownCondition``
+     - Condition
+     - ``cooldown_ms:int=1000``
+     - 首拍成功并记时；冷却期内失败；到期成功并刷新。``<=0`` 时恒成功。
+     - 唯一正常失败是未到期；普通 halt 不清除内部时间戳。
+     - ``<CooldownCondition cooldown_ms="500"/>``
+
+       ``bt_nodes/data/cooldown_condition_node.hpp``
+   * - ``SetBool``
+     - Action
+     - ``key:string=""``；``value:bool=true``
+     - 把真正的 bool 写入指定黑板键后成功。
+     - ``key`` 为空时失败。
+     - ``<SetBool key="is_ready" value="true"/>``
+
+       ``bt_nodes/data/set_bool_node.hpp``
+   * - ``BlackboardExists``
+     - Condition
+     - ``key:string=""``
+     - 只检查键存在性，不检查类型或值；存在时成功。
+     - 空 key、黑板为空或键不存在时失败。
+     - ``<BlackboardExists key="target_pose"/>``
+
+       ``bt_nodes/data/blackboard_exists_condition_node.hpp``
+   * - ``ClearBlackboard``
+     - Action
+     - ``key:string=""``
+     - 删除指定键；键不存在也幂等成功。
+     - 空 key 或黑板为空时失败。
+     - ``<ClearBlackboard key="target_pose"/>``
+
+       ``bt_nodes/data/clear_blackboard_node.hpp``
+   * - ``ScalarThreshold``
+     - Condition
+     - ``key:string=""``；``op:string=">="``；``value:double=0``
+     - 把黑板值解析为 double 并比较；成立时成功。
+     - 空/缺失 key、值不可解析、类型或运算符不支持、比较不成立时失败。运算符：``> >= < <= == !=``。
+     - ``<ScalarThreshold key="battery_level" op="&lt;" value="0.2"/>``
+
+       ``bt_nodes/data/scalar_threshold_condition_node.hpp``
+   * - ``Delay``
+     - Action
+     - ``delay_ms:int=1000``
+     - 正数时首拍记时并运行，到期成功后复位；``<=0`` 首拍成功。halt 复位计时。
+     - 无失败路径。
+     - ``<Delay delay_ms="500"/>``
+
+       ``bt_nodes/timer/delay_node.hpp``
+   * - ``WaitUntilElapsed``
+     - Condition
+     - ``duration_ms:int=1000``
+     - 首拍记录永久起点；到时前失败，到时后持续成功；``<=0`` 立即且持续成功。
+     - 未到期时失败；普通 halt 不重置内部起点。
+     - ``<WaitUntilElapsed duration_ms="2000"/>``
+
+       ``bt_nodes/timer/wait_until_elapsed_condition_node.hpp``
+   * - ``LogEvent``
+     - Action
+     - ``message:string=""``；``level:string="info"``
+     - 输出 ``[INFO|WARN|ERROR] message``；error 走 stderr，其余走 stdout，随后成功。
+     - 无失败路径；非法或空 level 回退为 info。枚举：``info warn error``。
+     - ``<LogEvent message="battery low" level="warn"/>``
+
+       ``bt_nodes/diagnostic/log_event_node.hpp``
+   * - ``FunctionAction``
+     - Action
+     - ``function:string=""``；``input:string=""``；``output_key:string=""``
+     - 调用单例注册表中的 Action 回调并原样返回其状态，包括 ``RUNNING``。
+     - 空/未知函数或回调失败时失败；回调异常向外传播。
+     - ``<FunctionAction function="robot.start" input="dock"/>``
+
+       ``bt_nodes/function/function_registry.*``
+   * - ``FunctionCondition``
+     - Condition
+     - ``function:string=""``；``input:string=""``；``output_key:string=""``
+     - 调用 Condition 回调；true 映射为成功，false 映射为失败。
+     - 空/未知函数、回调为 false 时失败；回调异常向外传播。
+     - ``<FunctionCondition function="robot.ready"/>``
+
+       ``bt_nodes/function/function_registry.*``
 
 .. note::
 
-   25 = Control 3 + Decorator 5 + Action 3 + Data 9 + Timer 2 + Diagnostic 1 + Function 2。
-
-新增节点端口详解
-~~~~~~~~~~~~~~~~
-
-本轮新增 6 个内置节点（Timer 2 + Diagnostic 1 + Data 3），端口与失败语义以头文件为准。
-
-**Delay** 是异步 Action 节点：从首拍起计时，未到时持续返回 ``RUNNING``，到时返回 ``SUCCESS``。是框架里演示 ``RUNNING`` 语义的关键节点，放入 ``Sequence`` 会阻塞后续节点直到到时；被父节点 halt 时复位计时。时间源为 ``std::chrono::steady_clock``。头文件：``bt_nodes/timer/delay_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 12 12 56
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``delay_ms``
-     - int
-     - ``1000``
-     - 延时时长（毫秒），从首拍起计时；``<=0`` 表示不延时，首拍即 ``SUCCESS``。
-
-失败语义：本节点不产生 ``FAILURE``；只在 ``RUNNING`` 与 ``SUCCESS`` 之间转换。
-
-**WaitUntilElapsed** 是 Condition 节点：节点实例首拍记录起点（只记一次、永不刷新），此后距起点已达 ``duration_ms`` 返回 ``SUCCESS``，否则 ``FAILURE``。表达“自某时刻起已过去至少 N 毫秒”的单调时间条件，区别于 ``CooldownCondition`` 的周期节流。头文件：``bt_nodes/timer/wait_until_elapsed_condition_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 12 12 56
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``duration_ms``
-     - int
-     - ``1000``
-     - 需经过的时长（毫秒），自首拍起计时；``<=0`` 表示立即满足（恒 ``SUCCESS``）。
-
-失败语义：未到时返回 ``FAILURE``（首拍通常为 ``FAILURE``，除非 ``duration_ms<=0``）。
-
-**BlackboardExists** 是 Condition 节点：黑板中存在该 ``key`` 则 ``SUCCESS``，否则 ``FAILURE``。只看键是否存在（``Blackboard::contains``），不关心类型与取值。头文件：``bt_nodes/data/blackboard_exists_condition_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 12 12 56
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``key``
-     - string
-     - ``""``
-     - 要探测存在性的黑板键名。
-
-失败语义：``key`` 为空、键不存在均返回 ``FAILURE``。
-
-**ClearBlackboard** 是 Action 节点：从黑板删除指定 ``key``（``Blackboard::remove``），删除后保证该键不存在。对不存在的键是无害 no-op，因此幂等返回 ``SUCCESS``。头文件：``bt_nodes/data/clear_blackboard_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 12 12 56
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``key``
-     - string
-     - ``""``
-     - 要从黑板删除的键名。
-
-失败语义：``key`` 为空返回 ``FAILURE``（避免静默无效操作）；其余情况恒 ``SUCCESS``。
-
-**LogEvent** 是 Action 节点：把一条带级别前缀 ``[LEVEL] message`` 的诊断消息打印出来，恒返回 ``SUCCESS``。``info``/``warn`` 走 ``std::cout``，``error`` 走 ``std::cerr``；非法或空级别回退为 ``info``。日志是副作用，不改变树的成败走向。头文件：``bt_nodes/diagnostic/log_event_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 12 16 52
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``message``
-     - string
-     - ``""``
-     - 要打印的诊断文本，允许为空。
-   * - ``level``
-     - string（枚举）
-     - ``info``
-     - 日志级别，取值 ``info`` / ``warn`` / ``error``；编辑器渲染为下拉框。
-
-失败语义：无。恒 ``SUCCESS``（需“打印并失败”可与 ``ForceFailure`` 组合）。
-
-**ScalarThreshold** 是 Condition 节点：读黑板 ``key`` 的数值，与 ``value`` 按 ``op`` 比较，成立 ``SUCCESS`` 否则 ``FAILURE``。把“传感器/状态读数”变成“行为树判断”的通用阈值节点；``value`` 是强类型 ``double`` 端口，意图比 ``CompareBlackboard`` 更聚焦数值门控。头文件：``bt_nodes/data/scalar_threshold_condition_node.hpp``。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 14 12 54
-
-   * - 端口
-     - 类型
-     - 默认
-     - 说明
-   * - ``key``
-     - string
-     - ``""``
-     - 要读取的黑板键名（其值应可解析为数值）。
-   * - ``op``
-     - string（枚举）
-     - ``>=``
-     - 运算符，取值 ``>`` / ``>=`` / ``<`` / ``<=`` / ``==`` / ``!=``；编辑器渲染为下拉框。
-   * - ``value``
-     - double
-     - ``0``
-     - 参与比较的阈值（右操作数）。
-
-失败语义：``key`` 为空、键不存在、黑板值无法解析为数值、``op`` 非法均返回 ``FAILURE`` （绝不抛异常打断树）。
+   严格 XML 只接受节点 ``providedPorts()`` 中声明的属性；``name`` 是保留实例名。
+   枚举 metadata 用于编辑器控件，运行时仍由节点实现处理非法值。字面量保存在节点
+   自己的 ``port_values``，只有 ``{key}`` 重映射访问共享黑板。
 
 bt_ros2
 -------
 
-.. list-table::
+ROS2 executor 默认注册 35 种节点：上述 bt_nodes 25 种、ROS topic 2 种、ROS data
+4 种、recharge 4 种。完整清单以 ``bt_ros2/README.md`` 和
+``bt_ros2/src/node_registration.cpp`` 为准。
+
+.. list-table:: ROS2 数据与回充节点
    :header-rows: 1
-   :widths: 30 30 40
+   :widths: 24 30 46
 
    * - 节点
      - 消息类型
      - 作用
    * - ``ReadBattery``
      - ``sensor_msgs/msg/BatteryState``
-     - 把 ``percentage`` 写入黑板。
+     - 把 ``percentage`` 写入黑板；订阅支持 ``qos_profile``。
    * - ``ReadScalar``
      - ``std_msgs/msg/Float64``
      - 把 ``data`` 写入黑板。
@@ -188,13 +252,19 @@ bt_ros2
    * - ``IsObstacleClose``
      - ``sensor_msgs/msg/Range``
      - ``range<threshold`` 时成功。
-   * - ``IsDocked``
-     - ``std_msgs/msg/Bool``
-     - 判断是否完成对接。
-   * - ``PublishRechargeCommand``
-     - ``std_msgs/msg/String``
-     - 发布 ``start_recharge:main_dock`` 命令。
+   * - ``RechargeTask``
+     - ``std_msgs/msg/String`` + ``std_msgs/msg/Bool``
+     - 每次尝试发布一条回充命令，跨 tick 等待 dock，支持超时、终态锁存和 halt/retry。
    * - ``TaskDoneNotifier``
      - ``std_msgs/msg/String``
-     - 发布任务完成消息。
+     - 发布任务完成消息；可用 ``subscriber_wait_timeout_ms`` 等待观察者。
+   * - ``IsDocked``
+     - ``std_msgs/msg/Bool``
+     - 旧 XML 兼容用对接条件。
+   * - ``PublishRechargeCommand``
+     - ``std_msgs/msg/String``
+     - 旧 XML 兼容用一次性发布节点。
 
+打包的 ``bt_ros2/trees/recharge.xml`` 使用完整 ``RechargeTask``，不再用
+``CooldownCondition + PublishRechargeCommand + IsDocked`` 编排。详见
+:doc:`ros2_recharge_tutorial`。

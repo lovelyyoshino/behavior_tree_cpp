@@ -28,7 +28,7 @@
 | ROS2 回充示例树 | `bt_ros2/trees/recharge.xml` |
 | 可运行 XML 示例 | `examples/trees/minimal_sequence_fallback.xml`, `examples/trees/blackboard_data_flow.xml`, `examples/trees/subtree_reuse.xml` |
 | 非 ROS 测试 | `tests/**` |
-| Playwright E2E | `bt_editor/e2e/editor.spec.ts` |
+| Playwright E2E | `bt_editor/e2e/editor.spec.ts`, `live-backend.spec.ts`, `docs-screenshots.spec.ts` |
 
 ## 验证命令
 
@@ -57,4 +57,4 @@ cd bt_editor
 npm run screenshots
 ```
 
-当前机器没有 ROS2 环境，因此 `colcon build`、`ros2 launch`、真实 topic 收发需要在 Humble/Jazzy 环境验证。
+当前机器已用 ROS2 Humble 跑通 `./scripts/smoke_ros2.sh`；无 ROS2 环境的机器仍只运行默认非 ROS gate。

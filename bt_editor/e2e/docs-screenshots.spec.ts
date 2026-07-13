@@ -1,3 +1,13 @@
+/**
+ * @author lovelyyoshino
+ * @date 2026-06-30
+ * @version v1.1.2
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 第四张截图改为真实属性/XML 编辑状态
+ *   - v1.1.1 (2026-07-13): 首图聚焦空画布工作区，避免把无树导出提示当成功状态
+ *   - v1.1.2 (2026-07-13): 收紧首图裁剪范围，完整排除空树 XML 提示区
+ */
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,14 +26,14 @@ const manifests = [
         name: 'num_attempts',
         direction: 'input',
         type_name: 'int',
-        default_value: '2',
+        default_value: '1',
         description: '最大尝试次数',
         enum_values: [],
       },
     ],
   },
-  { registration_name: 'AlwaysSuccess', type: 'Action', ports: [] },
-  { registration_name: 'AlwaysFailure', type: 'Action', ports: [] },
+  { registration_name: 'AlwaysSuccess', type: 'Condition', ports: [] },
+  { registration_name: 'AlwaysFailure', type: 'Condition', ports: [] },
   {
     registration_name: 'PrintMessage',
     type: 'Action',
@@ -32,7 +42,7 @@ const manifests = [
         name: 'message',
         direction: 'input',
         type_name: 'string',
-        default_value: 'hello',
+        default_value: 'hello bt',
         description: '消息',
         enum_values: [],
       },
@@ -63,7 +73,7 @@ async function mockBackend(page: Page) {
   await page.route('**/api/tree/load', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ ok: true, node_count: 6 }),
+      body: JSON.stringify({ ok: true, node_count: 8 }),
     });
   });
 
@@ -96,7 +106,7 @@ test('capture documentation screenshots', async ({ page }) => {
   await expect(page.getByText('后端：')).toContainText('已连接 v0.1.0-docs');
   await page.screenshot({
     path: path.join(screenshotDir, '01_editor_loaded.png'),
-    fullPage: true,
+    clip: { x: 0, y: 0, width: 1200, height: 370 },
   });
 
   await page.getByRole('button', { name: '载入示例' }).first().click();
@@ -113,6 +123,16 @@ test('capture documentation screenshots', async ({ page }) => {
     path: path.join(screenshotDir, '03_tick_colored.png'),
     fullPage: true,
   });
+
+  const printNode = page
+    .locator('[data-testid="bt-node"][data-registration="PrintMessage"]')
+    .first();
+  await printNode.click();
+  await page.getByPlaceholder('可选，XML name 属性').fill('recharge_notice');
+  await page.getByPlaceholder('默认: hello bt').fill('Docking workflow complete');
+  await expect(page.locator('textarea')).toContainText(
+    '<PrintMessage name="recharge_notice" message="Docking workflow complete"/>',
+  );
   await page.screenshot({
     path: path.join(screenshotDir, '04_tick_highlight_fixed.png'),
     fullPage: true,

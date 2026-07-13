@@ -1,3 +1,11 @@
+/**
+ * @author lovelyyoshino
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 对齐真实 manifest 类型并覆盖后端错误提示
+ */
 import { expect, type Page, test } from '@playwright/test';
 
 const manifests = [
@@ -12,14 +20,14 @@ const manifests = [
         name: 'num_attempts',
         direction: 'input',
         type_name: 'int',
-        default_value: '2',
+        default_value: '1',
         description: '最大尝试次数',
         enum_values: [],
       },
     ],
   },
-  { registration_name: 'AlwaysSuccess', type: 'Action', ports: [] },
-  { registration_name: 'AlwaysFailure', type: 'Action', ports: [] },
+  { registration_name: 'AlwaysSuccess', type: 'Condition', ports: [] },
+  { registration_name: 'AlwaysFailure', type: 'Condition', ports: [] },
   {
     registration_name: 'PrintMessage',
     type: 'Action',
@@ -28,7 +36,7 @@ const manifests = [
         name: 'message',
         direction: 'input',
         type_name: 'string',
-        default_value: 'hello',
+        default_value: 'hello bt',
         description: '消息',
         enum_values: [],
       },
@@ -54,7 +62,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/tree/load', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ ok: true, node_count: 6 }),
+      body: JSON.stringify({ ok: true, node_count: 8 }),
     });
   });
 
@@ -92,7 +100,7 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/tree/validate', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ ok: true, node_count: 6 }),
+      body: JSON.stringify({ ok: true, node_count: 8 }),
     });
   });
 
@@ -101,7 +109,7 @@ test.beforeEach(async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify({
         ok: true,
-        node_count: 6,
+        node_count: 8,
         xml: '<root main_tree_to_execute="MainTree"><BehaviorTree ID="MainTree"><AlwaysSuccess/></BehaviorTree></root>',
       }),
     });
@@ -159,7 +167,7 @@ test('loads editor, imports sample tree, and talks to mocked backend', async ({
   await expect(page.getByText('选择分支').first()).toBeVisible();
 
   await page.getByRole('button', { name: '载入到服务器' }).click();
-  await expect(page.getByText('载入成功，节点数：6')).toBeVisible();
+  await expect(page.getByText('载入成功，节点数：8')).toBeVisible();
 
   await page.getByRole('button', { name: /Tick/ }).click();
   await expect(page.getByText('Tick 完成，根状态：SUCCESS')).toBeVisible();
@@ -168,7 +176,7 @@ test('loads editor, imports sample tree, and talks to mocked backend', async ({
   await expect(page.locator('textarea')).toContainText('<Sequence name="巡逻序列">');
 
   await page.getByRole('button', { name: '后端校验' }).click();
-  await expect(page.getByText('XML 校验通过，节点数：6')).toBeVisible();
+  await expect(page.getByText('XML 校验通过，节点数：8')).toBeVisible();
 
   await page.getByRole('button', { name: '后端格式化' }).click();
   await expect(page.locator('textarea')).toContainText('<AlwaysSuccess/>');
@@ -187,11 +195,11 @@ test('adds a palette node and edits instance and port properties in XML preview'
 
   await dragPaletteNode(page, 'PrintMessage');
   await expect(btNode(page, 'PrintMessage')).toBeVisible();
-  await expect(xmlPreview(page)).toContainText('<PrintMessage message="hello"/>');
+  await expect(xmlPreview(page)).toContainText('<PrintMessage message="hello bt"/>');
 
   await btNode(page, 'PrintMessage').click();
   await page.getByPlaceholder('可选，XML name 属性').fill('announce');
-  await page.getByPlaceholder('默认: hello').fill('Watch mode armed');
+  await page.getByPlaceholder('默认: hello bt').fill('Watch mode armed');
 
   await expect(xmlPreview(page)).toContainText(
     '<PrintMessage name="announce" message="Watch mode armed"/>',
@@ -296,4 +304,22 @@ test('imports exported server XML into the editor with structural consistency', 
   await expect(xmlPreview(page)).toContainText(
     '<PrintMessage message="{status_message}"/>',
   );
+});
+
+test('surfaces a backend tick error as an accessible alert', async ({ page }) => {
+  await page.route('**/api/tree/tick', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: false, error: 'tick failed' }),
+    });
+  });
+
+  await loadSample(page);
+  await page.getByRole('button', { name: '载入到服务器' }).click();
+  await expect(page.getByText('载入成功，节点数：8')).toBeVisible();
+  await page.getByRole('button', { name: /Tick/ }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Tick 失败：HTTP 500' }),
+  ).toContainText('Tick 失败：HTTP 500 Internal Server Error @ /api/tree/tick');
 });

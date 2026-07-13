@@ -1,22 +1,40 @@
+/**
+ * @author lovelyyoshino
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 让生产预览也可代理真实 bt_server，供 live E2E 使用
+ */
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-// Vite 配置：开发期把 /api 代理到 bt_server (http://localhost:8080)
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-    proxy: {
-      // 所有 /api 请求转发到本地 bt_server，避免浏览器跨域
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        // 后端路由本身就是 /api/xxx，无需重写路径
-      },
+// 开发服务器与生产预览共用一个代理契约，避免 live E2E 验证到不同拓扑。
+export default defineConfig(() => {
+  const runtime = globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const backendUrl =
+    runtime.process?.env?.BT_BACKEND_URL || 'http://localhost:8080';
+  const apiProxy = {
+    '/api': {
+      target: backendUrl,
+      changeOrigin: true,
     },
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
-  },
+  };
+
+  return {
+    plugins: [react()],
+    server: {
+      port: 5173,
+      proxy: apiProxy,
+    },
+    preview: {
+      proxy: apiProxy,
+    },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.ts'],
+    },
+  };
 });

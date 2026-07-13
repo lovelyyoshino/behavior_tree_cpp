@@ -43,7 +43,9 @@ XML 端口有两种语义：
    <PrintMessage message="hello"/>
    <PrintMessage message="{greeting}"/>
 
-第一行是字面量，第二行表示从黑板 key ``greeting`` 读取。
+第一行是字面量，只保存在当前节点的 ``port_values``；第二行表示从黑板 key
+``greeting`` 读取。严格 XML 会拒绝未声明属性，因此除保留的 ``name`` 外，每个可在
+XML 配置的属性都必须由节点的 ``providedPorts()`` 声明。
 
 常用节点目录
 ------------
@@ -272,4 +274,6 @@ XML：
 * 临时业务逻辑先用 ``FunctionAction`` / ``FunctionCondition``。
 * 高频稳定逻辑沉淀成专用节点类。
 * 跨节点数据统一走黑板，不要用全局变量传状态。
-* 每个新节点至少补一个非 ROS 单测；ROS2 真实 topic 行为放到 Humble/Jazzy 环境验证。
+* ROS2 订阅节点复用 ``topic``、``timeout_ms``、``qos_depth``、``qos_profile``；发布节点还可用 ``subscriber_wait_timeout_ms`` 等观察者。
+* 需要“发一次、跨 tick 等结果、超时、halt/retry”的动作参考 :doc:`ros2_recharge_tutorial` 中的 ``RechargeTask``，不要用 cooldown 拼接两个瞬时节点。
+* 每个新节点至少补一个非 ROS 单测；ROS2 Humble 用 ``./scripts/smoke_ros2.sh`` 验证。Jazzy 状态：unverified: ROS 2 Jazzy is not installed on this machine.

@@ -106,7 +106,7 @@ using namespace bt_core;
 class SayHello : public ActionNode {
  public:
   using ActionNode::ActionNode;
-  static PortsList providedPorts() {                 // ① 声明端口（可选）
+  static PortsList providedPorts() {                 // ① 声明所有 XML 可配置端口
     return makePorts(InputPort<std::string>("message", "hi", "要打印的话"));
   }
   NodeStatus tick() override {                       // ② 实现逻辑
@@ -249,20 +249,23 @@ cd bt_editor && npm install && npm run dev
 # 浏览器打开 http://localhost:5173
 ```
 
-### 7.4 活体运行验证（不是"构建通过"，是真跑起来）
+### 7.4 可重复截图与真实后端验证
 
-下面四张图是真实启动 server + 前端后，在浏览器里实操截下的，对应编辑器的核心闭环：
+下面四张图由 Playwright 固定 viewport 和 mocked API 响应生成，用来提供不会受本机进程、端口和数据波动影响的文档视觉基线。图中 `v0.1.0-docs` 和精简 manifest 是测试夹具，不代表真实 server 清单。
 
-**① 编辑器加载，节点面板从后端动态拉取**（11 个节点按 Control/Decorator/Action/Condition 分组）
+**① 编辑器工作区加载，mocked manifest 分类正确**
 ![编辑器加载](screenshots/01_editor_loaded.png)
 
 **② 载入示例树**（Sequence + Fallback + Inverter + Retry 的 8 节点树，画布渲染 + 连线）
 ![示例树](screenshots/02_sample_tree.png)
 
 **③ Tick 后运行态高亮**（绿=SUCCESS，灰=IDLE/未走到，逐节点对应后端 tick 返回）
-![运行态高亮](screenshots/04_tick_highlight_fixed.png)
+![运行态高亮](screenshots/03_tick_colored.png)
 
-完整闭环都实测通过：节点动态枚举 → 载入示例 → 载入到服务器构建（`node_count:8`）→ Tick 运行态上色 → 从服务器导入还原。
+**④ 选中节点编辑实例名和端口，XML 立即同步**
+![属性与 XML 编辑](screenshots/04_tick_highlight_fixed.png)
+
+截图可以用 `cd bt_editor && npm run screenshots` 重建；脚本会拒绝过小或内容重复的图片。浏览器到真实 C++ 后端的闭环由独立 live 项目验证：先构建 `bt_server` 和 `libbt_nodes`，再显式设置 `BT_SERVER_BIN`、`BT_NODES_PLUGIN` 并运行 `npm run test:e2e:live`。该用例检查 25 个真实 manifest、示例 load/validate/tick 和严格 XML 错误，不把 mocked 图片当作真实后端证据。
 
 > **活体验证抓到的真实 bug（构建测试发现不了）**：Tick 后所有节点一开始都不上色。根因是**编辑器节点 id（`n0,n1...`）和后端节点 id（数字 `1,2...`）是两套独立空间**，前端拿 `n0` 去匹配后端 `1` 永远匹配不上。修复方法是按 **DFS 前序位置**对齐——前端导出 XML、后端构树遍历用的是同一套前序，所以第 i 个节点必然对应。这类 bug 只有真启动浏览器点 Tick 看染色才会暴露，`npm run build` 和 `ctest` 全绿也照样漏。**UI 功能必须做活体运行验证。**
 
@@ -295,7 +298,7 @@ behavior_tree_cpp/
 
 ## 九、怎么扩展一个自己的状态/节点（最常见的需求）
 
-1. 新建一个 `.cpp`，继承 `ActionNode`（或 `ConditionNode`），实现 `tick()` 和可选的 `providedPorts()`。
+1. 新建一个 `.cpp`，继承 `ActionNode`（或 `ConditionNode`），实现 `tick()`；凡是需要出现在 XML 中的属性都在 `providedPorts()` 声明。
 2. 用 `BT_REGISTER_NODES` 注册。
 3. `add_library(SHARED)` 编译成动态库，link `bt::core`。
 4. 启动 server 时把这个 `.dylib` 路径作为参数传入，或在你的程序里 `factory.loadPlugin(path)`。

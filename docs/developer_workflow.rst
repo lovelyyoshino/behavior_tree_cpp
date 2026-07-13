@@ -17,7 +17,7 @@
 2. 声明端口，复用 ``subscriberPorts()`` 或 ``publisherPorts()``。
 3. 在 ``node_registration.cpp`` 里用 ``registerIfMissing`` 注册。
 4. 写 mock rclcpp 单测覆盖端口、黑板和发布输出。
-5. 在 ROS2 Humble/Jazzy 环境补跑 ``colcon build`` 和 ``ros2 launch``。
+5. 在 ROS2 Humble 环境跑 ``./scripts/smoke_ros2.sh``；没有 Jazzy 时明确记录 ``unverified: ROS 2 Jazzy is not installed on this machine.``
 
 新增编辑器能力
 --------------

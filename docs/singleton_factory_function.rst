@@ -53,7 +53,7 @@
      return v < 0.20;
    }
 
-   // 动作：发布回充命令。等价于 ROS2 的 PublishRechargeCommand 节点。
+   // 动作：同步示例中记录回充命令；不等价于等待 dock 的异步 RechargeTask。
    NodeStatus sendRechargeCommandFn(const FunctionContext& ctx) {
      const std::string target =
          ctx.blackboard->get<std::string>("dock_target").value_or("main_dock");
@@ -178,10 +178,12 @@ XML 里没有任何业务类，只有函数名。用 ``Fallback`` 做回充守�
 从示例到真实 ROS2
 -----------------
 
-示例里的 ``pollBatteryFromRos()`` 是唯一“假”的部分。接真实 ROS2 时只替换数据入口，业务函数与 XML 都不动：
+这个示例用于讲解同步函数注册表；它没有模拟真实回充所需的跨 tick 等待、超时和
+halt/retry。接真实 ROS2 时保留黑板判断思路，但把 I/O 边界换成完整节点：
 
 * 把 ``readBattery`` 换成 :doc:`ros2_recharge_tutorial` 里的 ``ReadBattery``（``RosInputNode<BatteryState>``），订阅 ``/battery_state`` 并 ``setOutput`` 到黑板 ``battery_level``。
-* 把 ``sendRechargeCommand`` / ``notifyDone`` 换成 ``PublishRechargeCommand`` / ``TaskDoneNotifier``（``RosOutputNode<String>``）。
+* 把同步 ``sendRechargeCommand`` 换成 :doc:`ros2_recharge_tutorial` 中的 ``RechargeTask``，由它每次尝试发布一次并等待 dock；完成后使用 ``TaskDoneNotifier``。
 * 判断分支可继续用 ``CompareBlackboard`` / ``ScalarThreshold`` / ``FunctionCondition``，因为它们只读黑板 ``battery_level``，与消息类型无关。
 
-这正是“函数引用 + 黑板解耦”的价值：业务逻辑不绑定传输层，本机 mock 与真机 ROS2 共用同一套树。
+这正是“函数引用 + 黑板解耦”的价值：纯判断函数可以跨传输层复用；涉及异步 I/O
+生命周期的动作则由专用状态机节点承接，而不是把同步示例原样搬到机器人上。

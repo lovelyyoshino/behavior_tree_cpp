@@ -34,9 +34,19 @@
 * Playwright Chromium E2E。
 * Sphinx HTML 文档构建。
 
-Vitest 覆盖 XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局和端口控件推断。Playwright 当前是 mocked UI smoke；真实后端协议由同一个脚本里的 server smoke 覆盖。
+Vitest 覆盖 XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局和端口控件推断。默认 Playwright 用 mocked API 稳定验证 UI 和 HTTP 500 告警；``npm run test:e2e:live`` 另行连接真实 ``bt_server + libbt_nodes``。完整构建命令见 :doc:`editor_playwright`。
 
-当前机器没有 ROS2 时，``colcon build``、``ros2 launch`` 和真实 topic 收发会明确跳过；这不是通过声明，而是环境限制说明。
+当前机器没有 ROS2 时，``colcon build``、``ros2 launch`` 和真实 topic 收发会明确跳过；这不是通过声明，而是环境限制说明。有 ROS2 环境时可单独运行：
+
+.. code-block:: bash
+
+   ./scripts/smoke_ros2.sh
+
+或把真实 ROS2 smoke 纳入完整验证：
+
+.. code-block:: bash
+
+   BT_RUN_ROS2_SMOKE=1 ./scripts/test.sh
 
 一键启动编辑器
 --------------
@@ -50,7 +60,7 @@ Vitest 覆盖 XML round-trip、DFS 前序 id、连线规则、导入布局、整
 * 后端：``http://127.0.0.1:8080``
 * 前端：``http://127.0.0.1:5173``
 
-``bt_editor/vite.config.ts`` 默认把 ``/api`` 代理到 ``http://localhost:8080``，所以除非同步改 Vite 配置，否则开发时不要随意改 ``BT_SERVER_PORT``。
+``bt_editor/vite.config.ts`` 默认把 ``/api`` 代理到 ``http://localhost:8080``；如后端使用其他地址，为 dev/preview 设置 ``BT_BACKEND_URL``。
 本地树文件 API 默认限制在 ``examples/trees``；需要换目录时设置 ``BT_TREE_WORKSPACE=/path/to/trees``。
 
 手动启动
