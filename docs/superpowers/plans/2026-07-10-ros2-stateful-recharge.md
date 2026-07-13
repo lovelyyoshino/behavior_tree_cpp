@@ -588,7 +588,7 @@ Expected: 35 registrations, packaged tree flow succeeds from one battery and one
 **Files:**
 - Rewrite: scripts/smoke_ros2.sh
 
-- [ ] **Step 1: Replace fixed choreography with bounded observation helpers**
+- [x] **Step 1: Replace fixed choreography with bounded observation helpers**
 
 The script must:
 
@@ -630,7 +630,7 @@ Define named predicates for:
 - exact log-line counts;
 - launch log registration count 35 and tree node count 8.
 
-- [ ] **Step 2: Encode the exact service and event sequence**
+- [x] **Step 2: Encode the exact service and event sequence**
 
 Launch with:
 
@@ -663,7 +663,7 @@ ros2 topic pub --once --wait-matching-subscriptions 1 +  /dock/is_docked std_msg
 
 Use PYTHONUNBUFFERED=1 ros2 topic echo --field data so grep -cFx assertions operate on stable one-line payloads.
 
-- [ ] **Step 3: Run the real smoke and verify RED**
+- [x] **Step 3: Run the real smoke and verify RED**
 
 Run:
 
