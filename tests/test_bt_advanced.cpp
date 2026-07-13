@@ -4,9 +4,10 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
+//  @version v1.2.0
 //  @last_modified 2026-07-13
 //  @changelog
+//    - v1.2.0 (2026-07-13): 锁定严格 XML 结构、端口诊断与稳定属性顺序
 //    - v1.1.0 (2026-07-13): 覆盖显式 halt 对终态控制/装饰子树的深度复位
 //
 //  覆盖 test_bt_core.cpp 之外的真实行为与边界:
@@ -108,6 +109,19 @@ class WriteAction : public ActionNode {
   }
 };
 
+/// 多端口动作，用于验证 XML 导出属性顺序不依赖 unordered_map 迭代顺序。
+class OrderedPortsAction : public ActionNode {
+ public:
+  using ActionNode::ActionNode;
+  static PortsList providedPorts() {
+    return makePorts(
+        InputPort<std::string>("zeta", "", "末位端口"),
+        InputPort<std::string>("alpha", "", "首位端口"),
+        OutputPort<std::string>("middle", "中间端口"));
+  }
+  NodeStatus tick() override { return NodeStatus::SUCCESS; }
+};
+
 // --- 有状态控制/装饰节点(在基类之上自建, 实现正确的游标语义) ----------------
 
 /// 有状态 Sequence: 子节点 RUNNING 时保留游标, 下一拍从该子节点继续,
@@ -188,6 +202,7 @@ void registerStdNodes(NodeFactory& f) {
   f.registerNodeType<InverterNode>("Inverter");
   f.registerNodeType<ReadMessageAction>("ReadMessageAction");
   f.registerNodeType<WriteAction>("WriteAction");
+  f.registerNodeType<OrderedPortsAction>("OrderedPortsAction");
   f.registerNodeType<AlwaysFailure>("AlwaysFailure");
 }
 
@@ -200,6 +215,17 @@ std::shared_ptr<T> findByName(const Tree& tree, const std::string& name) {
     }
   }
   return nullptr;
+}
+
+/// 执行一次预期失败的解析并返回诊断文本，便于同时锁定异常与上下文。
+std::string parseError(XmlParser& parser, const std::string& xml) {
+  try {
+    parser.loadFromText(xml);
+  } catch (const std::runtime_error& error) {
+    return error.what();
+  }
+  ADD_FAILURE() << "XML 解析本应失败";
+  return {};
 }
 
 }  // namespace
@@ -474,6 +500,31 @@ TEST(XmlRoundTrip, ComplexTreeIsStableAcrossLoadExportLoad) {
   EXPECT_EQ(treeB.tickWhileRunning(), NodeStatus::SUCCESS);
 }
 
+TEST(XmlRoundTrip, ExportSortsPortAttributesByName) {
+  NodeFactory factory;
+  registerStdNodes(factory);
+  XmlParser parser(factory);
+
+  const std::string xml = R"(
+    <root main_tree_to_execute="MainTree">
+      <BehaviorTree ID="MainTree">
+        <OrderedPortsAction zeta="z" middle="{m}" alpha="a"/>
+      </BehaviorTree>
+    </root>
+  )";
+
+  const std::string exported = parser.writeToText(
+      parser.loadFromText(xml), "MainTree");
+  const auto alpha = exported.find("alpha=\"a\"");
+  const auto middle = exported.find("middle=\"{m}\"");
+  const auto zeta = exported.find("zeta=\"z\"");
+  ASSERT_NE(alpha, std::string::npos);
+  ASSERT_NE(middle, std::string::npos);
+  ASSERT_NE(zeta, std::string::npos);
+  EXPECT_LT(alpha, middle);
+  EXPECT_LT(middle, zeta);
+}
+
 // ============================================================================
 //  6. 错误路径
 // ============================================================================
@@ -505,11 +556,15 @@ TEST(ErrorPaths, DecoratorMissingChildThrows) {
   const std::string xml = R"(
     <root main_tree_to_execute="MainTree">
       <BehaviorTree ID="MainTree">
-        <Inverter/>
+        <Inverter name="guard"/>
       </BehaviorTree>
     </root>
   )";
-  EXPECT_THROW(parser.loadFromText(xml), std::runtime_error);
+  const std::string error = parseError(parser, xml);
+  EXPECT_NE(error.find("Inverter"), std::string::npos);
+  EXPECT_NE(error.find("guard"), std::string::npos);
+  EXPECT_NE(error.find("恰好一个子节点"), std::string::npos);
+  EXPECT_NE(error.find("实际为 0"), std::string::npos);
 }
 
 TEST(ErrorPaths, DecoratorMultipleChildrenThrows) {
@@ -519,14 +574,88 @@ TEST(ErrorPaths, DecoratorMultipleChildrenThrows) {
   const std::string xml = R"(
     <root main_tree_to_execute="MainTree">
       <BehaviorTree ID="MainTree">
-        <Inverter>
+        <Inverter name="guard">
           <AlwaysFailure name="a"/>
           <AlwaysFailure name="b"/>
         </Inverter>
       </BehaviorTree>
     </root>
   )";
-  EXPECT_THROW(parser.loadFromText(xml), std::runtime_error);
+  const std::string error = parseError(parser, xml);
+  EXPECT_NE(error.find("Inverter"), std::string::npos);
+  EXPECT_NE(error.find("guard"), std::string::npos);
+  EXPECT_NE(error.find("恰好一个子节点"), std::string::npos);
+  EXPECT_NE(error.find("实际为 2"), std::string::npos);
+}
+
+TEST(ErrorPaths, UnusedBehaviorTreeDefinitionIsStillValidated) {
+  NodeFactory factory;
+  registerStdNodes(factory);
+  XmlParser parser(factory);
+  const std::string error = parseError(parser, R"(
+    <root main_tree_to_execute="MainTree">
+      <BehaviorTree ID="MainTree"><AlwaysFailure/></BehaviorTree>
+      <BehaviorTree ID="BrokenHelper">
+        <AlwaysFailure/>
+        <AlwaysFailure/>
+      </BehaviorTree>
+    </root>
+  )");
+  EXPECT_NE(error.find("BrokenHelper"), std::string::npos);
+  EXPECT_NE(error.find("恰好一个根节点"), std::string::npos);
+}
+
+TEST(ErrorPaths, LeafChildReportsNodeContext) {
+  NodeFactory factory;
+  registerStdNodes(factory);
+  XmlParser parser(factory);
+  const std::string error = parseError(parser, R"(
+    <root main_tree_to_execute="MainTree">
+      <BehaviorTree ID="MainTree">
+        <ReadMessageAction name="reader" message="hello">
+          <AlwaysFailure/>
+        </ReadMessageAction>
+      </BehaviorTree>
+    </root>
+  )");
+  EXPECT_NE(error.find("ReadMessageAction"), std::string::npos);
+  EXPECT_NE(error.find("reader"), std::string::npos);
+  EXPECT_NE(error.find("叶子节点"), std::string::npos);
+  EXPECT_NE(error.find("子节点"), std::string::npos);
+}
+
+TEST(ErrorPaths, MultipleBehaviorTreeRootsReportTreeId) {
+  NodeFactory factory;
+  registerStdNodes(factory);
+  XmlParser parser(factory);
+  const std::string error = parseError(parser, R"(
+    <root main_tree_to_execute="MainTree">
+      <BehaviorTree ID="MainTree">
+        <AlwaysFailure name="first"/>
+        <AlwaysFailure name="second"/>
+      </BehaviorTree>
+    </root>
+  )");
+  EXPECT_NE(error.find("BehaviorTree"), std::string::npos);
+  EXPECT_NE(error.find("MainTree"), std::string::npos);
+  EXPECT_NE(error.find("恰好一个根节点"), std::string::npos);
+}
+
+TEST(ErrorPaths, UnknownPortReportsRegistrationAndInstanceNames) {
+  NodeFactory factory;
+  registerStdNodes(factory);
+  XmlParser parser(factory);
+  const std::string error = parseError(parser, R"(
+    <root main_tree_to_execute="MainTree">
+      <BehaviorTree ID="MainTree">
+        <ReadMessageAction name="reader" messsage="typo"/>
+      </BehaviorTree>
+    </root>
+  )");
+  EXPECT_NE(error.find("ReadMessageAction"), std::string::npos);
+  EXPECT_NE(error.find("reader"), std::string::npos);
+  EXPECT_NE(error.find("messsage"), std::string::npos);
+  EXPECT_NE(error.find("未声明端口"), std::string::npos);
 }
 
 TEST(ErrorPaths, DecoratorSetChildTwiceThrowsLogicError) {
