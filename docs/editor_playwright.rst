@@ -128,5 +128,5 @@ retry-pass 仍然失败；每一轮使用独立输出目录，HTML 报告、trac
 不会静默切到其他端口并误测另一进程。
 
 Vitest 负责 XML round-trip、DFS id、连线规则、导入/整理布局和端口控件推断；
-``scripts/smoke_server.sh`` 负责更宽的 HTTP API 错误契约；Playwright 负责真实浏览器交互。
-三者互补，不能用其中一项代替另外两项。
+统一发布 gate 中的 server API 集成阶段负责更宽的 HTTP 错误契约；Playwright 负责真实
+浏览器交互。三层验证互补，不能用其中一项代替另外两项。

@@ -14,6 +14,7 @@
 8. [ROS2 数据接口契约](design/ROS2_DATA_INTERFACE.md)：订阅/发布基类和新鲜度逻辑。
 9. [工程笔记](blog/README.md)：更完整的项目 walkthrough。
 10. [商用发布检查表](COMMERCIAL_RELEASE_CHECKLIST.md)：区分工程 gate 与 owner/legal gate。
+11. [GitHub Pages 发布说明](pages_deployment.rst)：静态站点产物、Environment 分支规则和部署故障处理。
 
 ## 关键能力对应文件
 
@@ -49,7 +50,7 @@
 ./scripts/build_pages.sh
 ```
 
-只上传 `docs/_build/pages/` 目录内的内容；详细包含/排除规则见 [GitHub Pages 发布说明](GITHUB_PAGES.md)。
+只上传 `docs/_build/pages/` 目录内的内容；详细包含/排除规则见 [GitHub Pages 发布说明](pages_deployment.rst)。
 
 刷新文档截图：
 
@@ -58,4 +59,5 @@ cd bt_editor
 npm run screenshots
 ```
 
-当前机器已用 ROS2 Humble 跑通 `./scripts/smoke_ros2.sh`；无 ROS2 环境的机器仍只运行默认非 ROS gate。
+当前机器已按回充教程跑通 ROS2 Humble 的构建、launch、service 和单次 topic 事件闭环；
+无 ROS2 环境的机器只运行默认非 ROS gate，并明确保留环境限制说明。

@@ -39,8 +39,8 @@ ROS2 回充教程
      - 建树、周期 tick、根状态、幂等 start/stop service。
    * - ``bt_ros2/trees/recharge.xml``
      - 本教程使用的八节点行为树。
-   * - ``scripts/smoke_ros2.sh``
-     - 隔离构建和真实 DDS 图验证。
+   * - :doc:`testing_matrix`
+     - 汇总非 ROS gate 与真实 DDS 验收边界。
 
 消息如何进入黑板
 ----------------
@@ -241,14 +241,9 @@ RechargeTask 状态机
    cmake --build build --target test_ros_bases --parallel
    ./build/bin/test_ros_bases
 
-真实 ROS2 Humble smoke：
-
-.. code-block:: bash
-
-   source /opt/ros/humble/setup.bash
-   ROS_DOMAIN_ID=173 BT_ROS2_SMOKE_ROOT="$(mktemp -d)" ./scripts/smoke_ros2.sh
-
-smoke 验证 35 个注册、8 节点安装树、幂等 start/stop、各一条
-battery/command/dock/notifier 和最终 ``SUCCESS``。
+真实 ROS2 Humble 验收使用本页“启动执行器与观察者”和“只发布一次事件”的可复制命令。
+验收范围是 35 个注册、8 节点安装树、幂等 start/stop、各一条
+battery/command/dock/notifier 和最终 ``SUCCESS``。需要隔离并行 ROS 图时，在各终端设置
+同一个未占用的 ``ROS_DOMAIN_ID``。
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**

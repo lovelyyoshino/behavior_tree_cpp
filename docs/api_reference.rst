@@ -78,6 +78,6 @@ HTTP
 
    ./scripts/bootstrap.sh
    ./scripts/dev.sh
-   ./scripts/smoke_server.sh
    ./scripts/build_docs.sh
+   ./scripts/build_pages.sh
    ./scripts/test.sh

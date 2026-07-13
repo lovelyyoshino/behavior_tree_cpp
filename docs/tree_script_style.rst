@@ -96,4 +96,4 @@ Linux 下插件路径通常是 ``./build/lib/libbt_nodes.so``。
 
 ``bt_server`` 的 ``/api/tree/format`` 和 ``/api/tree/export`` 都走 ``bt_core::XmlParser::writeToText``。验收标准是同一棵树多次 format 输出完全一致，且 ``load -> export -> load -> export`` 不改变 DFS 顺序、实例名、字面量端口和 ``{blackboard_key}`` 重映射。
 
-``./scripts/test.sh`` 会运行新增示例，并在 server smoke 中检查 formatter 幂等。
+``./scripts/test.sh`` 会运行新增示例，并在真实 server API 集成阶段检查 formatter 幂等。

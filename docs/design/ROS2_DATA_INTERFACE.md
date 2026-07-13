@@ -1,8 +1,8 @@
 # ROS2 数据接入接口契约（已验证，文档/测试 agent 必读）
 
 > bt_ros2 新增的"在状态里接收 ROS2 数据"可复用接口。默认 gate 用 mock rclcpp
-> 验证模板形状 + 分派逻辑；ROS2 Humble 环境用 `scripts/smoke_ros2.sh` 验证
-> colcon build、launch 和真实 topic pub/echo。
+> 验证模板形状 + 分派逻辑；ROS2 Humble 环境按回充教程验证 colcon build、launch
+> 和真实 topic pub/echo。
 
 ## 新增文件
 - `bt_ros2/include/bt_ros2/data_freshness.hpp` — **ROS-free 纯逻辑**，数据新鲜度判定，本机可单测
@@ -102,6 +102,6 @@ static PortsList providedPorts() {
 3. RosInputNode：onData 写黑板 + SUCCESS
 4. providedPorts 合并订阅公共端口（含 `qos_profile`）+ 自定义阈值读取
 5. `RechargeTask` 七端口、单次发布、dock 成功、超时、成功优先、终态锁存、halt/retry 和端点复用
-6. ROS2 Humble smoke：35 个注册、8 节点安装树、幂等 start/stop、单次 battery/command/dock/notifier、最终 `SUCCESS`
+6. ROS2 Humble 端到端验证：35 个注册、8 节点安装树、幂等 start/stop、单次 battery/command/dock/notifier、最终 `SUCCESS`
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**

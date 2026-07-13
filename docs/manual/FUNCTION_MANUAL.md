@@ -221,4 +221,4 @@ XML：
 2. 高频且稳定的逻辑再沉淀成专用节点类，声明端口和文档。
 3. ROS2 输入统一继承 `RosInputNode<MsgT>`，先把消息字段写黑板，再用普通数据节点判断。
 4. 一拍即完成的通知节点继承 `RosOutputNode<MsgT>`；需要“发一次、跨 tick 等结果、超时、halt/retry”的完整动作应实现为 `ActionNode` 状态机，可参考 `RechargeTask`。
-5. 每个新节点至少补一个非 ROS 单测；真实 ROS2 topic 行为在 Humble 跑 `./scripts/smoke_ros2.sh`。Jazzy 状态必须如实记录：unverified: ROS 2 Jazzy is not installed on this machine.
+5. 每个新节点至少补一个非 ROS 单测；真实 ROS2 topic 行为在 Humble 按回充教程验证。Jazzy 状态必须如实记录：unverified: ROS 2 Jazzy is not installed on this machine.

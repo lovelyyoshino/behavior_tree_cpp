@@ -101,4 +101,4 @@ Linux 下插件路径通常是 `./build/lib/libbt_nodes.so`。
 - `load -> export -> load -> export` 不应改变节点 DFS 顺序、实例名、字面量端口和 `{blackboard_key}` 重映射。
 - 编辑器导出同一父节点的子节点时，按画布从左到右的稳定顺序输出。
 
-`./scripts/test.sh` 会运行新增示例并在 server smoke 中检查 formatter 幂等。
+`./scripts/test.sh` 会运行新增示例并在真实 server API 集成阶段检查 formatter 幂等。

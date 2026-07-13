@@ -276,4 +276,4 @@ XML：
 * 跨节点数据统一走黑板，不要用全局变量传状态。
 * ROS2 订阅节点复用 ``topic``、``timeout_ms``、``qos_depth``、``qos_profile``；发布节点还可用 ``subscriber_wait_timeout_ms`` 等观察者。
 * 需要“发一次、跨 tick 等结果、超时、halt/retry”的动作参考 :doc:`ros2_recharge_tutorial` 中的 ``RechargeTask``，不要用 cooldown 拼接两个瞬时节点。
-* 每个新节点至少补一个非 ROS 单测；ROS2 Humble 用 ``./scripts/smoke_ros2.sh`` 验证。Jazzy 状态：unverified: ROS 2 Jazzy is not installed on this machine.
+* 每个新节点至少补一个非 ROS 单测；ROS2 Humble 按 :doc:`ros2_recharge_tutorial` 验证真实消息闭环。Jazzy 状态：unverified: ROS 2 Jazzy is not installed on this machine.

@@ -2,13 +2,16 @@
 
 一个插件化、ROS 解耦的 C++17 行为树框架，包含内置节点插件、HTTP 后端、React 可视化编辑器和可选 ROS2 wrapper。
 
-## 在线文档站
+## 文档站
 
-完整文档已发布到 GitHub Pages：**<https://lovelyyoshino.github.io/behavior_tree_cpp/>**
+GitHub Pages 目标地址：**<https://lovelyyoshino.github.io/behavior_tree_cpp/>**
 
 - `main` 分支维护源码与文档源（`docs/*.rst`）。
-- HTML 站点由 GitHub Pages 从 `docs/_build/pages` 发布（`gh-pages` 分支 / `Settings -> Pages` 选 GitHub Actions），源码不直接作为发布产物。详见 [GitHub Pages 发布说明](docs/GITHUB_PAGES.md)。
+- HTML 站点由 GitHub Actions 从 `docs/_build/pages` 发布；`Settings -> Pages` 的 Source 选择 `GitHub Actions`，且 `github-pages` Environment 必须允许 `main` 部署。源码和 `gh-pages` 分支都不是当前自动发布源。详见 [GitHub Pages 发布说明](docs/pages_deployment.rst)。
 - 本地预览：`./scripts/build_docs.sh && open docs/_build/html/index.html`。
+
+如果目标地址尚未更新，而 Pages workflow 的构建阶段已经成功，请先修复
+`github-pages` Environment 的分支规则，再重跑失败的部署 job；这不是文档构建失败。
 
 站点包含 25 个内置节点的完整契约、函数注册表手册、严格 XML 迁移说明、真实/模拟 Playwright 验证，以及基于状态化 `RechargeTask` 的 ROS2 回充教程。
 
@@ -81,48 +84,34 @@ npm run dev
 - Release 全量 CTest、五棵 XML 示例和函数注册表示例。
 - ASan/UBSan 下的 `PluginRuntime` 回滚与跨工厂生命周期测试。
 - 安装后的 SDK 外部 consumer，以及真实 `bt_server` 正/负 HTTP 契约。
-- ROS2 launch 语法与包/树 XML；真实 Humble smoke 通过 `BT_RUN_ROS2_SMOKE=1` 追加。
+- ROS2 launch 语法与包/树 XML；真实 Humble 数据流按下方回充教程验收。
 - Vitest、生产前端 build、已提交截图 hash、桌面/平板/手机 mocked Chromium 连续三次、真实后端 Chromium、临时目录截图生成/hash。
 - Sphinx HTML 和 linkcheck，二者均把 warning 当 error。
 
 发布 gate 不允许 `BT_SKIP_E2E=1`，避免把浏览器缺口误报为完整通过。
-
-也可以单独运行后端接口 smoke：
-
-```bash
-./scripts/smoke_server.sh
-```
-
-单独运行 ROS2 回充真机 smoke：
-
-```bash
-./scripts/smoke_ros2.sh
-```
 
 默认 Playwright 用 mocked API 验证浏览器主流程、离线恢复、manifest 重试、编辑生命周期、HTTP 500 告警和 1280/768/390 宽度下的可达性；触控视口可点击节点条目创建节点，不依赖 HTML5 drag。live 项目把生产 preview 代理到本次 Release 构建的 `bt_server + libbt_nodes`，验证 25 个真实 manifest、load/validate/tick、清空后导回、Run 和严格 XML 错误。
 
 预期成功标记包括：
 
 - fresh Release CTest 显示 100% 通过；以本次配置输出为准，不固化历史总数。
-- server smoke 输出 `negative API contracts ok` 和 `server smoke passed`（`/api/nodes` 枚举到 25 个内置节点）。
+- 真实 server API 的成功/错误契约全部通过，`/api/nodes` 枚举到 25 个内置节点。
 - Vitest 输出 `4 passed` / `13 passed`。
 - 前端 `npm run build` 通过。
 - mocked Chromium 每轮 `14 passed`，连续三轮；live-backend Chromium `1 passed`。
 - 临时截图用例 `1 passed`，四张 PNG 的签名、尺寸和 SHA-256 通过；Linux gate 还要求与已提交文档图逐字节一致。
 - CI 中任何 retry-pass 都按 flaky 失败；HTML 报告、trace、失败截图和临时文档截图作为矩阵平台 artifact 保留 14 天。
 - Sphinx 输出 HTML built 和 `linkcheck passed`。
-- 无 ROS2 环境时输出明确跳过真实 `colcon/ros2 launch`；ROS2 smoke 通过时输出 `[ros2-smoke] result: SUCCESS`。
+- 无 ROS2 环境时明确记录未运行真实 `colcon/ros2 launch`，不把环境缺失当作通过。
 
 常用环境变量：
 
 - `BT_BUILD_DIR=/path/to/build`：切换 C++ 构建目录。
 - `BT_BUILD_CONFIG=Release`：多配置生成器的配置名；发布 gate 只接受 `Release`。
 - `BT_SANITIZER_BUILD_DIR=/path/to/build-asan`：切换 ASan/UBSan 专用构建目录。
-- `BT_SERVER_PORT=18080`：切换 server smoke 端口；开发编辑器用 `BT_BACKEND_URL=http://127.0.0.1:18080 npm run dev` 对齐代理。
+- `BT_BACKEND_URL=http://127.0.0.1:18080`：让编辑器 dev/preview 代理到指定后端。
 - `BT_E2E_REUSE_SERVER=1`：仅手工调试时允许复用 4173 上的 preview；发布 gate 始终设为 `0`。
 - `BT_TREE_WORKSPACE=/path/to/trees`：限制 `/api/trees`、`/api/tree/open`、`/api/tree/save` 的读写目录，默认 `examples/trees`。
-- `BT_RUN_ROS2_SMOKE=1`：在 ROS2 环境中把 `scripts/smoke_ros2.sh` 纳入 `scripts/test.sh`。
-- `BT_ROS2_SMOKE_ROOT=/path/to/empty-dir`：指定保留的空工作目录；未设置时脚本创建 `/tmp/bt_ros2_smoke.*`，结束后保留并打印证据目录。
 
 本地文档站：
 
@@ -137,7 +126,7 @@ open docs/_build/html/index.html
 ./scripts/build_pages.sh
 ```
 
-上传 `docs/_build/pages/` 目录内的内容即可。该目录会自动包含 `.nojekyll`，并排除 Sphinx 构建缓存、源码副本和 inventory 文件。详细说明见 [GitHub Pages 发布说明](docs/GITHUB_PAGES.md)。
+上传 `docs/_build/pages/` 目录内的内容即可。该目录会自动包含 `.nojekyll`，并排除 Sphinx 构建缓存、源码副本和 inventory 文件。详细说明见 [GitHub Pages 发布说明](docs/pages_deployment.rst)。
 
 刷新文档截图：
 
@@ -174,13 +163,11 @@ ros2 launch bt_ros2 bt_executor.launch.py \
 
 请按 [observer-first 完整教程](docs/tutorial/ROS2_RECHARGE_TUTORIAL.md) 先启动 command/notifier/status 观察者，再调用 `/bt_executor/start`，并各发布一条 battery 和 dock 消息。
 
-当前已在 ROS2 Humble 环境验证：
-
-```bash
-./scripts/smoke_ros2.sh
-```
-
-该脚本会隔离执行 `colcon build --packages-select bt_ros2`，启动 `bt_executor.launch.py` 加载 `bt_ros2/trees/recharge.xml`，发布 `/battery_state` 低电量消息并断言 `/robot/command` 收到 `start_recharge:main_dock`，随后发布 `/dock/is_docked=true` 并断言 `/bt/task_done` 收到 `task_done:recharge`。
+当前已在 ROS2 Humble 环境按教程完成端到端验证：构建 `bt_ros2`、启动
+`bt_executor.launch.py`、加载 `recharge.xml`，发布一条低电量消息并确认
+`/robot/command` 收到 `start_recharge:main_dock`，再发布 `dock=true` 并确认
+`/bt/task_done` 收到 `task_done:recharge`。可复制命令全部集中在
+[ROS2 回充教程](docs/tutorial/ROS2_RECHARGE_TUTORIAL.md)。
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
 

@@ -183,11 +183,8 @@ cmake --build build --target test_ros_bases --parallel
 
 mock gate 覆盖 QoS、发布者等待、`RechargeTask` 的七端口、单次发布、dock 成功、超时、成功优先、终态锁存、halt/retry 和 endpoint 复用。
 
-```bash
-source /opt/ros/humble/setup.bash
-ROS_DOMAIN_ID=173 BT_ROS2_SMOKE_ROOT="$(mktemp -d)" ./scripts/smoke_ros2.sh
-```
-
-Humble smoke 覆盖 35 个注册、8 节点安装树、幂等 start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。
+真实 Humble 验收直接使用第 5、6 节的可复制命令，覆盖 35 个注册、8 节点安装树、幂等
+start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。需要隔离并行 ROS 图时，
+在各终端设置同一个未占用的 `ROS_DOMAIN_ID`。
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
