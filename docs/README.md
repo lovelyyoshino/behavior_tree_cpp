@@ -29,7 +29,7 @@
 | ROS2 回充示例树 | `bt_ros2/trees/recharge.xml` |
 | 可运行 XML 示例 | `examples/trees/minimal_sequence_fallback.xml`, `examples/trees/blackboard_data_flow.xml`, `examples/trees/subtree_reuse.xml` |
 | 非 ROS 测试 | `tests/**` |
-| Playwright E2E | `bt_editor/e2e/editor.spec.ts`, `live-backend.spec.ts`, `docs-screenshots.spec.ts` |
+| Playwright E2E | `bt_editor/e2e/editor.spec.ts`, `responsive.spec.ts`, `live-backend.spec.ts`, `docs-screenshots.spec.ts` |
 
 ## 验证命令
 

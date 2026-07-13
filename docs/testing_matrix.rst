@@ -37,14 +37,17 @@ Windows 使用 WSL。原生 PowerShell/CMD 未验证。
      - XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局算法、端口控件推断。
      - 全绿。
    * - ``cd bt_editor && npx playwright test --project=chromium`` （连续三轮）
-     - mocked 编辑器闭环，含 XML 预览、后端校验/格式化、Run、布局、状态上色和 HTTP 500 可访问告警。
-     - 每轮 6/6，三轮均通过。
+     - mocked 编辑器闭环，含 XML、Run、状态上色、离线/manifest 恢复、删除/重置/清空，以及 1280/768/390 响应式和触控添加。
+     - 每轮 14/14，三轮均通过；CI retry-pass 仍按 flaky 失败。
    * - ``cd bt_editor && BT_SERVER_BIN=... BT_NODES_PLUGIN=... npm run test:e2e:live``
-     - 生产 preview 代理到真实 ``bt_server + libbt_nodes``，验证 25 manifest、load/validate/tick 和严格 XML 错误。
+     - 生产 preview 代理到真实 ``bt_server + libbt_nodes``，验证 25 manifest、load/validate/tick、清空后导回、Run 和严格 XML 错误。
      - 1/1；调用方显式提供刚构建的 Release 产物。
    * - 临时目录 ``docs-screenshots.spec.ts`` + ``screenshots:check``
      - 固定 mocked 状态生成四张临时图片，验证 PNG/IHDR/尺寸和 SHA-256；Linux canonical gate 还会逐字节对比已提交文档图。
      - capture 1/1；四张非空、互异图片，Linux reference 一致。
+   * - GitHub Actions ``playwright-*`` artifact
+     - mocked 三轮、live、截图用例的独立 HTML 报告、trace、失败截图和生成图。
+     - 成功或失败均上传并保留 14 天；无诊断文件时给出 warning。
    * - ``./scripts/build_docs.sh``
      - Sphinx toctree、RST 语法、图片路径、literalinclude。
      - HTML 与 linkcheck 均通过，warning 视为 error。

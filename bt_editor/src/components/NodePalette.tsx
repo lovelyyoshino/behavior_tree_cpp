@@ -1,5 +1,12 @@
 /**
- * 节点面板 NodePalette
+ * NodePalette.tsx — 可拖拽、可点击的节点清单
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 增加触控和键盘可用的点击添加入口
  *
  * 启动时由父组件从 GET /api/nodes 拉取的 manifest 渲染。
  * 按节点大类(Control/Decorator/Action/Condition)分组，每个条目可拖拽到画布。
@@ -19,6 +26,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   onReload: () => void;
+  onAdd: (manifest: NodeManifest) => void;
 }
 
 /** 分组顺序固定，保证面板布局稳定 */
@@ -27,7 +35,7 @@ const GROUP_ORDER: NodeKind[] = ['Control', 'Decorator', 'Action', 'Condition'];
 /** 分组配色复用全局主题色，避免与画布节点配色漂移 */
 const GROUP_COLORS = KIND_COLORS;
 
-export function NodePalette({ manifests, loading, error, onReload }: Props) {
+export function NodePalette({ manifests, loading, error, onReload, onAdd }: Props) {
   // 按大类分组
   const grouped: Record<NodeKind, NodeManifest[]> = {
     Control: [],
@@ -49,13 +57,12 @@ export function NodePalette({ manifests, loading, error, onReload }: Props) {
 
   return (
     <aside
+      className="bt-node-palette"
       style={{
-        width: 240,
         borderRight: '1px solid #e5e7eb',
         background: '#fafafa',
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
       }}
     >
       <div
@@ -98,14 +105,20 @@ export function NodePalette({ manifests, loading, error, onReload }: Props) {
                   {group}（{items.length}）
                 </div>
                 {items.map((m) => (
-                  <div
+                  <button
                     key={m.registration_name}
+                    type="button"
                     draggable
                     onDragStart={(e) => handleDragStart(e, m.registration_name)}
+                    onClick={() => onAdd(m)}
+                    aria-label={`添加 ${m.registration_name} 节点`}
                     title={m.ports
                       .map((p) => `${p.name}(${p.direction}): ${p.description}`)
+                      .concat('点击添加；桌面端也可拖到画布')
                       .join('\n')}
                     style={{
+                      width: '100%',
+                      textAlign: 'left',
                       padding: '6px 8px',
                       marginBottom: 4,
                       background: '#fff',
@@ -114,6 +127,9 @@ export function NodePalette({ manifests, loading, error, onReload }: Props) {
                       borderRadius: 6,
                       cursor: 'grab',
                       fontSize: 13,
+                      color: 'inherit',
+                      fontFamily: 'inherit',
+                      touchAction: 'manipulation',
                     }}
                   >
                     {m.registration_name}
@@ -122,7 +138,7 @@ export function NodePalette({ manifests, loading, error, onReload }: Props) {
                         · {m.ports.length} 端口
                       </span>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             );

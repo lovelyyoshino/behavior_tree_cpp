@@ -82,7 +82,7 @@ npm run dev
 - ASan/UBSan 下的 `PluginRuntime` 回滚与跨工厂生命周期测试。
 - 安装后的 SDK 外部 consumer，以及真实 `bt_server` 正/负 HTTP 契约。
 - ROS2 launch 语法与包/树 XML；真实 Humble smoke 通过 `BT_RUN_ROS2_SMOKE=1` 追加。
-- Vitest、生产前端 build、已提交截图 hash、mocked Chromium 连续三次、真实后端 Chromium、临时目录截图生成/hash。
+- Vitest、生产前端 build、已提交截图 hash、桌面/平板/手机 mocked Chromium 连续三次、真实后端 Chromium、临时目录截图生成/hash。
 - Sphinx HTML 和 linkcheck，二者均把 warning 当 error。
 
 发布 gate 不允许 `BT_SKIP_E2E=1`，避免把浏览器缺口误报为完整通过。
@@ -99,7 +99,7 @@ npm run dev
 ./scripts/smoke_ros2.sh
 ```
 
-默认 Playwright 用 mocked API 稳定验证浏览器交互和 HTTP 500 告警；live 项目把生产 preview 代理到本次 Release 构建的 `bt_server + libbt_nodes`，验证 25 个真实 manifest、load/validate/tick 和严格 XML 错误。
+默认 Playwright 用 mocked API 验证浏览器主流程、离线恢复、manifest 重试、编辑生命周期、HTTP 500 告警和 1280/768/390 宽度下的可达性；触控视口可点击节点条目创建节点，不依赖 HTML5 drag。live 项目把生产 preview 代理到本次 Release 构建的 `bt_server + libbt_nodes`，验证 25 个真实 manifest、load/validate/tick、清空后导回、Run 和严格 XML 错误。
 
 预期成功标记包括：
 
@@ -107,8 +107,9 @@ npm run dev
 - server smoke 输出 `negative API contracts ok` 和 `server smoke passed`（`/api/nodes` 枚举到 25 个内置节点）。
 - Vitest 输出 `4 passed` / `13 passed`。
 - 前端 `npm run build` 通过。
-- mocked Chromium 每轮 `6 passed`，连续三轮；live-backend Chromium `1 passed`。
+- mocked Chromium 每轮 `14 passed`，连续三轮；live-backend Chromium `1 passed`。
 - 临时截图用例 `1 passed`，四张 PNG 的签名、尺寸和 SHA-256 通过；Linux gate 还要求与已提交文档图逐字节一致。
+- CI 中任何 retry-pass 都按 flaky 失败；HTML 报告、trace、失败截图和临时文档截图作为矩阵平台 artifact 保留 14 天。
 - Sphinx 输出 HTML built 和 `linkcheck passed`。
 - 无 ROS2 环境时输出明确跳过真实 `colcon/ros2 launch`；ROS2 smoke 通过时输出 `[ros2-smoke] result: SUCCESS`。
 

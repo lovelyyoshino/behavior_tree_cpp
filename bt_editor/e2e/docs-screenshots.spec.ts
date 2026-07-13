@@ -1,9 +1,10 @@
 /**
  * @author lovelyyoshino
  * @date 2026-06-30
- * @version v1.2.0
+ * @version v1.3.0
  * @last_modified 2026-07-13
  * @changelog
+ *   - v1.3.0 (2026-07-13): 文档视口断言辅助浮层不再遮挡节点
  *   - v1.1.0 (2026-07-13): 第四张截图改为真实属性/XML 编辑状态
  *   - v1.1.1 (2026-07-13): 首图聚焦空画布工作区，避免把无树导出提示当成功状态
  *   - v1.1.2 (2026-07-13): 收紧首图裁剪范围，完整排除空树 XML 提示区
@@ -115,6 +116,8 @@ test('capture documentation screenshots', async ({ page }) => {
 
   await page.getByRole('button', { name: '载入示例' }).first().click();
   await expect(page.getByText('巡逻序列').first()).toBeVisible();
+  await expect(page.locator('.react-flow__minimap')).toBeHidden();
+  await expect(page.locator('.bt-canvas-legend')).toBeHidden();
   await page.screenshot({
     path: path.join(screenshotDir, '02_sample_tree.png'),
     fullPage: true,

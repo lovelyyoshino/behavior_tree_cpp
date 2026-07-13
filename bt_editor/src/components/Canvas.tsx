@@ -1,5 +1,12 @@
 /**
- * 画布 Canvas
+ * Canvas.tsx — React Flow 行为树画布
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 标记响应式画布和可折叠浮层
  *
  * 基于 React Flow，负责：
  * - 渲染节点与连线
@@ -118,7 +125,8 @@ function CanvasInner({
     <div
       ref={wrapperRef}
       data-testid="bt-canvas"
-      style={{ flex: 1, height: '100%', position: 'relative' }}
+      className="bt-editor-canvas"
+      style={{ position: 'relative' }}
     >
       <ReactFlow
         nodes={nodes as Node<BtNodeData>[]}
@@ -138,7 +146,7 @@ function CanvasInner({
         <Controls />
         <MiniMap pannable zoomable />
         {/* 运行态图例固定在右上角 */}
-        <Panel position="top-right">
+        <Panel className="bt-canvas-legend" position="top-right">
           <Legend />
         </Panel>
       </ReactFlow>

@@ -1,21 +1,22 @@
 /**
  * @author lovelyyoshino
  * @date 2026-07-13
- * @version v1.0.1
+ * @version v1.1.0
  * @last_modified 2026-07-13
  * @changelog
+ *   - v1.1.0 (2026-07-13): 增加真实 load-clear-import-run 闭环并把截图纳入用例产物
  *   - v1.0.0 (2026-07-13): 覆盖生产预览到真实 bt_server 的完整编辑闭环
  *   - v1.0.1 (2026-07-13): 锁定真实插件的节点分类与默认端口契约
  */
 import { expect, test } from '@playwright/test';
 
-test('real backend loads, validates, ticks, and rejects an undeclared port', async ({
+test('real backend completes a load-import-run round trip and rejects an undeclared port', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto('/');
 
   await expect(page.getByText('后端：')).toContainText('已连接 v0.1.0');
-  await expect(page.getByText('节点面板')).toBeVisible();
+  await expect(page.getByText('节点面板', { exact: true })).toBeVisible();
   await expect(page.locator('[draggable="true"]')).toHaveCount(25);
 
   const manifestResponse = await page.request.get('/api/nodes');
@@ -53,6 +54,19 @@ test('real backend loads, validates, ticks, and rejects an undeclared port', asy
     page.locator('[data-testid="bt-node"][data-status="SUCCESS"]').first(),
   ).toBeVisible();
 
+  await page.getByRole('button', { name: '清空' }).click();
+  await expect(page.getByTestId('bt-node')).toHaveCount(0);
+  await page.getByRole('button', { name: '从服务器导入' }).click();
+  await expect(page.getByText('已从服务器导入 8 个节点')).toBeVisible();
+  await expect(page.getByTestId('bt-node')).toHaveCount(8);
+  await expect(page.locator('textarea')).toContainText('<Sequence name="巡逻序列">');
+
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.getByText(/Run 完成：SUCCESS/).first()).toBeVisible();
+  await expect(
+    page.locator('[data-testid="bt-node"][data-status="SUCCESS"]').first(),
+  ).toBeVisible();
+
   const invalid = await page.request.post('/api/tree/validate', {
     data: {
       xml: [
@@ -73,7 +87,7 @@ test('real backend loads, validates, ticks, and rejects an undeclared port', asy
   expect(body.error).toContain('未声明端口');
 
   await page.screenshot({
-    path: 'test-results/live-backend-final.png',
+    path: testInfo.outputPath('live-backend-final.png'),
     fullPage: true,
   });
 });

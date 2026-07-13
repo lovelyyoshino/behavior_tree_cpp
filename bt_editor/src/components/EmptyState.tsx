@@ -1,5 +1,12 @@
 /**
- * 空状态引导 EmptyState
+ * EmptyState.tsx — 空画布的无障碍上手入口
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 文案覆盖点击添加和桌面拖放两条路径
  *
  * 画布没有任何节点时覆盖在画布上方，引导用户两条上手路径：
  * - 从左侧节点面板拖入节点
@@ -36,9 +43,9 @@ export function EmptyState({ onLoadSample }: Props) {
         画布还是空的
       </div>
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-        从左侧面板<strong>拖入节点</strong>开始搭建，
+        从节点面板<strong>点击添加</strong>开始搭建，
         <br />
-        或点击下方按钮载入一棵示例树。
+        桌面端也可拖放，或直接载入一棵示例树。
       </div>
       <button
         onClick={onLoadSample}

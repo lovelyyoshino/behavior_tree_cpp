@@ -1,5 +1,12 @@
 /**
- * 顶层组件 App
+ * App.tsx — 编辑器顶层状态与交互编排
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 增加窄屏布局入口和无需拖拽的节点创建路径
  *
  * 统一持有画布状态(nodes/edges)、节点 manifest、选中节点、后端健康状态，
  * 并把导入/导出/Tick/载入示例等动作串起来。子组件全部受控。
@@ -53,6 +60,30 @@ function nextNodeId(): string {
 }
 
 let toastIdSeq = 0;
+
+/** 按 manifest 构造节点，点击添加与画布拖放必须共享同一端口默认值契约。 */
+function createNodeFromManifest(
+  manifest: NodeManifest,
+  position: { x: number; y: number },
+): BtNode {
+  const portValues: Record<string, string> = {};
+  for (const port of manifest.ports) {
+    portValues[port.name] = port.default_value ?? '';
+  }
+  return {
+    id: nextNodeId(),
+    type: 'btNode',
+    position,
+    data: {
+      registrationName: manifest.registration_name,
+      kind: manifest.type,
+      instanceName: '',
+      portValues,
+      portManifests: manifest.ports,
+      runStatus: 'IDLE',
+    },
+  };
+}
 
 export default function App() {
   // 画布数据
@@ -176,29 +207,22 @@ export default function App() {
   // -------------------------------------------------------------------------
   const onCreateNode = useCallback(
     (manifest: NodeManifest, position: { x: number; y: number }) => {
-      // 端口值初始化为默认值
-      const portValues: Record<string, string> = {};
-      for (const p of manifest.ports) {
-        portValues[p.name] = p.default_value ?? '';
-      }
-      const data: BtNodeData = {
-        registrationName: manifest.registration_name,
-        kind: manifest.type,
-        instanceName: '',
-        portValues,
-        portManifests: manifest.ports,
-        runStatus: 'IDLE',
-      };
-      const newNode: BtNode = {
-        id: nextNodeId(),
-        type: 'btNode',
-        position,
-        data,
-      };
-      setNodes((nds) => [...nds, newNode]);
+      setNodes((current) => [...current, createNodeFromManifest(manifest, position)]);
     },
     [],
   );
+
+  /** 触控设备无法可靠使用 HTML5 drag，点击时把节点放到可预测的网格位置。 */
+  const onAddNode = useCallback((manifest: NodeManifest) => {
+    setNodes((current) => {
+      const index = current.length;
+      const position = {
+        x: 80 + (index % 3) * 200,
+        y: 80 + Math.floor(index / 3) * 130,
+      };
+      return [...current, createNodeFromManifest(manifest, position)];
+    });
+  }, []);
 
   useEffect(() => {
     setServerFormattedXml(null);
@@ -465,7 +489,7 @@ export default function App() {
   }, [preview, pushToast]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div className="bt-editor-app">
       <Toolbar
         health={health}
         healthChecking={healthChecking}
@@ -480,12 +504,13 @@ export default function App() {
         onClear={onClear}
         onRecheckHealth={() => void recheckHealth(true)}
       />
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+      <div className="bt-editor-workspace">
         <NodePalette
           manifests={manifests}
           loading={paletteLoading}
           error={paletteError}
           onReload={() => void reloadNodes()}
+          onAdd={onAddNode}
         />
         <Canvas
           nodes={nodes}

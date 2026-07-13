@@ -13,9 +13,9 @@
    * - 路径
      - 后端
      - 用途
-   * - 默认 ``editor.spec.ts``
+   * - 默认 ``editor.spec.ts`` + ``responsive.spec.ts``
      - Playwright route mock
-     - 稳定覆盖 UI 全流程和 HTTP 500 错误提示，不依赖 C++ 进程。
+     - 稳定覆盖 UI 全流程、恢复/错误路径和桌面/窄屏几何，不依赖 C++ 进程。
    * - opt-in ``live-backend.spec.ts``
      - 真实 ``bt_server`` + ``libbt_nodes``
      - 覆盖生产 Vite preview 代理、25 个真实 manifest、严格 XML、load/validate/tick。
@@ -39,6 +39,10 @@
 * 节点拖拽、父子连线、层级布局和 DFS 前序状态映射。
 * 实例名/端口编辑后 XML 预览同步。
 * ``/api/tree/tick`` 返回 HTTP 500 时，通过 ``role=alert`` 呈现可访问错误信息。
+* 后端离线时保留本地编辑，手工重连后恢复后端按钮；manifest 拉取失败后可刷新恢复。
+* Tick 上色后重置为 IDLE、删除连线节点、清空并回到空状态的完整生命周期。
+* 1280×720、768×1024、390×844 下无横向溢出、画布不坍缩、工具栏不越界，
+  React Flow 浮层不遮挡节点；触控视口可点击节点条目直接添加。
 
 运行：
 
@@ -68,14 +72,17 @@
 
 live 用例会断言真实 manifest 恰好 25 个、``AlwaysSuccess`` / ``AlwaysFailure`` 是
 Condition、``PrintMessage.message`` 默认 ``hello bt``，然后执行示例 load、validate、
-tick。最后直接请求严格校验接口，确认 ``messsage`` 这类未声明属性返回 HTTP 400 和
-带节点上下文的错误。
+tick。它再清空浏览器画布，从 server 导回八节点树并执行 Run，证明生产 preview、编辑器
+状态和真实 C++ 树形成闭环。最后直接请求严格校验接口，确认 ``messsage`` 这类未声明属性
+返回 HTTP 400 和带节点上下文的错误。
 
 截图资料
 --------
 
 以下四张图片由固定 viewport、固定 mocked API 响应生成，目的不是冒充真实 server，
 而是提供稳定、可重现的文档视觉基线。真实后端闭环由上一节的独立 live 用例证明。
+1200 像素文档画布会隐藏 MiniMap/运行态浮层，避免辅助浮层遮挡可编辑节点；1280、768、
+390 像素的几何回归由 ``responsive.spec.ts`` 单独证明。
 
 .. image:: blog/screenshots/01_editor_loaded.png
    :alt: 编辑器和分类正确的 mocked 节点面板加载完成
@@ -112,7 +119,13 @@ tick。最后直接请求严格校验接口，确认 ``messsage`` 这类未声�
 .. code-block:: bash
 
    cd bt_editor
+   npm run build
    for run in 1 2 3; do npx playwright test --project=chromium || exit 1; done
+
+当前默认集合每轮 14 个用例。CI 允许 retry 仅用于收集诊断，但 ``failOnFlakyTests`` 会让
+retry-pass 仍然失败；每一轮使用独立输出目录，HTML 报告、trace、失败截图和生成的文档图
+由 GitHub Actions 保留 14 天。preview 使用 ``--strictPort``，4173 被占用时立即失败，
+不会静默切到其他端口并误测另一进程。
 
 Vitest 负责 XML round-trip、DFS id、连线规则、导入/整理布局和端口控件推断；
 ``scripts/smoke_server.sh`` 负责更宽的 HTTP API 错误契约；Playwright 负责真实浏览器交互。

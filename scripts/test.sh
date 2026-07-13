@@ -4,9 +4,10 @@
 #
 # @author pony
 # @date 2026-07-06
-# @version v2.1.0
+# @version v2.2.0
 # @last_modified 2026-07-13
 # @changelog
+#   - v2.2.0 (2026-07-13): 分轮保留 Playwright 报告、trace 与 CI 文档截图证据
 #   - v2.1.0 (2026-07-13): 锁定前端依赖，并让 Linux gate 对比临时截图与已提交文档基准
 #   - v2.0.1 (2026-07-13): 将默认 sanitizer 构建放入已忽略的主构建目录
 #   - v2.0.0 (2026-07-13): 增加 Release 产物解析、sanitizer、live E2E、临时截图与 linkcheck
@@ -198,21 +199,33 @@ npm run screenshots:check
 echo "[test] run mocked Playwright three consecutive times"
 for run in 1 2 3; do
   echo "[test] mocked Playwright run $run/3"
-  BT_E2E_REUSE_SERVER=0 npx playwright test --project=chromium
+  BT_E2E_REUSE_SERVER=0 \
+  BT_PLAYWRIGHT_OUTPUT_DIR="test-results/mocked-$run" \
+  BT_PLAYWRIGHT_REPORT_DIR="playwright-report/mocked-$run" \
+    npx playwright test --project=chromium
 done
 
 echo "[test] run live Playwright against just-built release artifacts"
 BT_SERVER_BIN="$SERVER_BIN" \
 BT_NODES_PLUGIN="$PLUGIN" \
 BT_TREE_WORKSPACE="$REPO_ROOT/examples/trees" \
+BT_PLAYWRIGHT_OUTPUT_DIR="test-results/live-backend" \
+BT_PLAYWRIGHT_REPORT_DIR="playwright-report/live-backend" \
   npm run test:e2e:live
 
 echo "[test] generate and validate screenshots in a temporary directory"
-SCREENSHOT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/btx-screenshots.XXXXXX")"
-TEMP_DIRS+=("$SCREENSHOT_DIR")
+if [[ -n "${CI:-}" ]]; then
+  SCREENSHOT_DIR="$REPO_ROOT/bt_editor/test-results/documentation-screenshots"
+  mkdir -p "$SCREENSHOT_DIR"
+else
+  SCREENSHOT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/btx-screenshots.XXXXXX")"
+  TEMP_DIRS+=("$SCREENSHOT_DIR")
+fi
 BT_UPDATE_SCREENSHOTS=1 \
 BT_SCREENSHOT_DIR="$SCREENSHOT_DIR" \
 BT_E2E_REUSE_SERVER=0 \
+BT_PLAYWRIGHT_OUTPUT_DIR="test-results/docs-screenshots" \
+BT_PLAYWRIGHT_REPORT_DIR="playwright-report/docs-screenshots" \
   npx playwright test e2e/docs-screenshots.spec.ts --project=chromium
 BT_SCREENSHOT_DIR="$SCREENSHOT_DIR" npm run screenshots:check
 if [[ "$(uname -s)" == "Linux" ]]; then

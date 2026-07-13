@@ -1,3 +1,13 @@
+/**
+ * XmlPreviewPanel.tsx — XML 实时预览、复制、校验和格式化入口
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 预览工具条支持窄屏换行
+ */
 interface Props {
   xml: string;
   error: string | null;
@@ -22,8 +32,8 @@ export function XmlPreviewPanel({
   const disabled = busy || !connected || Boolean(error);
   return (
     <section
+      className="bt-xml-preview"
       style={{
-        height: 220,
         borderTop: '1px solid #e5e7eb',
         background: '#0f172a',
         color: '#e5e7eb',
@@ -32,8 +42,8 @@ export function XmlPreviewPanel({
       }}
     >
       <div
+        className="bt-xml-toolbar"
         style={{
-          height: 42,
           display: 'flex',
           alignItems: 'center',
           gap: 8,
@@ -50,7 +60,7 @@ export function XmlPreviewPanel({
             {lastRunSummary}
           </span>
         )}
-        <span style={{ flex: 1 }} />
+        <span className="bt-xml-spacer" style={{ flex: 1 }} />
         <button type="button" disabled={Boolean(error)} onClick={onCopy}>
           复制
         </button>

@@ -1,9 +1,10 @@
 /**
  * @author lovelyyoshino
  * @date 2026-06-30
- * @version v1.1.0
+ * @version v1.2.0
  * @last_modified 2026-07-13
  * @changelog
+ *   - v1.2.0 (2026-07-13): 覆盖离线恢复、节点面板重试和编辑生命周期
  *   - v1.1.0 (2026-07-13): 对齐真实 manifest 类型并覆盖后端错误提示
  */
 import { expect, type Page, test } from '@playwright/test';
@@ -46,6 +47,7 @@ const manifests = [
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/health', async (route) => {
+    expect(route.request().method()).toBe('GET');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ ok: true, version: '0.1.0-test' }),
@@ -53,6 +55,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/nodes', async (route) => {
+    expect(route.request().method()).toBe('GET');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify(manifests),
@@ -60,6 +63,9 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/tree/load', async (route) => {
+    expect(route.request().method()).toBe('POST');
+    const body = route.request().postDataJSON() as { xml: string };
+    expect(body.xml).toContain('<root main_tree_to_execute="MainTree">');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ ok: true, node_count: 8 }),
@@ -67,6 +73,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/tree/tick', async (route) => {
+    expect(route.request().method()).toBe('POST');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -84,6 +91,7 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/tree/run', async (route) => {
+    expect(route.request().method()).toBe('POST');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -98,6 +106,9 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/tree/validate', async (route) => {
+    expect(route.request().method()).toBe('POST');
+    const body = route.request().postDataJSON() as { xml: string };
+    expect(body.xml).toContain('<root main_tree_to_execute="MainTree">');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ ok: true, node_count: 8 }),
@@ -105,6 +116,9 @@ test.beforeEach(async ({ page }) => {
   });
 
   await page.route('**/api/tree/format', async (route) => {
+    expect(route.request().method()).toBe('POST');
+    const body = route.request().postDataJSON() as { xml: string };
+    expect(body.xml).toContain('<root main_tree_to_execute="MainTree">');
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -158,7 +172,7 @@ test('loads editor, imports sample tree, and talks to mocked backend', async ({
   await page.goto('/');
 
   await expect(page.getByText('BT Editor')).toBeVisible();
-  await expect(page.getByText('节点面板')).toBeVisible();
+  await expect(page.getByText('节点面板', { exact: true })).toBeVisible();
   await expect(page.getByText('Sequence').first()).toBeVisible();
   await expect(page.getByText('后端：')).toContainText('已连接 v0.1.0-test');
 
@@ -322,4 +336,87 @@ test('surfaces a backend tick error as an accessible alert', async ({ page }) =>
   await expect(
     page.getByRole('alert').filter({ hasText: 'Tick 失败：HTTP 500' }),
   ).toContainText('Tick 失败：HTTP 500 Internal Server Error @ /api/tree/tick');
+});
+
+test('keeps local editing available offline and restores backend controls after reconnect', async ({
+  page,
+}) => {
+  let backendOnline = false;
+  await page.route('**/api/health', async (route) => {
+    if (!backendOnline) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'offline' }),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, version: '0.1.0-recovered' }),
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.getByRole('status')).toContainText('后端未连接');
+  await expect(page.getByRole('button', { name: '载入到服务器' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Tick/ })).toBeDisabled();
+
+  await page.getByRole('button', { name: '载入示例' }).first().click();
+  await expect(page.getByText('巡逻序列').first()).toBeVisible();
+
+  backendOnline = true;
+  await page.getByRole('button', { name: '重新检测' }).click();
+  await expect(page.getByText('后端：')).toContainText('已连接 v0.1.0-recovered');
+  await expect(page.getByRole('button', { name: '载入到服务器' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /Tick/ })).toBeEnabled();
+});
+
+test('recovers the palette after a failed manifest request', async ({ page }) => {
+  let manifestsAvailable = false;
+  await page.route('**/api/nodes', async (route) => {
+    if (!manifestsAvailable) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'manifest unavailable' }),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(manifests),
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.getByText(/加载失败：HTTP 503/)).toBeVisible();
+  await expect(page.locator('[draggable="true"]')).toHaveCount(0);
+
+  manifestsAvailable = true;
+  await page.getByRole('button', { name: '刷新' }).click();
+  await expect(page.locator('[draggable="true"]')).toHaveCount(manifests.length);
+  await expect(page.getByText('PrintMessage').first()).toBeVisible();
+});
+
+test('resets status, deletes a connected node, and clears the editor lifecycle', async ({
+  page,
+}) => {
+  await loadSample(page);
+  await page.getByRole('button', { name: /Tick/ }).click();
+  await expect(page.locator('[data-testid="bt-node"][data-status="SUCCESS"]')).not.toHaveCount(0);
+
+  await page.getByRole('button', { name: '重置运行态' }).click();
+  await expect(page.locator('[data-testid="bt-node"][data-status="IDLE"]')).toHaveCount(8);
+
+  await btNode(page, 'PrintMessage').first().click();
+  await page.getByRole('button', { name: '删除该节点' }).click();
+  await expect(btNode(page, 'PrintMessage')).toHaveCount(1);
+  await expect(xmlPreview(page)).not.toContainText('message="开始巡逻"');
+
+  await page.getByRole('button', { name: '清空' }).click();
+  await expect(page.getByTestId('bt-node')).toHaveCount(0);
+  await expect(page.getByText('画布还是空的')).toBeVisible();
+  await expect(page.getByText('在画布上选中一个节点以编辑其属性。')).toBeVisible();
+  await expect(page.getByRole('button', { name: '复制' })).toBeDisabled();
 });

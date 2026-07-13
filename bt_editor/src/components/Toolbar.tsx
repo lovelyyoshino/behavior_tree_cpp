@@ -1,5 +1,12 @@
 /**
- * 顶部工具栏 Toolbar
+ * Toolbar.tsx — 编辑器全局操作和后端健康状态
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 工具栏改为可换行的响应式结构
  *
  * 集中放置全局操作按钮：
  * - 载入示例：用内置示例 XML 填充画布（无需后端）
@@ -68,6 +75,7 @@ export function Toolbar({
 
   return (
     <header
+      className="bt-toolbar"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -76,8 +84,8 @@ export function Toolbar({
       }}
     >
       <div
+        className="bt-toolbar-row"
         style={{
-          height: 48,
           display: 'flex',
           alignItems: 'center',
           gap: 8,
@@ -147,6 +155,7 @@ export function Toolbar({
 
         {/* 右侧健康状态 */}
         <span
+          className="bt-toolbar-health"
           style={{
             marginLeft: 'auto',
             display: 'flex',

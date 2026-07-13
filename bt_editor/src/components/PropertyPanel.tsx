@@ -1,5 +1,12 @@
 /**
- * 属性面板 PropertyPanel
+ * PropertyPanel.tsx — 选中节点的实例名和端口编辑器
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.1.0
+ * @last_modified 2026-07-13
+ * @changelog
+ *   - v1.1.0 (2026-07-13): 接入窄屏纵向工作区布局
  *
  * 选中某个节点后，展示并允许编辑：
  * - 实例名(name 属性)
@@ -229,11 +236,10 @@ export function PropertyPanel({
 }: Props) {
   return (
     <aside
+      className="bt-property-panel"
       style={{
-        width: 280,
         borderLeft: '1px solid #e5e7eb',
         background: '#fafafa',
-        height: '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
