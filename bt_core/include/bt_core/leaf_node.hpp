@@ -2,6 +2,13 @@
 //  bt_core/leaf_node.hpp
 //  叶子节点 —— 没有子节点的“执行单元”。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): ActionNode halt 完成后清除待复位标记
+//
 //  设计说明：
 //    LeafNode 是行为树的“实际干活的地方”，分两类：
 //      - ActionNode    : 执行具体动作，可返回 RUNNING(异步动作，跨多拍完成)。
@@ -61,6 +68,7 @@ public:
 
   void halt() override {
     onHalted();
+    markHalted();
     setStatus(NodeStatus::IDLE);
   }
 };

@@ -3,6 +3,16 @@
 //  bt_ros2 订阅/发布可复用基类的单元测试 —— 用 tests/mock_rclcpp 让本机零
 //  ROS2 环境也能跑回归。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.3
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.3 (2026-07-13): 锁定连续重拍无副作用与显式 halt 后第二轮执行边界
+//    - v1.1.2 (2026-07-13): 覆盖整树终态 halt 后的第二轮回充与通知
+//    - v1.1.1 (2026-07-13): 增加终态重拍不重复发布的回归断言
+//    - v1.1.0 (2026-07-13): 锁定有界订阅匹配、超时降级与 halt 复位语义
+//
 //  覆盖目标:
 //    - RosConditionNode<MsgT>     (从 ROS topic 拿数据当条件)
 //    - RosInputNode<MsgT>         (从 ROS topic 录入黑板)
@@ -358,10 +368,55 @@ TEST_F(RosBasesTest, OutputNodeThrowsOnMissingTopic) {
 
 TEST_F(RosBasesTest, OutputNodeMergesCustomPorts) {
   auto ports = TaskDone::providedPorts();
-  EXPECT_EQ(ports.size(), 3u);  // topic / qos_depth / task_name
+  EXPECT_EQ(ports.size(), 4u);
   EXPECT_TRUE(ports.count("topic"));
   EXPECT_TRUE(ports.count("qos_depth"));
+  EXPECT_TRUE(ports.count("subscriber_wait_timeout_ms"));
   EXPECT_TRUE(ports.count("task_name"));
+}
+
+TEST_F(RosBasesTest, OutputNodeWaitsForConfiguredSubscriberMatch) {
+  auto cfg = makeCfg(bb, {{"topic", "/done"},
+                          {"task_name", "patrol"},
+                          {"subscriber_wait_timeout_ms", "1000"}});
+  TaskDone n("n", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<StringMsg>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  EXPECT_TRUE(pub->published.empty());
+
+  pub->subscription_count = 1;
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(pub->published.front().data, "task_done:patrol");
+
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  EXPECT_EQ(pub->published.size(), 1u);
+}
+
+TEST_F(RosBasesTest, OutputNodeWaitTimeoutPublishesAndHaltRestartsWait) {
+  auto cfg = makeCfg(bb, {{"topic", "/done"},
+                          {"task_name", "patrol"},
+                          {"subscriber_wait_timeout_ms", "1"}});
+  TaskDone n("n", cfg);
+
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  n.halt();
+  EXPECT_EQ(n.tick(), NodeStatus::RUNNING);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  auto pub =
+      std::static_pointer_cast<rclcpp::Publisher<StringMsg>>(
+          node.last_publisher_);
+  ASSERT_NE(pub, nullptr);
+  ASSERT_EQ(pub->published.size(), 1u);
+  EXPECT_EQ(n.tick(), NodeStatus::SUCCESS);
+  EXPECT_EQ(pub->published.size(), 1u);
 }
 
 // ─────────────────────────────── Recharge Flow ─────────────────────────────
@@ -420,6 +475,7 @@ TEST_F(RosBasesTest, RechargeCommandAndDoneNotifierExposeManualPorts) {
   auto done_ports = bt_ros2::TaskDoneNotifier::providedPorts();
   EXPECT_TRUE(done_ports.count("topic"));
   EXPECT_TRUE(done_ports.count("qos_depth"));
+  EXPECT_TRUE(done_ports.count("subscriber_wait_timeout_ms"));
   EXPECT_TRUE(done_ports.count("task_name"));
 }
 
@@ -503,12 +559,34 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogLoadsPackagedRechargeTree) {
   auto docked = std::make_shared<std_msgs::msg::Bool>();
   docked->data = true;
   node.deliver("/dock/is_docked", &docked);
-  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
 
   auto done = node.publisher<std_msgs::msg::String>("/bt/task_done");
   ASSERT_NE(done, nullptr);
+  EXPECT_TRUE(done->published.empty());
+  done->subscription_count = 1;
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
   ASSERT_EQ(done->published.size(), 1u);
   EXPECT_EQ(done->published.front().data, "task_done:recharge");
+
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+  EXPECT_EQ(command->published.size(), 1u);
+  EXPECT_EQ(done->published.size(), 1u);
+
+  tree.halt();
+  auto next_battery = std::make_shared<sensor_msgs::msg::BatteryState>();
+  next_battery->percentage = 0.17F;
+  node.deliver("/battery_state", &next_battery);
+
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::RUNNING);
+  ASSERT_EQ(command->published.size(), 2u);
+  EXPECT_EQ(done->published.size(), 1u);
+
+  auto next_docked = std::make_shared<std_msgs::msg::Bool>();
+  next_docked->data = true;
+  node.deliver("/dock/is_docked", &next_docked);
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+  ASSERT_EQ(done->published.size(), 2u);
 }
 
 // ───────────────────── example_data_nodes.hpp 逐节点覆盖 ─────────────────────

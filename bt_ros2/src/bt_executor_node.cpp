@@ -1,10 +1,18 @@
 // ============================================================================
 //  bt_ros2/src/bt_executor_node.cpp
 //  BtExecutorNode 的实现。
+//
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 实现幂等服务控制与终态树显式复位
 // ============================================================================
 #include "bt_ros2/bt_executor_node.hpp"
 
 #include <chrono>
+#include <functional>
 #include <stdexcept>
 
 #include "bt_ros2/node_registration.hpp"
@@ -28,6 +36,15 @@ BtExecutorNode::BtExecutorNode(const rclcpp::NodeOptions& options)
   status_pub_ = create_publisher<std_msgs::msg::String>(status_topic_, 10);
 
   loadTree();
+
+  start_service_ = create_service<Trigger>(
+      "~/start",
+      std::bind(&BtExecutorNode::handleStart, this,
+                std::placeholders::_1, std::placeholders::_2));
+  stop_service_ = create_service<Trigger>(
+      "~/stop",
+      std::bind(&BtExecutorNode::handleStop, this,
+                std::placeholders::_1, std::placeholders::_2));
 
   if (autostart_) {
     start();
@@ -124,6 +141,24 @@ void BtExecutorNode::onTick() {
       timer_.reset();
     }
   }
+}
+
+void BtExecutorNode::handleStart(
+    const std::shared_ptr<Trigger::Request>,
+    std::shared_ptr<Trigger::Response> response) {
+  const bool was_running = static_cast<bool>(timer_);
+  start();
+  response->success = true;
+  response->message = was_running ? "already running" : "started";
+}
+
+void BtExecutorNode::handleStop(
+    const std::shared_ptr<Trigger::Request>,
+    std::shared_ptr<Trigger::Response> response) {
+  const bool was_running = static_cast<bool>(timer_);
+  stop();
+  response->success = true;
+  response->message = was_running ? "stopped" : "already stopped";
 }
 
 }  // namespace bt_ros2

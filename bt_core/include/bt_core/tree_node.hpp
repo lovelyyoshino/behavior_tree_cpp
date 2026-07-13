@@ -2,6 +2,13 @@
 //  bt_core/tree_node.hpp
 //  TreeNode —— 所有行为树节点的抽象基类。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 跟踪已执行但尚未显式 halt 的节点，支持幂等深度复位
+//
 //  设计说明：
 //    一切节点(控制/装饰/动作/条件)都继承自 TreeNode。它定义了节点的统一接口：
 //      - tick()  : 执行一拍，返回 NodeStatus(纯虚，子类必须实现)
@@ -73,7 +80,10 @@ public:
    * @brief 中止当前执行。
    * @details 默认实现仅复位为 IDLE；控制/装饰节点会重写以递归 halt 子节点。
    */
-  virtual void halt() { setStatus(NodeStatus::IDLE); }
+  virtual void halt() {
+    markHalted();
+    setStatus(NodeStatus::IDLE);
+  }
 
   // -- 对外统一的执行入口 ---------------------------------------------------
 
@@ -83,6 +93,8 @@ public:
    *          以保证状态变化被记录与广播。
    */
   NodeStatus executeTick() {
+    // 即使 tick 抛异常，显式 halt 仍应知道该节点可能已创建部分资源。
+    halt_pending_ = true;
     const NodeStatus new_status = tick();
     setStatus(new_status);
     return new_status;
@@ -91,6 +103,9 @@ public:
   // -- 状态访问 -------------------------------------------------------------
 
   NodeStatus status() const { return status_; }
+
+  /// @brief 本节点自上次显式 halt 后是否执行过，供父节点精确传播复位。
+  bool needsHalt() const { return halt_pending_; }
 
   void setStatus(NodeStatus new_status) {
     if (new_status != status_) {
@@ -155,6 +170,9 @@ public:
   }
 
 protected:
+  /// @brief 派生 halt 实现完成清理后调用，保证重复 halt 不再触达后代。
+  void markHalted() { halt_pending_ = false; }
+
   /// @brief 把端口名解析为实际黑板 key(考虑重映射)。
   std::string resolveKey(const std::string& port_name) const {
     auto it = config_.port_remap.find(port_name);
@@ -166,6 +184,7 @@ private:
   std::string         registration_name_;  ///< 注册名(节点类型名，用于序列化)
   NodeConfig          config_;
   NodeStatus          status_{NodeStatus::IDLE};
+  bool                halt_pending_{false};
   uint16_t            node_id_{0};
   StatusChangeCallback status_callback_;
 };

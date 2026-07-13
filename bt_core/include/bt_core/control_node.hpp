@@ -2,6 +2,13 @@
 //  bt_core/control_node.hpp
 //  控制节点基类 —— 拥有 N 个子节点，决定子节点的执行顺序与组合逻辑。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 显式 halt 深度复位全部子树，和拍内分支清理分离
+//
 //  设计说明：
 //    控制节点是行为树的“流程控制”。它本身不干活，而是按某种策略调度子节点：
 //      - Sequence : 依次执行子节点，全部 SUCCESS 才 SUCCESS；遇 FAILURE 立即 FAILURE。
@@ -38,14 +45,21 @@ public:
 
   /**
    * @brief 递归中止所有子节点并复位自身。
-   * @details 任何控制节点在被打断时，都必须把仍在 RUNNING 的子树停掉。
+   * @details 显式 halt 是整轮复位边界；needsHalt() 不依赖公开状态，因此能
+   *          穿过被父节点标成 IDLE 的包装节点，又不会触达从未执行的叶节点。
    */
   void halt() override {
-    haltChildren();
+    for (auto& child : children_) {
+      if (child->needsHalt()) {
+        child->halt();
+      }
+      child->setStatus(NodeStatus::IDLE);
+    }
+    markHalted();
     setStatus(NodeStatus::IDLE);
   }
 
-  /// @brief 中止从 [start, end) 范围的子节点。
+  /// @brief 拍内清理 [start, end)：中止 RUNNING，终态只复位公开状态。
   void haltChildren(size_t start = 0) {
     for (size_t i = start; i < children_.size(); ++i) {
       if (children_[i]->status() == NodeStatus::RUNNING) {

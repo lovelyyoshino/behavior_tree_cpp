@@ -30,6 +30,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # ---- 解析 bt::core target（方式 A / B 自适应）-----------------------------
 if(NOT TARGET bt::core)
@@ -106,7 +107,9 @@ target_compile_features(bt_ros2_lib PUBLIC cxx_std_17)
 
 # 链接 bt::core 与共享 FunctionRegistry 所在的 bt::nodes；rclcpp 等用 ament 方式注入。
 target_link_libraries(bt_ros2_lib PUBLIC bt::core bt::nodes)
-ament_target_dependencies(bt_ros2_lib PUBLIC rclcpp rclcpp_action std_msgs sensor_msgs)
+ament_target_dependencies(
+  bt_ros2_lib PUBLIC
+  rclcpp rclcpp_action std_msgs sensor_msgs std_srvs)
 
 # ---- 可执行：bt_executor 入口 --------------------------------------------
 add_executable(bt_executor src/main.cpp)
@@ -137,13 +140,24 @@ install(DIRECTORY trees
 # ---- 测试（可选）---------------------------------------------------------
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+
+  # ament_lint_common 的 ROS 通用默认项并不完全等于本仓库策略，仅排除：
+  # - copyright：项目尚未提供可据实写入的法定版权主体；
+  # - cpplint/uncrustify：其头文件与排版规则和 bt_core / bt_nodes 的统一规范冲突。
+  # 排除范围只作用于 bt_ros2；cppcheck、flake8、lint_cmake、pep257、xmllint
+  # 仍由 ament_lint_auto 注册，不能把未执行的三项表述为通过。
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_copyright
+    ament_cmake_cpplint
+    ament_cmake_uncrustify)
   ament_lint_auto_find_test_dependencies()
 endif()
 
 # ---- 导出给下游 ament 包 --------------------------------------------------
 ament_export_include_directories(include)
 ament_export_libraries(bt_ros2_lib)
-ament_export_dependencies(rclcpp rclcpp_action std_msgs sensor_msgs)
+ament_export_dependencies(
+  rclcpp rclcpp_action std_msgs sensor_msgs std_srvs)
 
 ament_package()
 

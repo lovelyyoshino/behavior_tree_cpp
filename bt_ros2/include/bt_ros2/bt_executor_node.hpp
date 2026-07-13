@@ -2,6 +2,13 @@
 //  bt_ros2/bt_executor_node.hpp
 //  BtExecutorNode —— 把 bt_core 行为树“跑”在 ROS2 里的执行器节点。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 增加可外部调用且幂等的 start/stop Trigger 服务
+//
 //  职责（一个标准的 rclcpp::Node 包装器）：
 //    1. 从 ROS2 参数读取：
 //         - tree_file    : 要加载的行为树 XML 路径
@@ -30,6 +37,7 @@
 #include "bt_core/tree.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace bt_ros2 {
 
@@ -51,6 +59,8 @@ public:
   void stop();
 
 private:
+  using Trigger = std_srvs::srv::Trigger;
+
   /// @brief 声明并读取本节点的 ROS2 参数（带默认值）。
   void declareAndLoadParameters();
 
@@ -62,6 +72,16 @@ private:
 
   /// @brief timer 回调：tick 一拍 + 发布根状态。
   void onTick();
+
+  /// @brief 处理 ~/start：幂等地启动周期 tick。
+  void handleStart(
+      const std::shared_ptr<Trigger::Request>,
+      std::shared_ptr<Trigger::Response> response);
+
+  /// @brief 处理 ~/stop：幂等地停止 tick 并 halt 行为树。
+  void handleStop(
+      const std::shared_ptr<Trigger::Request>,
+      std::shared_ptr<Trigger::Response> response);
 
   // -- 配置参数（来自 ROS2 param）------------------------------------------
   std::string tree_file_;          ///< 行为树 XML 文件路径
@@ -78,6 +98,8 @@ private:
   // -- ROS2 资源 ------------------------------------------------------------
   rclcpp::TimerBase::SharedPtr timer_;   ///< 周期 tick 定时器
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;  ///< 根状态发布器
+  rclcpp::Service<Trigger>::SharedPtr start_service_;  ///< 幂等启动服务
+  rclcpp::Service<Trigger>::SharedPtr stop_service_;   ///< 幂等停止服务
 };
 
 }  // namespace bt_ros2

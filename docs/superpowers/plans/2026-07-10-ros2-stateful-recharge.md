@@ -679,13 +679,24 @@ Expected: bounded failure while waiting for /bt_executor/start because the execu
 ### Task 6: Add Executor Services, Dependencies, And Public Contract
 
 **Files:**
+- Modify: bt_core/include/bt_core/tree_node.hpp
+- Modify: bt_core/include/bt_core/leaf_node.hpp
+- Modify: bt_core/include/bt_core/control_node.hpp
+- Modify: bt_core/include/bt_core/decorator_node.hpp
+- Modify: bt_core/include/bt_core/tree.hpp
 - Modify: bt_ros2/include/bt_ros2/bt_executor_node.hpp
+- Modify: bt_ros2/include/bt_ros2/ros_publisher_node.hpp
 - Modify: bt_ros2/src/bt_executor_node.cpp
 - Modify: bt_ros2/CMakeLists.txt
 - Modify: bt_ros2/package.xml
 - Modify: bt_ros2/README.md
+- Modify: bt_ros2/trees/recharge.xml
+- Modify: scripts/smoke_ros2.sh
+- Modify: tests/mock_rclcpp/rclcpp/rclcpp.hpp
+- Modify: tests/test_bt_advanced.cpp
+- Modify: tests/test_ros_bases.cpp
 
-- [ ] **Step 1: Add std_srvs to the public build surface**
+- [x] **Step 1: Add std_srvs to the public build surface**
 
 In CMake:
 
@@ -711,7 +722,7 @@ In package.xml:
 
 The three Python packages are launch-time dependencies; do not add unnecessary CMake find_package calls for them.
 
-- [ ] **Step 2: Declare and create idempotent services**
+- [x] **Step 2: Declare and create idempotent services**
 
 Include functional in the implementation and std_srvs/srv/trigger.hpp in the
 public header. Add the Trigger alias, callbacks, and two service members:
@@ -769,7 +780,7 @@ void BtExecutorNode::handleStop(
 
 The node name bt_executor makes the resolved services /bt_executor/start and /bt_executor/stop.
 
-- [ ] **Step 3: Update the package README**
+- [x] **Step 3: Update the package README**
 
 Document:
 
@@ -781,13 +792,30 @@ Document:
 - the safety boundary: String is a demo protocol, not execution acknowledgement; production/safety-critical robots should use a typed ROS2 Action or idempotent command/ack protocol;
 - Humble verification and Jazzy’s unverified status.
 
-- [ ] **Step 4: Verify GREEN on Humble**
+The post-smoke notifier repair adds `subscriber_wait_timeout_ms` to
+`RosOutputNode`: the default `0` preserves immediate legacy publishing; a
+positive value waits non-blockingly for a matched subscriber, publishes once
+after a match or the finite timeout, latches `SUCCESS`, and resets the wait and
+latch on `halt()`. The packaged `TaskDoneNotifier` uses `3000` ms.
+
+Executor stop also has a lifecycle contract below the ROS wrapper. Each node
+records that it executed until an explicit halt completes. Control and
+decorator nodes therefore reset terminal descendants that participated in the
+attempt, skip never-started leaves, and make repeated stop a no-op. `Tree::halt`
+applies the same guard at the root, including an ActionNode root.
+
+- [x] **Step 4: Verify GREEN on Humble**
 
 Run a fresh mock build:
 
 ~~~bash
 UNIT_BUILD="$(mktemp -d)"
-cmake -S . -B "$UNIT_BUILD" +  -DCMAKE_BUILD_TYPE=Debug +  -DBT_BUILD_NODES=ON +  -DBT_BUILD_SERVER=OFF +  -DBT_BUILD_TESTS=ON +  -DBT_BUILD_EXAMPLES=OFF
+cmake -S . -B "$UNIT_BUILD" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBT_BUILD_NODES=ON \
+  -DBT_BUILD_SERVER=OFF \
+  -DBT_BUILD_TESTS=ON \
+  -DBT_BUILD_EXAMPLES=OFF
 cmake --build "$UNIT_BUILD" --target test_ros_bases --parallel
 "$UNIT_BUILD/bin/test_ros_bases"
 ~~~
@@ -799,24 +827,33 @@ set +u
 source /opt/ros/humble/setup.bash
 set -u
 TOP_BUILD="$(mktemp -d)"
-cmake -S . -B "$TOP_BUILD" +  -DCMAKE_BUILD_TYPE=Release +  -DBT_BUILD_NODES=ON +  -DBT_BUILD_SERVER=OFF +  -DBT_BUILD_ROS2=ON +  -DBT_BUILD_TESTS=ON +  -DBT_BUILD_EXAMPLES=OFF
-cmake --build "$TOP_BUILD" +  --target bt_executor test_ros_bases --parallel
+cmake -S . -B "$TOP_BUILD" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBT_BUILD_NODES=ON \
+  -DBT_BUILD_SERVER=OFF \
+  -DBT_BUILD_ROS2=ON \
+  -DBT_BUILD_TESTS=ON \
+  -DBT_BUILD_EXAMPLES=OFF
+cmake --build "$TOP_BUILD" --parallel
 ctest --test-dir "$TOP_BUILD" --output-on-failure
 ~~~
 
 Run the isolated smoke:
 
 ~~~bash
-ROS_DOMAIN_ID=173 +BT_ROS2_SMOKE_ROOT="$(mktemp -d)" +./scripts/smoke_ros2.sh
+ROS_DOMAIN_ID=173 \
+BT_ROS2_SMOKE_ROOT="$(mktemp -d)" \
+./scripts/smoke_ros2.sh
 ~~~
 
 Expected: one battery, one command, one dock, one notifier, final SUCCESS, and idempotent service responses.
 
-- [ ] **Step 5: Run hygiene and environment assertions**
+- [x] **Step 5: Run hygiene and environment assertions**
 
 ~~~bash
 bash -n scripts/smoke_ros2.sh scripts/test.sh
-python3 -m py_compile bt_ros2/launch/bt_executor.launch.py
+PYTHONPYCACHEPREFIX="$(mktemp -d)" \
+  python3 -m py_compile bt_ros2/launch/bt_executor.launch.py
 python3 - <<'PY'
 import xml.etree.ElementTree as ET
 ET.parse("bt_ros2/package.xml")
@@ -827,9 +864,14 @@ test -f /opt/ros/humble/setup.bash
 test ! -f /opt/ros/jazzy/setup.bash
 ~~~
 
+Keep package XML lint deterministic offline: do not add a remote `xml-model`
+processing instruction. The ROS lint-auto gate intentionally excludes
+copyright, cpplint, and uncrustify; only cppcheck, flake8, lint_cmake, pep257,
+and xmllint are configured and may be reported as passing.
+
 Report Jazzy exactly as: “unverified: ROS 2 Jazzy is not installed on this machine.”
 
-- [ ] **Step 6: Two-stage review and Master acceptance**
+- [x] **Step 6: Two-stage review and Master acceptance**
 
 First dispatch a specification reviewer against Section 4 and Section 7 of the authoritative design plus this plan. After approval, dispatch a different quality reviewer focusing on state latching, single-thread assumptions, mock type safety, service idempotency, shell cleanup, graph readiness, QoS compatibility, and preservation of legacy nodes.
 

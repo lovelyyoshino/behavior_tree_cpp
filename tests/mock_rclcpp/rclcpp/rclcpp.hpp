@@ -3,6 +3,13 @@
 //  最小 mock rclcpp —— **仅供 tests/ 单元测试使用**，让 bt_ros2 的订阅/发布
 //  基类模板可以在本机零 ROS2 环境下被实例化、被调用、被断言。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 增加可控订阅匹配计数，覆盖有界首包等待
+//
 //  覆盖范围 (按"被 ros_subscriber_node.hpp / ros_publisher_node.hpp 用到的
 //  API 表面"裁剪):
 //    rclcpp::QoS / rclcpp::KeepLast / rclcpp::SensorDataQoS 元数据
@@ -65,7 +72,9 @@ struct Publisher {
   std::string topic;
   QoS qos{KeepLast(10)};
   bool throw_on_publish{false};          ///< 测试钩子:模拟中间件发布异常
-  std::vector<MsgT> published;          ///< 测试钩子:记录所有 publish 调用
+  size_t subscription_count{0};          ///< 测试钩子:模拟已匹配订阅数
+  std::vector<MsgT> published;           ///< 测试钩子:记录所有 publish 调用
+  size_t get_subscription_count() const { return subscription_count; }
   void publish(const MsgT& m) {
     if (throw_on_publish) {
       throw std::runtime_error("mock rclcpp publisher failure");

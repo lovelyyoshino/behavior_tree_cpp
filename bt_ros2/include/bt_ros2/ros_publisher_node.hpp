@@ -3,6 +3,14 @@
 //  ROS2 发布型状态节点的可复用基类 —— 把"状态完成→发给 ROS2"收敛成
 //  "继承 + 实现一个 buildMsg() 方法"。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.1
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.1 (2026-07-13): 锁存有界等待路径的发布成功，避免根节点重拍时重复通知
+//    - v1.1.0 (2026-07-13): 增加可选的有界订阅匹配等待，消除一次性首包竞态
+//
 //  ────────────────────────────────────────────────────────────────────────
 //  对称设计
 //  ────────────────────────────────────────────────────────────────────────
@@ -35,12 +43,15 @@
 //  公共端口
 //  ────────────────────────────────────────────────────────────────────────
 //    topic     (input) 要发布到的话题名
-//    qos_depth (input) 发布 QoS 队列深度，默认 10
+//    qos_depth                 (input) 发布 QoS 队列深度，默认 10
+//    subscriber_wait_timeout_ms (input) 等待订阅匹配的上限，默认 0 表示不等待
 // ============================================================================
 #ifndef BT_ROS2_ROS_PUBLISHER_NODE_HPP
 #define BT_ROS2_ROS_PUBLISHER_NODE_HPP
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "bt_core/leaf_node.hpp"
@@ -58,7 +69,9 @@ namespace bt_ros2 {
  * 读取数据并填充消息字段。返回 true 表示消息已构造好可以发送(发送后返回 SUCCESS)；
  * 返回 false 表示拒绝发送(节点返回 FAILURE，由父控制节点决定走向)。
  *
- * 此节点是**同步动作**：发布即视为完成，单拍 SUCCESS/FAILURE，不返回 RUNNING。
+ * 默认是同步动作：发布即视为完成。若配置 subscriber_wait_timeout_ms > 0，首次
+ * tick 会先创建 publisher，并在未匹配订阅时返回 RUNNING；匹配成功或等待超时后
+ * 只调用一次 publish，再返回 SUCCESS。超时仍发布，避免观察者缺席永久阻塞业务树。
  * 若需异步桥接 ROS2 Action / 长耗时服务，参考 ros_topic_action_node.cpp 末尾
  * 的扩展提示，自行写异步 Action 节点。
  */
@@ -72,7 +85,10 @@ public:
   static bt_core::PortsList publisherPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("topic", "", "要发布到的话题名"),
-        bt_core::InputPort<int>("qos_depth", "10", "发布 QoS 队列深度"));
+        bt_core::InputPort<int>("qos_depth", "10", "发布 QoS 队列深度"),
+        bt_core::InputPort<int>(
+            "subscriber_wait_timeout_ms", "0",
+            "发布前等待订阅匹配的最长毫秒数，<=0 表示不等待"));
   }
 
   static bt_core::PortsList providedPorts() { return publisherPorts(); }
@@ -83,7 +99,16 @@ public:
   virtual bool buildMsg(MsgT& out) = 0;
 
   bt_core::NodeStatus tick() override final {
+    if (publish_latched_) {
+      return bt_core::NodeStatus::SUCCESS;
+    }
+
     ensurePublisher();
+    const int wait_timeout_ms = this->template getInput<int>(
+        "subscriber_wait_timeout_ms").value_or(0);
+    if (!subscriberReadyOrTimedOut(wait_timeout_ms)) {
+      return bt_core::NodeStatus::RUNNING;
+    }
 
     MsgT msg{};
     if (!buildMsg(msg)) {
@@ -91,7 +116,15 @@ public:
       return bt_core::NodeStatus::FAILURE;
     }
     pub_->publish(msg);
+    // 默认值 0 保留历史上的“每次 tick 都发布”；只有显式开启有界等待的
+    // 一次性通知才锁存 SUCCESS，直到父节点 halt 后开始新一轮。
+    publish_latched_ = wait_timeout_ms > 0;
     return bt_core::NodeStatus::SUCCESS;
+  }
+
+  void onHalted() override {
+    subscriber_wait_started_at_.reset();
+    publish_latched_ = false;
   }
 
 private:
@@ -112,7 +145,25 @@ private:
         topic, rclcpp::QoS(rclcpp::KeepLast(depth)));
   }
 
+  bool subscriberReadyOrTimedOut(int timeout_ms) {
+    if (timeout_ms <= 0 || pub_->get_subscription_count() > 0) {
+      return true;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (!subscriber_wait_started_at_) {
+      subscriber_wait_started_at_ = now;
+      return false;
+    }
+
+    return now - *subscriber_wait_started_at_ >=
+           std::chrono::milliseconds(timeout_ms);
+  }
+
   typename rclcpp::Publisher<MsgT>::SharedPtr pub_;  ///< 发布器(惰性)
+  std::optional<std::chrono::steady_clock::time_point>
+      subscriber_wait_started_at_;  ///< 有界匹配等待起点，halt 后重新计时
+  bool publish_latched_{false};  ///< 有界等待路径已完成本轮一次性发布
 };
 
 }  // namespace bt_ros2

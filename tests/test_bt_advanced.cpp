@@ -2,6 +2,13 @@
 //  tests/test_bt_advanced.cpp
 //  bt_core 进阶单元测试(GoogleTest)。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 覆盖显式 halt 对终态控制/装饰子树的深度复位
+//
 //  覆盖 test_bt_core.cpp 之外的真实行为与边界:
 //    1. 异步 RUNNING 语义(跨多拍完成 + 游标保留 + 不重启已完成子节点)
 //    2. halt 中止(RUNNING 子树复位 IDLE + ActionNode::onHalted() 被调用)
@@ -41,6 +48,7 @@ class CountingAsyncAction : public ActionNode {
   int  tick_count    = 0;   ///< tick() 被调用总次数
   int  success_count = 0;   ///< 返回 SUCCESS 的次数(应恰为 1, 证明未被重启)
   bool halted        = false;
+  int  halt_count    = 0;
 
   NodeStatus tick() override {
     ++tick_count;
@@ -48,7 +56,10 @@ class CountingAsyncAction : public ActionNode {
     ++success_count;
     return NodeStatus::SUCCESS;
   }
-  void onHalted() override { halted = true; }
+  void onHalted() override {
+    halted = true;
+    ++halt_count;
+  }
 };
 
 /// 同步动作, 固定返回 SUCCESS, 记录被 tick 的次数(用于验证"已完成子节点不被重启")。
@@ -271,6 +282,62 @@ TEST(Halt, RunningSubtreeResetsToIdleAndCallsOnHalted) {
   EXPECT_TRUE(c->halted);                       // onHalted() 被调用
   EXPECT_EQ(c->status(), NodeStatus::IDLE);     // 子节点复位
   EXPECT_EQ(seq->status(), NodeStatus::IDLE);   // 控制节点复位
+}
+
+TEST(Halt, CompletedControlAndDecoratorDescendantsReceiveOnHalted) {
+  auto bb = Blackboard::create();
+  NodeConfig cfg{bb, {}, {}};
+
+  auto untouched_seq = std::make_shared<StatefulSequence>("untouched", cfg);
+  auto untouched_child =
+      std::make_shared<CountingAsyncAction>("untouched_child", cfg);
+  untouched_seq->addChild(untouched_child);
+  Tree untouched_tree(untouched_seq, bb);
+  untouched_tree.halt();
+  EXPECT_EQ(untouched_child->halt_count, 0);
+
+  auto root_action =
+      std::make_shared<CountingAsyncAction>("root_action", cfg);
+  root_action->running_ticks = 0;
+  Tree root_action_tree(root_action, bb);
+  root_action_tree.halt();
+  EXPECT_EQ(root_action->halt_count, 0);
+  EXPECT_EQ(root_action_tree.tickOnce(), NodeStatus::SUCCESS);
+  root_action_tree.halt();
+  EXPECT_EQ(root_action->halt_count, 1);
+  root_action_tree.halt();
+  EXPECT_EQ(root_action->halt_count, 1);
+
+  auto seq = std::make_shared<StatefulSequence>("seq", cfg);
+  auto seq_child = std::make_shared<CountingAsyncAction>("seq_child", cfg);
+  seq_child->running_ticks = 0;
+  seq->addChild(seq_child);
+  Tree sequence_tree(seq, bb);
+
+  EXPECT_EQ(sequence_tree.tickOnce(), NodeStatus::SUCCESS);
+  EXPECT_FALSE(seq_child->halted);
+  sequence_tree.halt();
+  EXPECT_TRUE(seq_child->halted);
+  EXPECT_EQ(seq_child->halt_count, 1);
+  EXPECT_EQ(seq_child->status(), NodeStatus::IDLE);
+  sequence_tree.halt();
+  EXPECT_EQ(seq_child->halt_count, 1);
+
+  auto inverter = std::make_shared<InverterNode>("inverter", cfg);
+  auto decorator_child =
+      std::make_shared<CountingAsyncAction>("decorator_child", cfg);
+  decorator_child->running_ticks = 0;
+  inverter->setChild(decorator_child);
+  Tree decorator_tree(inverter, bb);
+
+  EXPECT_EQ(decorator_tree.tickOnce(), NodeStatus::FAILURE);
+  EXPECT_FALSE(decorator_child->halted);
+  decorator_tree.halt();
+  EXPECT_TRUE(decorator_child->halted);
+  EXPECT_EQ(decorator_child->halt_count, 1);
+  EXPECT_EQ(decorator_child->status(), NodeStatus::IDLE);
+  decorator_tree.halt();
+  EXPECT_EQ(decorator_child->halt_count, 1);
 }
 
 // ============================================================================

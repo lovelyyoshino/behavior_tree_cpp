@@ -2,6 +2,13 @@
 //  bt_core/tree.hpp
 //  Tree —— 行为树容器，持有根节点 + 共享黑板，提供统一的 tick 调度入口。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): halt 仅触达本轮执行过的根节点，保证空树与重复停止幂等
+//
 //  设计说明：
 //    Tree 是“一棵可执行的行为树”的运行期载体：
 //      - 持有 root_ 根节点与共享 blackboard_。
@@ -71,7 +78,9 @@ public:
 
   /// @brief 中止整棵树(递归 halt 根)。
   void halt() {
-    if (root_) root_->halt();
+    if (root_ && root_->needsHalt()) {
+      root_->halt();
+    }
   }
 
   /**

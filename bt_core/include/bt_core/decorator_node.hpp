@@ -2,6 +2,13 @@
 //  bt_core/decorator_node.hpp
 //  装饰节点基类 —— 恰好包裹 1 个子节点，修改/过滤其行为或返回值。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-07-13
+//  @changelog
+//    - v1.1.0 (2026-07-13): 显式 halt 无条件向子节点传播，清除跨轮锁存状态
+//
 //  设计说明：
 //    装饰节点用来“给子节点加一层包装”，常见用途：
 //      - Inverter : 反转子节点结果(SUCCESS<->FAILURE)。
@@ -45,12 +52,13 @@ public:
 
   /// @brief 递归中止子节点并复位自身。
   void halt() override {
-    if (child_ && child_->status() == NodeStatus::RUNNING) {
+    if (child_ && child_->needsHalt()) {
       child_->halt();
     }
     if (child_) {
       child_->setStatus(NodeStatus::IDLE);
     }
+    markHalted();
     setStatus(NodeStatus::IDLE);
   }
 

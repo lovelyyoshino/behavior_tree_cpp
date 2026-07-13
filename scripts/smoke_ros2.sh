@@ -4,9 +4,10 @@
 #
 # @author pony
 # @date 2026-07-12
-# @version v2.0.1
-# @last_modified 2026-07-12
+# @version v2.0.2
+# @last_modified 2026-07-13
 # @changelog
+#   - v2.0.2 (2026-07-13): 显式可靠订阅，配合发布端匹配门禁消除完成通知首包竞态
 #   - v2.0.1 (2026-07-12): 增加进程组清理、空目录门禁、超时和域占用保护
 #   - v2.0.0 (2026-07-12): 改为服务驱动、图状态轮询和单次回充事件验证
 #
@@ -316,6 +317,7 @@ setsid env PYTHONUNBUFFERED=1 ros2 topic echo --no-daemon --field data \
   /robot/command std_msgs/msg/String >"$COMMAND_LOG" 2>&1 &
 BACKGROUND_GROUPS+=("$!")
 setsid env PYTHONUNBUFFERED=1 ros2 topic echo --no-daemon --field data \
+  --qos-reliability reliable \
   /bt/task_done std_msgs/msg/String >"$DONE_LOG" 2>&1 &
 BACKGROUND_GROUPS+=("$!")
 setsid env PYTHONUNBUFFERED=1 ros2 topic echo --no-daemon --field data \
