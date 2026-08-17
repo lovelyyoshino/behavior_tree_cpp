@@ -117,4 +117,38 @@ std::string xml = parser.writeToText(t, "MainTree");  // 或 writeToFile(t, path
 | `GET /api/tree/open?name=x.xml` | 打开 workspace 内树文件 |
 | `POST /api/tree/save` | 保存 `{name, xml}` 到 workspace，保存前先解析校验 |
 
+## ROS2 运行观察契约
+
+`bt_ros2` 的执行器还提供一条与编辑器 HTTP API 解耦的只读观察链：
+
+| Topic | Schema | 语义 |
+|---|---|---|
+| `~/tree_snapshot` | `bt_ros2.bt_snapshot.v1` | 每拍完整节点状态，包含 session、XML revision、序号和根状态 |
+| `~/service_event` | `bt_ros2.service_event.v1` | `start/stop` service 的 `started`/`completed` 生命周期事件 |
+
+`bt_web` 订阅两个 topic 并提供 `GET /api/v1/bt/structure`、
+`GET /api/v1/bt/snapshots*` 和 `GET /api/v1/bt/service-events*`。结构与快照通过
+`tree_revision` 绑定同一 XML；revision 不一致时拒绝显示，避免把状态染到错误的树上。
+网页树支持节点级和全部折叠，折叠只影响呈现，不会改变行为树执行。
+
+## ROS2 Debug Sandbox 契约
+
+`bt_debug.launch.py` 使用独立的 `ROS_DOMAIN_ID` 同时启动 `bt_debug_executor` 和
+`bt_debug_web`。普通 `bt_executor` 的 `debug_mode` 默认是 `false`，不会创建以下调试接口。
+
+| ROS 接口 | 类型 / Schema | 语义 |
+|---|---|---|
+| `~/debug_state` | `std_msgs/msg/String` / `bt_ros2.debug_state.v1` | 当前 pause/run、tick 序号、Condition 清单和覆盖值 |
+| `~/debug_overrides` | `std_msgs/msg/String` | Web 适配器提交的原子 Condition 覆盖命令 |
+| `~/pause`、`~/resume` | `std_srvs/srv/Trigger` | 暂停时保留树状态；继续恢复周期 tick |
+| `~/step` | `std_srvs/srv/Trigger` | 仅在暂停时执行一拍 |
+| `~/reload` | `std_srvs/srv/Trigger` | 重新读取 XML、创建新 session，并停在 IDLE |
+
+Condition 覆盖只接受 `AUTO`、`SUCCESS`、`FAILURE`。强制值在节点自身 `tick()` 之前生效，
+Action、Control 和 Decorator 不能被覆盖；替换前会先校验全部 node key，因此不会留下部分更新。
+
+Debug Web 增加 `GET /api/v1/debug/state`、`POST /api/v1/debug/overrides` 和
+`POST /api/v1/debug/control`。这些写接口只在 `debug_mode=true` 的 Web 进程中注册；普通
+`bt_web.launch.py` 仍是严格只读接口。
+
 文件 API 限制在 `BT_TREE_WORKSPACE` 或默认 `examples/trees`，只接受普通 `.xml` 文件名，拒绝绝对路径、子目录和 `../`。

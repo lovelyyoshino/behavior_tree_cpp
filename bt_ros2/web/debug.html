@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BehaviorTree.CPP-X Debug Sandbox</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body class="debug-page">
+    <header class="topbar debug-topbar">
+      <div class="identity">
+        <span class="debug-mark" aria-hidden="true">DEBUG</span>
+        <div>
+          <h1>BehaviorTree.CPP-X 调试沙箱</h1>
+          <p id="debug-connection">正在连接</p>
+        </div>
+      </div>
+      <div class="toolbar" aria-label="调试控制">
+        <button id="pause-button" type="button">暂停</button>
+        <button id="resume-button" type="button">继续</button>
+        <button id="step-button" type="button">单步</button>
+        <button id="reload-button" type="button">重载</button>
+        <a class="monitor-link" href="/index.html">运行树</a>
+      </div>
+    </header>
+
+    <section class="status-strip debug-status" aria-label="调试运行状态">
+      <div><span>Mode</span><strong id="debug-mode">-</strong></div>
+      <div><span>Scenario</span><strong id="debug-scenario">-</strong></div>
+      <div><span>Tick</span><strong id="debug-tick">-</strong></div>
+      <div><span>Root</span><strong id="debug-root">IDLE</strong></div>
+      <div><span>Overrides</span><strong id="debug-override-count">0</strong></div>
+    </section>
+
+    <main class="debug-workspace">
+      <section class="debug-setup" aria-label="调试场景">
+        <div class="panel-heading"><h2>调试场景</h2></div>
+        <div class="debug-form">
+          <label for="scenario-select">场景</label>
+          <select id="scenario-select">
+            <option value="all_auto">全部自动</option>
+            <option value="all_success">全部成功</option>
+            <option value="all_failure">全部失败</option>
+            <option value="manual" hidden>手动覆盖</option>
+          </select>
+          <button id="apply-overrides" class="primary-command" type="button">应用覆盖</button>
+          <button id="clear-overrides" type="button">清空覆盖</button>
+          <p id="debug-result" class="debug-result" aria-live="polite"></p>
+          <dl class="debug-meta">
+            <div><dt>Tree revision</dt><dd id="debug-revision">-</dd></div>
+            <div><dt>Session</dt><dd id="debug-session">-</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="condition-panel" aria-label="条件覆盖">
+        <div class="panel-heading">
+          <h2>Condition 节点</h2>
+          <label class="search-box"><span>筛选</span><input id="condition-filter" type="search" autocomplete="off"></label>
+        </div>
+        <div id="condition-empty" class="empty-state hidden">当前树没有 Condition 节点</div>
+        <div id="condition-list" class="condition-list"></div>
+      </section>
+    </main>
+
+    <script src="/debug.js" defer></script>
+  </body>
+</html>

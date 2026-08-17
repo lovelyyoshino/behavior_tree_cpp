@@ -19,6 +19,7 @@ import { KIND_COLORS, STATUS_BG } from '../theme';
 function BtNodeViewImpl({ id, data, selected }: NodeProps<BtNodeData>) {
   const accent = KIND_COLORS[data.kind];
   const leaf = isLeafKind(data.kind);
+  const hasChildren = data.hasChildren ?? false;
 
   return (
     <div
@@ -43,13 +44,42 @@ function BtNodeViewImpl({ id, data, selected }: NodeProps<BtNodeData>) {
       <div
         style={{
           background: accent,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
           color: '#fff',
           padding: '2px 8px',
           fontWeight: 600,
           letterSpacing: 0.3,
         }}
       >
-        {data.kind}
+        <span style={{ flex: 1 }}>{data.kind}</span>
+        {hasChildren && (
+          <button
+            type="button"
+            aria-label={data.collapsed ? `展开 ${data.registrationName}` : `折叠 ${data.registrationName}`}
+            aria-expanded={!data.collapsed}
+            title={data.collapsed ? '展开子节点' : '折叠子节点'}
+            onClick={(event) => {
+              event.stopPropagation();
+              data.onToggleCollapse?.(id);
+            }}
+            style={{
+              width: 22,
+              height: 22,
+              padding: 0,
+              border: '1px solid rgba(255,255,255,0.65)',
+              borderRadius: 4,
+              background: 'rgba(0,0,0,0.16)',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            {data.collapsed ? '+' : '-'}
+          </button>
+        )}
       </div>
 
       {/* 主体：注册名 + 实例名 */}

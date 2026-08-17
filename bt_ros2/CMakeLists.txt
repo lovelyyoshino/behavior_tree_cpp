@@ -107,9 +107,19 @@ target_compile_features(bt_ros2_lib PUBLIC cxx_std_17)
 
 # 链接 bt::core 与共享 FunctionRegistry 所在的 bt::nodes；rclcpp 等用 ament 方式注入。
 target_link_libraries(bt_ros2_lib PUBLIC bt::core bt::nodes)
-ament_target_dependencies(
-  bt_ros2_lib PUBLIC
-  rclcpp rclcpp_action std_msgs sensor_msgs std_srvs)
+if(COMMAND ament_target_dependencies)
+  ament_target_dependencies(
+    bt_ros2_lib PUBLIC
+    rclcpp rclcpp_action std_msgs sensor_msgs std_srvs)
+else()
+  # ROS 2 Lyrical removed ament_target_dependencies; use its exported targets.
+  target_link_libraries(bt_ros2_lib PUBLIC
+    rclcpp::rclcpp
+    rclcpp_action::rclcpp_action
+    std_msgs::std_msgs
+    sensor_msgs::sensor_msgs
+    std_srvs::std_srvs)
+endif()
 
 # ---- 可执行：bt_executor 入口 --------------------------------------------
 add_executable(bt_executor src/main.cpp)
@@ -118,6 +128,12 @@ target_link_libraries(bt_executor PRIVATE bt_ros2_lib)
 # ---- 安装规则（ament 约定）-----------------------------------------------
 # 可执行 → lib/<pkg>/，供 ros2 run / launch 找到。
 install(TARGETS bt_executor
+  DESTINATION lib/${PROJECT_NAME})
+
+install(PROGRAMS scripts/bt_web.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME bt_web)
+install(FILES scripts/bt_web_core.py
   DESTINATION lib/${PROJECT_NAME})
 
 # 库 + 导出信息（供其它 ROS2 包依赖本包的适配器节点）。
@@ -133,13 +149,26 @@ install(DIRECTORY include/
 
 # launch 文件与示例树（供 ros2 launch / 运行时按 share 路径查找）。
 install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME})
+  DESTINATION share/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE
+  PATTERN "*.pyc" EXCLUDE)
 install(DIRECTORY trees
+  DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY web
   DESTINATION share/${PROJECT_NAME})
 
 # ---- 测试（可选）---------------------------------------------------------
 if(BUILD_TESTING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   find_package(ament_lint_auto REQUIRED)
+
+  add_test(
+    NAME test_bt_web_core
+    COMMAND ${CMAKE_COMMAND} -E env
+      PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/scripts
+      ${Python3_EXECUTABLE} -m unittest discover
+      -s ${CMAKE_CURRENT_SOURCE_DIR}/test
+      -p test_bt_web_core.py)
 
   # ament_lint_common 的 ROS 通用默认项并不完全等于本仓库策略，仅排除：
   # - copyright：项目尚未提供可据实写入的法定版权主体；

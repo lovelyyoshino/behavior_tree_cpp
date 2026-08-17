@@ -202,6 +202,28 @@ test('loads editor, imports sample tree, and talks to mocked backend', async ({
   await expect(page.getByText('布局已整理')).toBeVisible();
 });
 
+test('collapses branches in the canvas without changing XML', async ({ page }) => {
+  await loadSample(page);
+  const xmlBefore = await xmlPreview(page).inputValue();
+  const root = btNode(page, 'Sequence').first();
+  const child = btNode(page, 'Fallback').first();
+
+  await page.getByRole('button', { name: '折叠全部' }).click();
+  await expect(page.locator('[data-testid="bt-node"]:visible')).toHaveCount(1);
+  await expect(root).toBeVisible();
+  await expect(child).toBeHidden();
+  await expect(xmlPreview(page)).toHaveValue(xmlBefore);
+
+  await page.getByRole('button', { name: '展开全部' }).click();
+  await expect(page.locator('[data-testid="bt-node"]:visible')).toHaveCount(8);
+  await expect(child).toBeVisible();
+
+  await root.getByRole('button', { name: /折叠/ }).click();
+  await expect(root.getByRole('button', { name: /展开/ })).toBeVisible();
+  await expect(child).toBeHidden();
+  await expect(xmlPreview(page)).toHaveValue(xmlBefore);
+});
+
 test('adds a palette node and edits instance and port properties in XML preview', async ({
   page,
 }) => {

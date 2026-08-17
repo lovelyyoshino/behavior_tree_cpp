@@ -78,9 +78,22 @@ TEST(SubTree, BasicReferenceExpandsAndTicks) {
     </BehaviorTree>
   </root>)";
   Tree t = p.loadFromText(xml);
+  EXPECT_EQ(t.treeId(), "Main");
   EXPECT_EQ(t.tickWhileRunning(), NodeStatus::SUCCESS);
   // 展开后节点总数 = Main的Sequence + Helper的Sequence + 2 个 AlwaysSuccess = 4
   EXPECT_EQ(t.nodes().size(), 4u);
+}
+
+TEST(SubTree, MainTreeIdDefaultsToOnlyDefinition) {
+  NodeFactory f;
+  registerCore(f);
+  XmlParser p(f);
+  const char* xml = R"(<root>
+    <BehaviorTree ID="Only"><AlwaysSuccess/></BehaviorTree>
+  </root>)";
+
+  const Tree tree = p.loadFromText(xml);
+  EXPECT_EQ(tree.treeId(), "Only");
 }
 
 // ---------------------------- 多引用 + 嵌套 ---------------------------------

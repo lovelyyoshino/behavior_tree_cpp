@@ -247,3 +247,98 @@ battery/command/dock/notifier 和最终 ``SUCCESS``。需要隔离并行 ROS 图
 同一个未占用的 ``ROS_DOMAIN_ID``。
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
+
+只读 Web 监视器
+----------------
+
+``BtExecutorNode`` 每次 tick 发布完整 JSON 节点快照，并把 ``start``/``stop``
+service 的 ``started``/``completed`` 生命周期发布到 transient-local topic。网页适配器只
+订阅观察数据，不提供控制机器人或调用 service 的 HTTP 接口。
+
+先在一个终端启动执行器（两个进程必须使用相同的 XML）：
+
+.. code-block:: bash
+
+   source /opt/ros/humble/setup.bash
+   source ~/bt_ws/install/setup.bash
+   TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
+   ros2 launch bt_ros2 bt_executor.launch.py \
+     tree_file:="$TREE_FILE" autostart:=false stop_on_terminal:=true
+
+再在第二个终端启动网页：
+
+.. code-block:: bash
+
+   source /opt/ros/humble/setup.bash
+   source ~/bt_ws/install/setup.bash
+   ros2 launch bt_ros2 bt_web.launch.py \
+     tree_file:="$TREE_FILE" http_port:=8088
+
+浏览器访问 ``http://127.0.0.1:8088/``。页面展示树结构、每拍节点状态、根状态和
+``/bt_executor/start``、``/bt_executor/stop`` 的服务时间线。树面板支持节点级 ``+/-``
+折叠以及“折叠全部/展开全部”；折叠只改变显示，不改变 XML 或 tick。页面还可导出当前
+JSON 快照，或打开快照进入离线复盘模式。
+
+网页观察接口
+~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 42 58
+
+   * - HTTP 接口
+     - 作用
+   * - ``GET /api/v1/health``
+     - HTTP 适配器健康检查。
+   * - ``GET /api/v1/bt/structure``
+     - XML 展开后的稳定 DFS 结构和 ``tree_revision``。
+   * - ``GET /api/v1/bt/snapshots/latest``
+     - 最新完整节点快照。
+   * - ``GET /api/v1/bt/snapshots?limit=60``
+     - 最近快照历史。
+   * - ``GET /api/v1/bt/service-events?limit=60``
+     - service 生命周期事件历史。
+
+默认 ROS topic 是 ``/bt_executor/tree_snapshot`` 和 ``/bt_executor/service_event``。
+两个 launch 文件提供同名参数用于同时改名；HTTP 路由全部只读，POST 请求返回 ``405``。
+
+隔离 Debug 模式
+----------------
+
+Debug 模式使用独立执行器和 Web 控制面。launch 默认设置 ``ROS_DOMAIN_ID=77``，不会连接
+普通 ``/bt_executor`` 所在的 ROS graph：
+
+.. code-block:: bash
+
+   source /opt/ros/humble/setup.bash
+   source ~/bt_ws/install/setup.bash
+   TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
+   ros2 launch bt_ros2 bt_debug.launch.py \
+     tree_file:="$TREE_FILE" http_port:=8089 ros_domain_id:=77
+
+浏览器访问 ``http://127.0.0.1:8089/``。调试执行器初始暂停；页面可暂停、继续、单步、
+重载，也可把每个 Condition 设置为 ``Auto``、``成功`` 或 ``失败``。覆盖在条件自身
+``tick()`` 前生效，不执行被覆盖条件的 ROS 订阅或判断逻辑。Action、Control 和 Decorator
+不能覆盖。
+
+Debug HTTP 接口
+~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 42 58
+
+   * - HTTP 接口
+     - 作用
+   * - ``GET /api/v1/debug/state``
+     - 当前运行模式、session、Condition key 和活动覆盖。
+   * - ``POST /api/v1/debug/control``
+     - 请求体为 ``{"action":"pause|resume|step|reload"}``。
+   * - ``POST /api/v1/debug/overrides``
+     - 原子替换 Condition 覆盖，例如 ``{"scenario_id":"manual","overrides":{"node/4":"SUCCESS"}}``。
+
+对应的 Trigger service 是 ``/bt_debug_executor/pause``、``resume``、``step`` 和
+``reload``。普通 ``bt_web.launch.py`` 仍是严格只读入口，不注册这些 POST 路由。
+
+Debug 模式仍会执行 Action。包含物理控制 Action 的自定义树必须继续使用隔离 domain，或
+把 Action 替换为测试实现；Condition 覆盖不是生产安全机制。

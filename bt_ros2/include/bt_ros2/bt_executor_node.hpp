@@ -31,6 +31,8 @@
 #define BT_ROS2_BT_EXECUTOR_NODE_HPP
 
 #include <memory>
+#include <cstdint>
+#include <unordered_map>
 #include <string>
 
 #include "bt_core/node_factory.hpp"
@@ -73,6 +75,17 @@ private:
   /// @brief timer 回调：tick 一拍 + 发布根状态。
   void onTick();
 
+  /// @brief 发布一份可由只读 Web 观察器消费的完整运行快照。
+  void publishTreeSnapshot(bt_core::NodeStatus root_status);
+
+  /// @brief 发布 start/stop service 生命周期事件。
+  void publishServiceEvent(const std::string& interface_name,
+                           const std::string& call_id,
+                           const std::string& phase,
+                           bool success,
+                           const std::string& message,
+                           std::int64_t duration_ms);
+
   /// @brief 处理 ~/start：幂等地启动周期 tick。
   void handleStart(
       const std::shared_ptr<Trigger::Request>,
@@ -83,23 +96,67 @@ private:
       const std::shared_ptr<Trigger::Request>,
       std::shared_ptr<Trigger::Response> response);
 
+  /// @brief Debug sandbox controls. These services exist only in debug_mode.
+  void handlePause(const std::shared_ptr<Trigger::Request>,
+                   std::shared_ptr<Trigger::Response> response);
+  void handleResume(const std::shared_ptr<Trigger::Request>,
+                    std::shared_ptr<Trigger::Response> response);
+  void handleStep(const std::shared_ptr<Trigger::Request>,
+                  std::shared_ptr<Trigger::Response> response);
+  void handleReload(const std::shared_ptr<Trigger::Request>,
+                    std::shared_ptr<Trigger::Response> response);
+
+  /// @brief Apply a line-based condition override command from the debug Web node.
+  /// Format: scenario_id|node/2=SUCCESS,node/4=FAILURE (empty list clears all).
+  void handleDebugOverrides(const std_msgs::msg::String& message);
+
+  void publishDebugState();
+  void publishDebugServiceEvent(const std::string& action,
+                                const std::string& call_id,
+                                const std::string& phase,
+                                bool success,
+                                const std::string& message,
+                                std::int64_t duration_ms);
+
   // -- 配置参数（来自 ROS2 param）------------------------------------------
   std::string tree_file_;          ///< 行为树 XML 文件路径
   double      tick_rate_hz_{10.0}; ///< tick 频率（Hz）
   std::string status_topic_{"~/bt_status"};  ///< 根状态发布 topic
+  std::string snapshot_topic_{"~/tree_snapshot"};  ///< 完整节点快照 topic
+  std::string service_event_topic_{"~/service_event"};  ///< service 事件 topic
   bool        autostart_{true};    ///< 是否构造后自动开始
   bool        stop_on_terminal_{false};  ///< 根节点终结后是否停止 tick
+  bool        debug_mode_{false};  ///< 是否启用隔离 debug 控制面
+  std::string debug_state_topic_{"~/debug_state"};
+  std::string debug_override_topic_{"~/debug_overrides"};
 
   // -- bt_core 运行期对象 ---------------------------------------------------
   bt_core::NodeFactory     factory_;     ///< 节点工厂（注册 + 建树）
   bt_core::Blackboard::Ptr blackboard_;  ///< 共享黑板（持有 ROS 句柄）
   std::unique_ptr<bt_core::Tree> tree_;  ///< 已加载的行为树
+  std::string session_id_;      ///< 本次执行器进程的观察会话 ID
+  std::string tree_revision_;   ///< XML 内容的稳定 FNV-1a revision
+  std::string tree_id_;         ///< 网页展示用主树标识
+  std::uint64_t snapshot_sequence_{0};
+  std::uint64_t service_event_sequence_{0};
+  std::uint64_t service_call_sequence_{0};
+  std::uint64_t session_sequence_{0};
+  std::string debug_scenario_id_{"all_auto"};
+  std::unordered_map<std::uint16_t, bt_core::NodeStatus> debug_overrides_;
 
   // -- ROS2 资源 ------------------------------------------------------------
   rclcpp::TimerBase::SharedPtr timer_;   ///< 周期 tick 定时器
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;  ///< 根状态发布器
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr snapshot_pub_;  ///< 树快照发布器
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr service_event_pub_;  ///< service 事件发布器
   rclcpp::Service<Trigger>::SharedPtr start_service_;  ///< 幂等启动服务
   rclcpp::Service<Trigger>::SharedPtr stop_service_;   ///< 幂等停止服务
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr debug_state_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr debug_override_sub_;
+  rclcpp::Service<Trigger>::SharedPtr pause_service_;
+  rclcpp::Service<Trigger>::SharedPtr resume_service_;
+  rclcpp::Service<Trigger>::SharedPtr step_service_;
+  rclcpp::Service<Trigger>::SharedPtr reload_service_;
 };
 
 }  // namespace bt_ros2

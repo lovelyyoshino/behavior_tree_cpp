@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BehaviorTree.CPP-X 运行监视器</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="identity">
+        <span class="product-mark" aria-hidden="true">BT</span>
+        <div>
+          <h1>BehaviorTree.CPP-X 运行监视器</h1>
+          <p id="connection-label">正在连接</p>
+        </div>
+      </div>
+      <div class="toolbar" aria-label="快照控制">
+        <button id="live-button" type="button">暂停</button>
+        <button id="export-button" type="button">导出快照</button>
+        <button id="import-button" type="button">打开快照</button>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+      </div>
+    </header>
+
+    <section class="status-strip" aria-label="当前行为树状态">
+      <div><span>Tree</span><strong id="tree-id">-</strong></div>
+      <div><span>Tick</span><strong id="tick-sequence">-</strong></div>
+      <div><span>Root</span><strong id="root-status" class="status-text">IDLE</strong></div>
+      <div><span>Service events</span><strong id="service-event-count">0</strong></div>
+    </section>
+
+    <main class="workspace">
+      <section class="tree-panel" aria-label="行为树">
+        <div class="panel-heading">
+          <h2>运行树</h2>
+          <div class="tree-heading-actions">
+            <div class="tree-collapse-actions" aria-label="树显示控制">
+              <button id="collapse-all-button" type="button">折叠全部</button>
+              <button id="expand-all-button" type="button">展开全部</button>
+            </div>
+            <label class="search-box">
+              <span>筛选</span>
+              <input id="node-filter" type="search" autocomplete="off">
+            </label>
+          </div>
+        </div>
+        <div id="snapshot-empty" class="empty-state">等待树快照</div>
+        <div id="tree-view" class="tree-view" aria-live="polite"></div>
+      </section>
+
+      <aside class="details-panel" aria-label="节点和服务详情">
+        <div class="panel-heading"><h2>节点详情</h2></div>
+        <dl class="details-list">
+          <div><dt>Name</dt><dd id="detail-name">-</dd></div>
+          <div><dt>Registration</dt><dd id="detail-registration">-</dd></div>
+          <div><dt>Kind</dt><dd id="detail-kind">-</dd></div>
+          <div><dt>Status</dt><dd id="detail-status">IDLE</dd></div>
+          <div><dt>Path</dt><dd id="detail-path">-</dd></div>
+        </dl>
+
+        <section class="summary-block">
+          <h3>本拍节点状态</h3>
+          <div class="status-counts">
+            <div><span class="swatch success"></span><strong id="count-success">0</strong><span>Success</span></div>
+            <div><span class="swatch failure"></span><strong id="count-failure">0</strong><span>Failure</span></div>
+            <div><span class="swatch running"></span><strong id="count-running">0</strong><span>Running</span></div>
+          </div>
+        </section>
+
+        <section class="summary-block service-events-block">
+          <div class="service-heading">
+            <h3>Service 生命周期</h3>
+            <span id="service-event-status" class="muted-label">等待事件</span>
+          </div>
+          <div class="service-filters">
+            <input id="service-interface-filter" type="search" placeholder="接口">
+            <input id="service-call-filter" type="search" placeholder="Call ID">
+            <select id="service-phase-filter">
+              <option value="">全部阶段</option>
+              <option value="started">Started</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div id="service-events" class="service-events" aria-live="polite"></div>
+        </section>
+      </aside>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
+

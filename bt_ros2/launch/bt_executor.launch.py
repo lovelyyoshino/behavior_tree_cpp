@@ -38,6 +38,16 @@ def generate_launch_description():
         default_value='~/bt_status',
         description='发布根节点状态的 topic 名')
 
+    snapshot_topic_arg = DeclareLaunchArgument(
+        'snapshot_topic',
+        default_value='~/tree_snapshot',
+        description='发布完整行为树 JSON 快照的 topic 名')
+
+    service_event_topic_arg = DeclareLaunchArgument(
+        'service_event_topic',
+        default_value='~/service_event',
+        description='发布 start/stop 服务生命周期 JSON 事件的 topic 名')
+
     autostart_arg = DeclareLaunchArgument(
         'autostart',
         default_value='true',
@@ -59,6 +69,8 @@ def generate_launch_description():
             'tree_file': LaunchConfiguration('tree_file'),
             'tick_rate_hz': LaunchConfiguration('tick_rate_hz'),
             'status_topic': LaunchConfiguration('status_topic'),
+            'snapshot_topic': LaunchConfiguration('snapshot_topic'),
+            'service_event_topic': LaunchConfiguration('service_event_topic'),
             'autostart': LaunchConfiguration('autostart'),
             'stop_on_terminal': LaunchConfiguration('stop_on_terminal'),
         }],
@@ -68,6 +80,8 @@ def generate_launch_description():
         tree_file_arg,
         tick_rate_arg,
         status_topic_arg,
+        snapshot_topic_arg,
+        service_event_topic_arg,
         autostart_arg,
         stop_on_terminal_arg,
         bt_executor_node,
