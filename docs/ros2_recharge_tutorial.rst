@@ -274,10 +274,11 @@ service 的 ``started``/``completed`` 生命周期发布到 transient-local topi
    ros2 launch bt_ros2 bt_web.launch.py \
      tree_file:="$TREE_FILE" http_port:=8088
 
-浏览器访问 ``http://127.0.0.1:8088/``。页面展示树结构、每拍节点状态、根状态和
-``/bt_executor/start``、``/bt_executor/stop`` 的服务时间线。树面板支持节点级 ``+/-``
+浏览器访问 ``http://127.0.0.1:8088/``。页面展示树结构、每拍节点状态、最近 48 拍的
+Success/Failure 节点数柱状图、根状态和 ``/bt_executor/start``、``/bt_executor/stop``
+的服务时间线。树面板支持节点级 ``+/-``
 折叠以及“折叠全部/展开全部”；折叠只改变显示，不改变 XML 或 tick。页面还可导出当前
-JSON 快照，或打开快照进入离线复盘模式。
+JSON 快照，或打开快照进入离线复盘模式；离线模式会以单拍显示柱状图。
 
 网页观察接口
 ~~~~~~~~~~~~~~

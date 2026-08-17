@@ -34,7 +34,7 @@ ROS 句柄进入行为树的方式：
 | `trees/recharge.xml` | 外部 BatteryState 消息驱动回充的完整示例 |
 | `launch/bt_executor.launch.py` | launch 参数入口 |
 | `scripts/bt_web.py` / `scripts/bt_web_core.py` | 只读 ROS 快照 HTTP 适配器 |
-| `web/index.html` / `web/app.js` / `web/styles.css` | 树折叠、状态和 service 时间线页面 |
+| `web/index.html` / `web/app.js` / `web/styles.css` | 树折叠、每拍状态柱状图和 service 时间线页面 |
 | `launch/bt_web.launch.py` | 启动网页监视器 |
 
 ## 3. BtExecutorNode 参数
@@ -245,8 +245,9 @@ TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
 ros2 launch bt_ros2 bt_web.launch.py tree_file:="$TREE_FILE" http_port:=8088
 ```
 
-打开 `http://127.0.0.1:8088/` 后，页面可查看实时树、每拍节点状态、service 时间线，并
-按分支折叠或全部折叠。页面是只读观察器，不能代替 `ros2 service call` 控制执行器。详情、
+打开 `http://127.0.0.1:8088/` 后，页面可查看实时树、每拍节点状态、最近 48 拍的 Success/Failure
+节点数柱状图和 service 时间线，并按分支折叠或全部折叠。页面是只读观察器，不能代替
+`ros2 service call` 控制执行器。详情、
 接口契约和离线快照流程见 [`docs/tutorial/ROS2_RECHARGE_TUTORIAL.md`](../docs/tutorial/ROS2_RECHARGE_TUTORIAL.md)
 第 9 节。
 

@@ -68,6 +68,18 @@
           </div>
         </section>
 
+        <section class="summary-block tick-chart-block">
+          <div class="service-heading">
+            <h3>每拍成功 / 失败</h3>
+            <span id="tick-chart-status" class="muted-label">等待快照</span>
+          </div>
+          <div class="tick-chart-legend" aria-hidden="true">
+            <span><i class="swatch success"></i>Success</span>
+            <span><i class="swatch failure"></i>Failure</span>
+          </div>
+          <div id="tick-chart" class="tick-chart" role="img" aria-label="每个 Tick 的成功和失败节点数"></div>
+        </section>
+
         <section class="summary-block service-events-block">
           <div class="service-heading">
             <h3>Service 生命周期</h3>
@@ -89,4 +101,3 @@
     <script src="/app.js" defer></script>
   </body>
 </html>
-

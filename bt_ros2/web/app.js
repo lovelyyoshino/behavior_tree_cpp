@@ -32,6 +32,8 @@ const ui = {
     FAILURE: document.querySelector("#count-failure"),
     RUNNING: document.querySelector("#count-running"),
   },
+  tickChart: document.querySelector("#tick-chart"),
+  tickChartStatus: document.querySelector("#tick-chart-status"),
 };
 
 const state = {
@@ -47,6 +49,7 @@ const state = {
   collapsedNodeIds: new Set(),
   statusesById: new Map(),
   serviceEvents: [],
+  snapshotHistory: [],
 };
 
 async function fetchJson(path) {
@@ -176,6 +179,40 @@ function renderSnapshot() {
   if (state.selectedNodeId) selectNode(state.selectedNodeId);
 }
 
+function renderTickChart() {
+  const entries = state.snapshotHistory.slice(-48);
+  ui.tickChart.replaceChildren();
+  ui.tickChartStatus.textContent = entries.length ? `${entries.length} ticks` : "等待快照";
+  if (!entries.length) return;
+
+  const counts = entries.map(({ snapshot }) => ({
+    seq: snapshot.seq,
+    success: snapshot.nodes.filter((node) => node.status === "SUCCESS").length,
+    failure: snapshot.nodes.filter((node) => node.status === "FAILURE").length,
+  }));
+  const maxCount = Math.max(1, ...counts.flatMap(({ success, failure }) => [success, failure]));
+  for (const entry of counts) {
+    const column = document.createElement("div");
+    column.className = "tick-column";
+    column.title = `Tick ${entry.seq}: Success ${entry.success}, Failure ${entry.failure}`;
+    const bars = document.createElement("div");
+    bars.className = "tick-bars";
+    for (const [kind, value] of [["success", entry.success], ["failure", entry.failure]]) {
+      const bar = document.createElement("span");
+      bar.className = `tick-bar ${kind}`;
+      bar.style.height = `${Math.max(value ? 4 : 0, (value / maxCount) * 100)}%`;
+      bar.setAttribute("aria-label", `${kind} ${value}`);
+      bars.append(bar);
+    }
+    const label = document.createElement("span");
+    label.className = "tick-label";
+    label.textContent = String(entry.seq);
+    bars.append(label);
+    column.append(bars);
+    ui.tickChart.append(column);
+  }
+}
+
 function renderServiceEvents() {
   const interfaceQuery = ui.serviceInterface.value.trim().toLowerCase();
   const callQuery = ui.serviceCall.value.trim().toLowerCase();
@@ -214,15 +251,22 @@ function renderServiceEvents() {
 async function pollSnapshot() {
   if (state.paused || state.offline) return;
   try {
-    const payload = await fetchJson("/api/v1/bt/snapshots/latest");
+    const [payload, history] = await Promise.all([
+      fetchJson("/api/v1/bt/snapshots/latest"),
+      fetchJson("/api/v1/bt/snapshots?limit=48"),
+    ]);
     if (!payload.available) {
       ui.connection.textContent = "已连接，等待快照";
+      state.snapshotHistory = [];
+      renderTickChart();
       return;
     }
     if (payload.snapshot.tree_revision !== state.structure.tree_revision) throw new Error("树 revision 不一致");
     state.snapshot = payload.snapshot;
+    state.snapshotHistory = history.entries || [];
     ui.connection.textContent = "实时";
     renderSnapshot();
+    renderTickChart();
   } catch (error) {
     ui.connection.textContent = `已断开 / ${error.message}`;
   }
@@ -263,11 +307,13 @@ async function importSnapshot(file) {
   if (snapshot.schema !== "bt_ros2.bt_snapshot.v1" || !Array.isArray(snapshot.nodes)) throw new Error("不支持的快照");
   if (snapshot.tree_revision !== state.structure.tree_revision) throw new Error("树 revision 不一致");
   state.snapshot = snapshot;
+  state.snapshotHistory = [{ received_at_unix_ms: Date.now(), snapshot }];
   state.paused = true;
   state.offline = true;
   ui.live.textContent = "继续";
   ui.connection.textContent = "离线快照";
   renderSnapshot();
+  renderTickChart();
 }
 
 async function boot() {
@@ -298,4 +344,3 @@ ui.serviceInterface.addEventListener("input", renderServiceEvents);
 ui.serviceCall.addEventListener("input", renderServiceEvents);
 ui.servicePhase.addEventListener("change", renderServiceEvents);
 boot();
-

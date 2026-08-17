@@ -139,6 +139,10 @@ class BtWebCoreTest(unittest.TestCase):
         self.assertIn('toggle.setAttribute("aria-expanded", String(!collapsed))', script)
         self.assertIn('function setAllNodesCollapsed(collapsed)', script)
         self.assertIn('.tree-item.collapsed > .tree-list { display: none; }', styles)
+        self.assertIn('id="tick-chart"', page)
+        self.assertIn('function renderTickChart()', script)
+        self.assertIn('/api/v1/bt/snapshots?limit=48', script)
+        self.assertIn('.tick-bar.success', styles)
 
     def test_debug_state_and_http_controls(self):
         structure = load_tree_definition(TREE_FILE)
