@@ -315,9 +315,9 @@ Debug 模式使用独立执行器和 Web 控制面。launch 默认设置 ``ROS_D
    source ~/bt_ws/install/setup.bash
    TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
    ros2 launch bt_ros2 bt_debug.launch.py \
-     tree_file:="$TREE_FILE" http_port:=8089 ros_domain_id:=77
+     tree_file:="$TREE_FILE" http_port:=8089 monitor_http_port:=8090 ros_domain_id:=77
 
-浏览器访问 ``http://127.0.0.1:8089/``。调试执行器初始暂停；页面可暂停、继续、单步、
+浏览器访问 ``http://127.0.0.1:8089/`` 进入 Debug 控制页。调试执行器初始暂停；页面可暂停、继续、单步、
 重载，也可把每个 Condition 设置为 ``Auto``、``成功`` 或 ``失败``。覆盖在条件自身
 ``tick()`` 前生效，不执行被覆盖条件的 ROS 订阅或判断逻辑。Action、Control 和 Decorator
 不能覆盖。
@@ -338,7 +338,9 @@ Debug HTTP 接口
    * - ``POST /api/v1/debug/overrides``
      - 原子替换 Condition 覆盖，例如 ``{"scenario_id":"manual","overrides":{"node/4":"SUCCESS"}}``。
 
-对应的 Trigger service 是 ``/bt_debug_executor/pause``、``resume``、``step`` 和
+Debug 运行树使用独立端口 ``http://127.0.0.1:8090/``，只读显示隔离执行器的完整树、最近
+48 拍 Success/Failure 节点数柱状图和 service 事件。对应的 Trigger service 是
+``/bt_debug_executor/pause``、``resume``、``step`` 和
 ``reload``。普通 ``bt_web.launch.py`` 仍是严格只读入口，不注册这些 POST 路由。
 
 Debug 模式仍会执行 Action。包含物理控制 Action 的自定义树必须继续使用隔离 domain，或

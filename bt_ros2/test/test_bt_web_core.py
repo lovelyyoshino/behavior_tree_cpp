@@ -184,6 +184,8 @@ class BtWebCoreTest(unittest.TestCase):
             try:
                 with urlopen(f'{base_url}/api/v1/debug/state') as response:
                     self.assertTrue(json.load(response)['state']['paused'])
+                with urlopen(f'{base_url}/api/v1/debug/config') as response:
+                    self.assertEqual(json.load(response)['monitor_port_offset'], 1)
                 override_request = Request(
                     f'{base_url}/api/v1/debug/overrides',
                     data=json.dumps({
@@ -215,8 +217,19 @@ class BtWebCoreTest(unittest.TestCase):
         script = (PACKAGE_ROOT / 'web' / 'debug.js').read_text(encoding='utf-8')
         self.assertIn('id="step-button"', page)
         self.assertIn('id="apply-overrides"', page)
+        self.assertIn('id="monitor-link"', page)
         self.assertIn('/api/v1/debug/overrides', script)
         self.assertIn('/api/v1/debug/control', script)
+        self.assertIn('/api/v1/debug/config', script)
+        self.assertIn('currentPort + config.monitor_port_offset', script)
+
+    def test_debug_launch_separates_control_and_monitor_ports(self):
+        launch = (PACKAGE_ROOT / 'launch' / 'bt_debug.launch.py').read_text(encoding='utf-8')
+        self.assertIn("DeclareLaunchArgument('http_port', default_value='8089')", launch)
+        self.assertIn("DeclareLaunchArgument('monitor_http_port', default_value='8090')", launch)
+        self.assertIn("name='bt_debug_web'", launch)
+        self.assertIn("name='bt_debug_monitor_web'", launch)
+        self.assertIn("LaunchConfiguration('monitor_http_port')", launch)
 
 
 if __name__ == '__main__':

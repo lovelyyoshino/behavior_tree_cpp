@@ -20,6 +20,7 @@ const ui = {
   resume: document.querySelector("#resume-button"),
   step: document.querySelector("#step-button"),
   reload: document.querySelector("#reload-button"),
+  monitor: document.querySelector("#monitor-link"),
 };
 
 const state = {
@@ -212,7 +213,19 @@ function filterConditions() {
 
 async function boot() {
   try {
-    const structure = await fetchJson("/api/v1/bt/structure");
+    const [structure, config] = await Promise.all([
+      fetchJson("/api/v1/bt/structure"),
+      fetchJson("/api/v1/debug/config"),
+    ]);
+    const currentPort = Number(window.location.port || (window.location.protocol === "https:" ? 443 : 80));
+    const monitorPort = currentPort + config.monitor_port_offset;
+    if (Number.isInteger(monitorPort) && monitorPort > 0 && monitorPort <= 65535) {
+      const monitorUrl = new URL("/", window.location.href);
+      monitorUrl.port = String(monitorPort);
+      ui.monitor.href = monitorUrl.toString();
+    } else {
+      ui.monitor.hidden = true;
+    }
     state.conditions = flatten(structure.root).filter((node) => node.kind === "Condition");
     renderConditions();
     await poll();

@@ -279,6 +279,7 @@ def make_request_handler(
     debug_state: DebugStateStore | None = None,
     apply_overrides: Any = None,
     call_control: Any = None,
+    monitor_port_offset: int | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     root = Path(web_root).resolve()
     debug_enabled = debug_state is not None
@@ -342,6 +343,9 @@ def make_request_handler(
                 return
             if parsed.path == '/api/v1/debug/state' and debug_state is not None:
                 self._json(200, debug_state.latest())
+                return
+            if parsed.path == '/api/v1/debug/config' and debug_state is not None:
+                self._json(200, {'monitor_port_offset': monitor_port_offset or 1})
                 return
             if parsed.path in static_files:
                 filename, content_type = static_files[parsed.path]

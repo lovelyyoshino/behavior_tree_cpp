@@ -248,10 +248,10 @@ source /opt/ros/humble/setup.bash
 source ~/bt_ws/install/setup.bash
 TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
 ros2 launch bt_ros2 bt_debug.launch.py \
-  tree_file:="$TREE_FILE" http_port:=8089 ros_domain_id:=77
+  tree_file:="$TREE_FILE" http_port:=8089 monitor_http_port:=8090 ros_domain_id:=77
 ```
 
-浏览器打开 <http://127.0.0.1:8089/>。调试执行器初始处于暂停状态，页面支持：
+浏览器打开 <http://127.0.0.1:8089/> 进入 Debug 控制页。调试执行器初始处于暂停状态，页面支持：
 
 - `暂停` / `继续`：停止或恢复周期 tick；暂停不会 halt 或清空当前树状态。
 - `单步`：暂停时只执行一拍，并立即发布新的完整快照。
@@ -259,6 +259,9 @@ ros2 launch bt_ros2 bt_debug.launch.py \
 - Condition 覆盖：每个条件可设为 `Auto`、`成功` 或 `失败`；也可整树设为全部成功、
   全部失败或全部自动。覆盖会在条件自身 `tick()` 前返回强制结果，不执行该条件的 ROS
   订阅或判断逻辑。
+
+Debug 运行树使用独立端口 <http://127.0.0.1:8090/>，只读显示隔离执行器的完整树、最近
+48 拍 Success/Failure 节点数柱状图和 service 事件；控制页与运行树互不占用同一个 HTTP 端口。
 
 `运行树` 链接打开同一 debug session 的完整树监视页，节点快照中的 `override` 字段可区分
 真实结果与强制结果。Action、Control 和 Decorator 不允许覆盖。

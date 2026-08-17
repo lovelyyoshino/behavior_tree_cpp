@@ -258,13 +258,17 @@ ros2 launch bt_ros2 bt_web.launch.py tree_file:="$TREE_FILE" http_port:=8088
 ```bash
 TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
 ros2 launch bt_ros2 bt_debug.launch.py \
-  tree_file:="$TREE_FILE" http_port:=8089 ros_domain_id:=77
+  tree_file:="$TREE_FILE" http_port:=8089 monitor_http_port:=8090 ros_domain_id:=77
 ```
 
 访问 `http://127.0.0.1:8089/` 可以暂停、继续、单步、重载，并把任意 Condition 原子设为
 `AUTO` / `SUCCESS` / `FAILURE`。默认 `ROS_DOMAIN_ID=77`，节点名为
 `/bt_debug_executor`，与普通 `/bt_executor` 隔离。普通 `bt_web.launch.py` 仍然只读，
 不会暴露 debug POST 路由或控制 service。
+
+Debug 控制页和运行监视页使用不同端口：`http://127.0.0.1:8089/` 是控制页，
+`http://127.0.0.1:8090/` 是独立的只读运行树（含每拍 Success/Failure 柱状图）。
+可通过 `monitor_http_port:=<port>` 修改第二个端口。
 
 调试服务是 `/bt_debug_executor/pause`、`resume`、`step`、`reload`，类型均为
 `std_srvs/srv/Trigger`。完整网页接口和安全边界见教程第 10 节。

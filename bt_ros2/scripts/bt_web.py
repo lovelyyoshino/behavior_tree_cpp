@@ -29,6 +29,7 @@ class BtWebNode(Node):
         package_share = Path(get_package_share_directory('bt_ros2'))
         self.declare_parameter('bind_address', '127.0.0.1')
         self.declare_parameter('http_port', 8088)
+        self.declare_parameter('monitor_http_port', 8090)
         self.declare_parameter('tree_file', str(package_share / 'trees' / 'example.xml'))
         self.declare_parameter('snapshot_topic', '/bt_executor/tree_snapshot')
         self.declare_parameter('service_event_topic', '/bt_executor/service_event')
@@ -40,12 +41,17 @@ class BtWebNode(Node):
 
         bind_address = self.get_parameter('bind_address').value
         http_port = self.get_parameter('http_port').value
+        monitor_http_port = self.get_parameter('monitor_http_port').value
         history_limit = self.get_parameter('history_limit').value
         debug_mode = self.get_parameter('debug_mode').value
         if not isinstance(bind_address, str) or not bind_address:
             raise ValueError('bind_address must be a non-empty string')
         if not isinstance(http_port, int) or not 1 <= http_port <= 65535:
             raise ValueError('http_port must be in [1, 65535]')
+        if not isinstance(monitor_http_port, int) or not 1 <= monitor_http_port <= 65535:
+            raise ValueError('monitor_http_port must be in [1, 65535]')
+        if debug_mode and monitor_http_port == http_port:
+            raise ValueError('debug and monitor HTTP ports must be different')
         if not isinstance(history_limit, int) or history_limit <= 0:
             raise ValueError('history_limit must be positive')
 
@@ -73,6 +79,7 @@ class BtWebNode(Node):
             self._debug_state,
             self._apply_overrides if debug_mode else None,
             self._call_control if debug_mode else None,
+            monitor_http_port - http_port if debug_mode else None,
         )
         self._server = ThreadingHTTPServer((bind_address, http_port), handler)
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)

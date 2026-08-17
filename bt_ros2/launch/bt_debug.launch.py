@@ -21,6 +21,7 @@ def generate_launch_description():
         DeclareLaunchArgument('tick_rate_hz', default_value='2.0'),
         DeclareLaunchArgument('bind_address', default_value='127.0.0.1'),
         DeclareLaunchArgument('http_port', default_value='8089'),
+        DeclareLaunchArgument('monitor_http_port', default_value='8090'),
     ]
 
     executor = Node(
@@ -44,7 +45,7 @@ def generate_launch_description():
         }],
     )
 
-    web = Node(
+    debug_web = Node(
         package='bt_ros2',
         executable='bt_web',
         name='bt_debug_web',
@@ -55,6 +56,9 @@ def generate_launch_description():
             'http_port': ParameterValue(
                 LaunchConfiguration('http_port'), value_type=int
             ),
+            'monitor_http_port': ParameterValue(
+                LaunchConfiguration('monitor_http_port'), value_type=int
+            ),
             'snapshot_topic': '/bt_debug_executor/tree_snapshot',
             'service_event_topic': '/bt_debug_executor/service_event',
             'debug_mode': True,
@@ -64,9 +68,27 @@ def generate_launch_description():
         }],
     )
 
+    monitor_web = Node(
+        package='bt_ros2',
+        executable='bt_web',
+        name='bt_debug_monitor_web',
+        output='screen',
+        parameters=[{
+            'tree_file': LaunchConfiguration('tree_file'),
+            'bind_address': LaunchConfiguration('bind_address'),
+            'http_port': ParameterValue(
+                LaunchConfiguration('monitor_http_port'), value_type=int
+            ),
+            'snapshot_topic': '/bt_debug_executor/tree_snapshot',
+            'service_event_topic': '/bt_debug_executor/service_event',
+            'history_limit': 240,
+        }],
+    )
+
     return LaunchDescription([
         *arguments,
         SetEnvironmentVariable('ROS_DOMAIN_ID', LaunchConfiguration('ros_domain_id')),
         executor,
-        web,
+        debug_web,
+        monitor_web,
     ])
