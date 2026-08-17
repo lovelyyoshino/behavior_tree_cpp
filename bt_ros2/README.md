@@ -251,6 +251,9 @@ ros2 launch bt_ros2 bt_web.launch.py tree_file:="$TREE_FILE" http_port:=8088
 接口契约和离线快照流程见 [`docs/tutorial/ROS2_RECHARGE_TUTORIAL.md`](../docs/tutorial/ROS2_RECHARGE_TUTORIAL.md)
 第 9 节。
 
+柱状图以整棵树的节点总数作为固定纵轴，柱宽与 48 拍历史窗口保持不变；实时模式每次刷新
+都会跟随到最右侧的最新 Tick。
+
 ## 7.6 隔离 Debug Sandbox
 
 参考生产项目的独立 sandbox 入口，`bt_ros2` 提供一个只在调试 launch 中开启的控制面：

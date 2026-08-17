@@ -142,6 +142,9 @@ class BtWebCoreTest(unittest.TestCase):
         self.assertIn('id="tick-chart"', page)
         self.assertIn('function renderTickChart()', script)
         self.assertIn('/api/v1/bt/snapshots?limit=48', script)
+        self.assertIn('const TICK_CHART_LIMIT = 48', script)
+        self.assertIn('total: snapshot.nodes.length', script)
+        self.assertIn('ui.tickChart.scrollLeft = ui.tickChart.scrollWidth', script)
         self.assertIn('.tick-bar.success', styles)
 
     def test_debug_state_and_http_controls(self):

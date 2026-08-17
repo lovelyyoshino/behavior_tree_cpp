@@ -1,5 +1,7 @@
 "use strict";
 
+const TICK_CHART_LIMIT = 48;
+
 const ui = {
   connection: document.querySelector("#connection-label"),
   treeId: document.querySelector("#tree-id"),
@@ -180,17 +182,24 @@ function renderSnapshot() {
 }
 
 function renderTickChart() {
-  const entries = state.snapshotHistory.slice(-48);
+  const entries = state.snapshotHistory.slice(-TICK_CHART_LIMIT);
   ui.tickChart.replaceChildren();
-  ui.tickChartStatus.textContent = entries.length ? `${entries.length} ticks` : "等待快照";
-  if (!entries.length) return;
+  if (!entries.length) {
+    ui.tickChartStatus.textContent = "等待快照";
+    ui.tickChart.scrollLeft = 0;
+    return;
+  }
+  const firstSeq = entries[0].snapshot.seq;
+  const latestSeq = entries[entries.length - 1].snapshot.seq;
+  ui.tickChartStatus.textContent = `Tick ${firstSeq}-${latestSeq}`;
 
   const counts = entries.map(({ snapshot }) => ({
     seq: snapshot.seq,
     success: snapshot.nodes.filter((node) => node.status === "SUCCESS").length,
     failure: snapshot.nodes.filter((node) => node.status === "FAILURE").length,
+    total: snapshot.nodes.length,
   }));
-  const maxCount = Math.max(1, ...counts.flatMap(({ success, failure }) => [success, failure]));
+  const scaleMax = Math.max(1, ...counts.map(({ total }) => total));
   for (const entry of counts) {
     const column = document.createElement("div");
     column.className = "tick-column";
@@ -200,7 +209,7 @@ function renderTickChart() {
     for (const [kind, value] of [["success", entry.success], ["failure", entry.failure]]) {
       const bar = document.createElement("span");
       bar.className = `tick-bar ${kind}`;
-      bar.style.height = `${Math.max(value ? 4 : 0, (value / maxCount) * 100)}%`;
+      bar.style.height = `${Math.max(value ? 4 : 0, (value / scaleMax) * 100)}%`;
       bar.setAttribute("aria-label", `${kind} ${value}`);
       bars.append(bar);
     }
@@ -211,6 +220,7 @@ function renderTickChart() {
     column.append(bars);
     ui.tickChart.append(column);
   }
+  ui.tickChart.scrollLeft = ui.tickChart.scrollWidth;
 }
 
 function renderServiceEvents() {
