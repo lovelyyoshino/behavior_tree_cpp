@@ -21,8 +21,13 @@
 #define BT_CORE_TREE_HPP
 
 #include <cstdint>
+#include <algorithm>
 #include <functional>
 #include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "bt_core/control_node.hpp"
@@ -49,6 +54,12 @@ public:
 
   /// @brief 共享黑板。
   Blackboard::Ptr blackboard() const { return blackboard_; }
+
+  /// @brief XML 主树 ID（程序化构造的树为空字符串）。
+  const std::string& treeId() const { return tree_id_; }
+
+  /// @brief 设置 XML 主树 ID，供运行观察器使用。
+  void setTreeId(std::string tree_id) { tree_id_ = std::move(tree_id); }
 
   /**
    * @brief 从根执行一拍。
@@ -95,6 +106,35 @@ public:
   /// @brief 扁平化的全部节点列表(已按遍历顺序分配 id)。
   const std::vector<TreeNode::Ptr>& nodes() const { return nodes_; }
 
+  /// @brief Atomically replace debug overrides for condition node IDs.
+  /// @details Entries not present in the map are reset to automatic behavior;
+  ///          non-condition nodes are rejected to keep the control surface safe.
+  void setConditionOverrides(
+      const std::unordered_map<uint16_t, NodeStatus>& overrides) {
+    for (const auto& [node_id, status] : overrides) {
+      if (status != NodeStatus::SUCCESS && status != NodeStatus::FAILURE) {
+        throw std::invalid_argument(
+            "debug condition override must be SUCCESS or FAILURE");
+      }
+      const auto it = std::find_if(nodes_.begin(), nodes_.end(),
+          [node_id](const TreeNode::Ptr& node) { return node->id() == node_id; });
+      if (it == nodes_.end()) {
+        throw std::invalid_argument("debug override targets an unknown node");
+      }
+      if ((*it)->type() != NodeType::CONDITION) {
+        throw std::invalid_argument("debug override targets a non-condition node");
+      }
+    }
+    for (const auto& node : nodes_) {
+      const auto it = overrides.find(node->id());
+      if (it == overrides.end()) {
+        node->setForcedStatus(std::nullopt);
+        continue;
+      }
+      node->setForcedStatus(it->second);
+    }
+  }
+
   /**
    * @brief 深度优先遍历整棵树。
    * @param visitor 回调(node, depth)
@@ -135,6 +175,7 @@ private:
 
   TreeNode::Ptr              root_;
   Blackboard::Ptr            blackboard_;
+  std::string                tree_id_;
   std::vector<TreeNode::Ptr> nodes_;
 };
 

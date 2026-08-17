@@ -22,8 +22,10 @@
 #define BT_CORE_TREE_NODE_HPP
 
 #include <functional>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -95,6 +97,12 @@ public:
   NodeStatus executeTick() {
     // 即使 tick 抛异常，显式 halt 仍应知道该节点可能已创建部分资源。
     halt_pending_ = true;
+    // Debug sandbox may force a condition result without changing production
+    // node logic.  Actions and controls always execute normally.
+    if (forced_status_ && type() == NodeType::CONDITION) {
+      setStatus(*forced_status_);
+      return *forced_status_;
+    }
     const NodeStatus new_status = tick();
     setStatus(new_status);
     return new_status;
@@ -116,6 +124,18 @@ public:
       }
     }
   }
+
+  /// @brief Force a condition result for an isolated debug/sandbox run.
+  void setForcedStatus(std::optional<NodeStatus> status) {
+    if (status && *status != NodeStatus::SUCCESS &&
+        *status != NodeStatus::FAILURE) {
+      throw std::invalid_argument("condition override must be SUCCESS or FAILURE");
+    }
+    forced_status_ = status;
+  }
+
+  /// @brief Return the currently forced condition result, if any.
+  std::optional<NodeStatus> forcedStatus() const { return forced_status_; }
 
   // -- 元信息 ---------------------------------------------------------------
 
@@ -185,6 +205,7 @@ private:
   NodeConfig          config_;
   NodeStatus          status_{NodeStatus::IDLE};
   bool                halt_pending_{false};
+  std::optional<NodeStatus> forced_status_;
   uint16_t            node_id_{0};
   StatusChangeCallback status_callback_;
 };

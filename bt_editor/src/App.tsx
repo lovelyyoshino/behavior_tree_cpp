@@ -89,6 +89,8 @@ export default function App() {
   // 画布数据
   const [nodes, setNodes] = useState<BtNode[]>([]);
   const [edges, setEdges] = useState<BtEdge[]>([]);
+  // 仅影响画布显示；折叠不会改变树结构或 XML。
+  const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(new Set());
   // 节点 manifest（来自 /api/nodes）
   const [manifests, setManifests] = useState<NodeManifest[]>([]);
   const [paletteLoading, setPaletteLoading] = useState(false);
@@ -270,7 +272,70 @@ export default function App() {
     setNodes((nds) => nds.filter((n) => n.id !== id));
     setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
     setSelectedId((cur) => (cur === id ? null : cur));
+    setCollapsedNodeIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   }, []);
+
+  const toggleNodeCollapse = useCallback((id: string) => {
+    setCollapsedNodeIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const collapseAllNodes = useCallback(() => {
+    setCollapsedNodeIds(new Set(edges.map((edge) => edge.source)));
+  }, [edges]);
+
+  const expandAllNodes = useCallback(() => {
+    setCollapsedNodeIds(new Set());
+  }, []);
+
+  const visibleNodeIds = useMemo(() => {
+    const childrenByParent = new Map<string, string[]>();
+    for (const edge of edges) {
+      const children = childrenByParent.get(edge.source) ?? [];
+      children.push(edge.target);
+      childrenByParent.set(edge.source, children);
+    }
+    const hidden = new Set<string>();
+    const visit = (id: string) => {
+      for (const child of childrenByParent.get(id) ?? []) {
+        if (hidden.has(child)) continue;
+        hidden.add(child);
+        visit(child);
+      }
+    };
+    for (const id of collapsedNodeIds) visit(id);
+    return new Set(nodes.filter((node) => !hidden.has(node.id)).map((node) => node.id));
+  }, [collapsedNodeIds, edges, nodes]);
+
+  const renderedNodes = useMemo(
+    () => nodes.map((node) => ({
+      ...node,
+      hidden: !visibleNodeIds.has(node.id),
+      data: {
+        ...node.data,
+        collapsed: collapsedNodeIds.has(node.id),
+        hasChildren: edges.some((edge) => edge.source === node.id),
+        onToggleCollapse: toggleNodeCollapse,
+      },
+    })),
+    [collapsedNodeIds, edges, nodes, toggleNodeCollapse, visibleNodeIds],
+  );
+
+  const renderedEdges = useMemo(
+    () => edges.map((edge) => ({
+      ...edge,
+      hidden: !visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target),
+    })),
+    [edges, visibleNodeIds],
+  );
 
   // -------------------------------------------------------------------------
   // 工具栏动作
@@ -285,6 +350,7 @@ export default function App() {
       setNodes(newNodes);
       setEdges(newEdges);
       setSelectedId(null);
+      setCollapsedNodeIds(new Set());
       nodeIdSeq += newNodes.length;
       pushToast('success', `已载入示例树（${newNodes.length} 个节点）`);
     } catch (err) {
@@ -332,6 +398,7 @@ export default function App() {
       setNodes(newNodes);
       setEdges(newEdges);
       setSelectedId(null);
+      setCollapsedNodeIds(new Set());
       // 同步 id 序列，避免后续新建节点 id 与导入的冲突
       nodeIdSeq += newNodes.length;
       pushToast('success', `已从服务器导入 ${newNodes.length} 个节点`);
@@ -427,6 +494,7 @@ export default function App() {
     setNodes([]);
     setEdges([]);
     setSelectedId(null);
+    setCollapsedNodeIds(new Set());
   }, []);
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null;
@@ -502,6 +570,8 @@ export default function App() {
         onLayout={onLayout}
         onResetStatus={onResetStatus}
         onClear={onClear}
+        onCollapseAll={collapseAllNodes}
+        onExpandAll={expandAllNodes}
         onRecheckHealth={() => void recheckHealth(true)}
       />
       <div className="bt-editor-workspace">
@@ -513,8 +583,8 @@ export default function App() {
           onAdd={onAddNode}
         />
         <Canvas
-          nodes={nodes}
-          edges={edges}
+          nodes={renderedNodes}
+          edges={renderedEdges}
           manifests={manifests}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

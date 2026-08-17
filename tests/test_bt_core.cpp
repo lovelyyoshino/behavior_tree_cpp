@@ -27,6 +27,16 @@ class StubAction : public ActionNode {
   }
 };
 
+class StubCondition : public ConditionNode {
+ public:
+  using ConditionNode::ConditionNode;
+  NodeStatus tick() override {
+    ++tick_count;
+    return NodeStatus::FAILURE;
+  }
+  int tick_count{0};
+};
+
 /// 最小 Sequence。
 class MiniSequence : public ControlNode {
  public:
@@ -185,4 +195,41 @@ TEST(Tree, TickTraverseAndCallback) {
   });
   EXPECT_EQ(visited, 3);
   EXPECT_EQ(max_depth, 1);
+}
+
+TEST(Tree, DebugConditionOverrideSkipsConditionLogicAndCanBeCleared) {
+  auto bb = Blackboard::create();
+  NodeConfig cfg{bb, {}};
+  auto condition = std::make_shared<StubCondition>("guard", cfg);
+  Tree tree(condition, bb);
+
+  tree.setConditionOverrides({{condition->id(), NodeStatus::SUCCESS}});
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+  EXPECT_EQ(condition->tick_count, 0);
+  ASSERT_TRUE(condition->forcedStatus().has_value());
+  EXPECT_EQ(*condition->forcedStatus(), NodeStatus::SUCCESS);
+
+  tree.setConditionOverrides({});
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::FAILURE);
+  EXPECT_EQ(condition->tick_count, 1);
+  EXPECT_FALSE(condition->forcedStatus().has_value());
+}
+
+TEST(Tree, DebugOverrideRejectsNonConditionWithoutPartialMutation) {
+  auto bb = Blackboard::create();
+  NodeConfig cfg{bb, {}};
+  auto root = std::make_shared<MiniSequence>("root", cfg);
+  auto condition = std::make_shared<StubCondition>("guard", cfg);
+  auto action = std::make_shared<StubAction>("action", cfg);
+  root->addChild(condition);
+  root->addChild(action);
+  Tree tree(root, bb);
+
+  EXPECT_THROW(
+      tree.setConditionOverrides({
+          {condition->id(), NodeStatus::SUCCESS},
+          {action->id(), NodeStatus::FAILURE},
+      }),
+      std::invalid_argument);
+  EXPECT_FALSE(condition->forcedStatus().has_value());
 }

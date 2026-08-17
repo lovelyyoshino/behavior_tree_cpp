@@ -23,7 +23,7 @@ ROS 句柄进入行为树的方式：
 
 | 文件 | 职责 |
 |---|---|
-| `include/bt_ros2/bt_executor_node.hpp` / `src/bt_executor_node.cpp` | ROS2 执行器：参数、注册、加载树、周期 tick、发布根状态 |
+| `include/bt_ros2/bt_executor_node.hpp` / `src/bt_executor_node.cpp` | ROS2 执行器：参数、注册、加载树、周期 tick、根状态、完整快照和 service 事件 |
 | `include/bt_ros2/node_registration.hpp` | 单例注册目录 + 注册函数引用列表，统一注册默认节点 |
 | `include/bt_ros2/ros_subscriber_node.hpp` | `RosConditionNode<MsgT>` / `RosInputNode<MsgT>` 订阅基类 |
 | `include/bt_ros2/ros_publisher_node.hpp` | `RosOutputNode<MsgT>` 发布基类 |
@@ -33,6 +33,9 @@ ROS 句柄进入行为树的方式：
 | `trees/example.xml` | 最小 topic 条件/动作示例 |
 | `trees/recharge.xml` | 外部 BatteryState 消息驱动回充的完整示例 |
 | `launch/bt_executor.launch.py` | launch 参数入口 |
+| `scripts/bt_web.py` / `scripts/bt_web_core.py` | 只读 ROS 快照 HTTP 适配器 |
+| `web/index.html` / `web/app.js` / `web/styles.css` | 树折叠、每拍状态柱状图和 service 时间线页面 |
+| `launch/bt_web.launch.py` | 启动网页监视器 |
 
 ## 3. BtExecutorNode 参数
 
@@ -41,6 +44,8 @@ ROS 句柄进入行为树的方式：
 | `tree_file` | string | `""` | 必填，行为树 XML 文件路径 |
 | `tick_rate_hz` | double | `10.0` | tick 频率 |
 | `status_topic` | string | `~/bt_status` | 根状态发布 topic |
+| `snapshot_topic` | string | `~/tree_snapshot` | 完整节点快照 topic |
+| `service_event_topic` | string | `~/service_event` | start/stop 生命周期事件 topic |
 | `autostart` | bool | `true` | 构造后是否自动 tick |
 | `stop_on_terminal` | bool | `false` | 根节点 SUCCESS/FAILURE 后是否停止 tick |
 
@@ -56,6 +61,10 @@ ros2 service call /bt_executor/stop  std_srvs/srv/Trigger '{}'
 - 第一次 start 返回 `success=True, message='started'`；运行中再次 start 返回 `already running`。
 - 运行中 stop 返回 `success=True, message='stopped'`；已停止时再次 stop 返回 `already stopped`。
 - stop 无论计时器是否已停止都会 halt 行为树，因此也能清理 `RUNNING` 或已锁存的任务状态，为下一次 start 做准备。
+
+执行器同时发布 `bt_ros2.bt_snapshot.v1` 和 `bt_ros2.service_event.v1` 两种只读 JSON。快照
+和事件都使用 reliable + transient-local QoS，观察器晚启动也可以获得最近状态；事件中的
+`tree_revision` 与 Web 适配器从 XML 计算的 revision 必须一致。
 
 注意默认值来源有两层：`BtExecutorNode` 节点参数默认 `tick_rate_hz=10.0`；仓库提供的 `bt_executor.launch.py` 为演示更易观察，launch 参数默认覆盖为 `tick_rate_hz=2.0`。命令行传入 `tick_rate_hz:=5.0` 时以 launch 参数为准。
 
@@ -228,6 +237,44 @@ ros2 service call /bt_executor/stop std_srvs/srv/Trigger '{}'
 ```
 
 完整教程见 [`docs/tutorial/ROS2_RECHARGE_TUTORIAL.md`](../docs/tutorial/ROS2_RECHARGE_TUTORIAL.md)。
+
+## 7.5 启动网页监视器
+
+```bash
+TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
+ros2 launch bt_ros2 bt_web.launch.py tree_file:="$TREE_FILE" http_port:=8088
+```
+
+打开 `http://127.0.0.1:8088/` 后，页面可查看实时树、每拍节点状态、最近 48 拍的 Success/Failure
+节点数柱状图和 service 时间线，并按分支折叠或全部折叠。页面是只读观察器，不能代替
+`ros2 service call` 控制执行器。详情、
+接口契约和离线快照流程见 [`docs/tutorial/ROS2_RECHARGE_TUTORIAL.md`](../docs/tutorial/ROS2_RECHARGE_TUTORIAL.md)
+第 9 节。
+
+柱状图以整棵树的节点总数作为固定纵轴，柱宽与 48 拍历史窗口保持不变；实时模式每次刷新
+都会跟随到最右侧的最新 Tick。
+
+## 7.6 隔离 Debug Sandbox
+
+参考生产项目的独立 sandbox 入口，`bt_ros2` 提供一个只在调试 launch 中开启的控制面：
+
+```bash
+TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
+ros2 launch bt_ros2 bt_debug.launch.py \
+  tree_file:="$TREE_FILE" http_port:=8089 monitor_http_port:=8090 ros_domain_id:=77
+```
+
+访问 `http://127.0.0.1:8089/` 可以暂停、继续、单步、重载，并把任意 Condition 原子设为
+`AUTO` / `SUCCESS` / `FAILURE`。默认 `ROS_DOMAIN_ID=77`，节点名为
+`/bt_debug_executor`，与普通 `/bt_executor` 隔离。普通 `bt_web.launch.py` 仍然只读，
+不会暴露 debug POST 路由或控制 service。
+
+Debug 控制页和运行监视页使用不同端口：`http://127.0.0.1:8089/` 是控制页，
+`http://127.0.0.1:8090/` 是独立的只读运行树（含每拍 Success/Failure 柱状图）。
+可通过 `monitor_http_port:=<port>` 修改第二个端口。
+
+调试服务是 `/bt_debug_executor/pause`、`resume`、`step`、`reload`，类型均为
+`std_srvs/srv/Trigger`。完整网页接口和安全边界见教程第 10 节。
 
 ## 8. 从演示协议升级到生产协议
 

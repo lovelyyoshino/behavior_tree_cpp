@@ -418,7 +418,9 @@ Tree XmlParser::loadFromText(const std::string& xml_text,
 
   auto bb = blackboard ? blackboard : Blackboard::create();
   TreeNode::Ptr root_node = buildNode(root_node_elem, factory_, bb, ctx);
-  return Tree(root_node, bb);
+  Tree tree(root_node, bb);
+  tree.setTreeId(main_id);
+  return tree;
 }
 
 Tree XmlParser::loadFromFile(const std::string& file_path,

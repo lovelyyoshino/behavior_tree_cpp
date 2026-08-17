@@ -110,6 +110,10 @@ export interface BtNodeData {
   portValues: Record<string, string>;
   portManifests: PortManifest[];
   runStatus: RunStatus;
+  /** 仅用于编辑器视图的局部折叠状态，不参与 XML 序列化。 */
+  collapsed?: boolean;
+  hasChildren?: boolean;
+  onToggleCollapse?: (id: string) => void;
 }
 
 /** 画布节点类型别名 */

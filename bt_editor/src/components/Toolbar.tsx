@@ -37,6 +37,8 @@ interface Props {
   onLayout: () => void;
   onResetStatus: () => void;
   onClear: () => void;
+  onCollapseAll: () => void;
+  onExpandAll: () => void;
   /** 重新检测后端健康 */
   onRecheckHealth: () => void;
 }
@@ -53,6 +55,8 @@ export function Toolbar({
   onLayout,
   onResetStatus,
   onClear,
+  onCollapseAll,
+  onExpandAll,
   onRecheckHealth,
 }: Props) {
   const connected = health !== null;
@@ -151,6 +155,14 @@ export function Toolbar({
         </button>
         <button style={btnStyle} disabled={busy} onClick={onClear}>
           清空
+        </button>
+
+        <span className="bt-toolbar-separator" style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+        <button style={btnStyle} disabled={busy} onClick={onCollapseAll} title="折叠所有含子节点的节点">
+          折叠全部
+        </button>
+        <button style={btnStyle} disabled={busy} onClick={onExpandAll} title="展开所有节点">
+          展开全部
         </button>
 
         {/* 右侧健康状态 */}
