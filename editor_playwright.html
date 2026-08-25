@@ -7,16 +7,17 @@
 
     <title>编辑器与 Playwright &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
-    <link rel="next" title="开发流程" href="developer_workflow.html" />
-    <link rel="prev" title="ROS2 回充教程" href="ros2_recharge_tutorial.html" />
+    <link rel="next" title="Yuyi 复杂树：ROS2 订阅整合与编辑器优化" href="yuyi_ros2_optimization.html" />
+    <link rel="prev" title="ROS2 能力与 5173 编辑器" href="ros2_editor_capabilities.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -37,29 +38,78 @@
   <section id="playwright">
 <h1>编辑器与 Playwright<a class="headerlink" href="#playwright" title="Link to this heading">¶</a></h1>
 <section id="id1">
-<h2>编辑器结构<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">bt_editor</span></code> 使用 React + TypeScript + React Flow。开发期 Vite 把 <code class="docutils literal notranslate"><span class="pre">/api</span></code> 代理到 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code>，当前 Playwright smoke 会 mock 页面流程实际用到的 <code class="docutils literal notranslate"><span class="pre">/api/health</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/nodes</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/load</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/tick</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/run</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/validate</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/format</span></code> 和 <code class="docutils literal notranslate"><span class="pre">/api/tree/export</span></code>，因此 E2E 不依赖 C++ 后端在线。真实后端协议由 <code class="docutils literal notranslate"><span class="pre">scripts/smoke_server.sh</span></code> 单独覆盖。</p>
+<h2>验证拓扑<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">bt_editor</span></code> 使用 React、TypeScript 和 React Flow。浏览器测试分成两条互补路径：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 33.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>路径</p></th>
+<th class="head"><p>后端</p></th>
+<th class="head"><p>用途</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>默认 <code class="docutils literal notranslate"><span class="pre">editor.spec.ts</span></code> + <code class="docutils literal notranslate"><span class="pre">responsive.spec.ts</span></code></p></td>
+<td><p>Playwright route mock</p></td>
+<td><p>稳定覆盖 UI 全流程、恢复/错误路径和桌面/窄屏几何，不依赖 C++ 进程。</p></td>
+</tr>
+<tr class="row-odd"><td><p>opt-in <code class="docutils literal notranslate"><span class="pre">live-backend.spec.ts</span></code></p></td>
+<td><p>真实 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> + <code class="docutils literal notranslate"><span class="pre">libbt_nodes</span></code></p></td>
+<td><p>覆盖生产 Vite preview 代理、27 个真实 manifest（编辑器另加 2 个结构条目）、调度节点端口、严格 XML、load/validate/tick。</p></td>
+</tr>
+</tbody>
+</table>
+<p>两条路径都在生产构建后的 Vite preview 上运行。开发服务器和 preview 共用
+<code class="docutils literal notranslate"><span class="pre">BT_BACKEND_URL</span></code> 代理契约，默认指向 <code class="docutils literal notranslate"><span class="pre">http://localhost:8080</span></code>；live 项目使用
+<code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:18080</span></code>。</p>
 <a class="reference internal image-reference" href="_images/editor_e2e_flow.svg"><img alt="Playwright 编辑器测试流程" src="_images/editor_e2e_flow.svg" style="width: 100%;" />
 </a>
 </section>
-<section id="e2e">
-<h2>已有 E2E 覆盖<a class="headerlink" href="#e2e" title="Link to this heading">¶</a></h2>
+<section id="mocked-e2e">
+<h2>默认 mocked E2E<a class="headerlink" href="#mocked-e2e" title="Link to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">bt_editor/e2e/editor.spec.ts</span></code> 覆盖：</p>
 <ul class="simple">
-<li><p>页面加载和后端健康状态显示。</p></li>
-<li><p>节点面板从 <code class="docutils literal notranslate"><span class="pre">/api/nodes</span></code> 获取 manifest。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">载入示例</span></code> 后画布显示示例树。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">载入到服务器</span></code> 后向 <code class="docutils literal notranslate"><span class="pre">/api/tree/load</span></code> 发起请求。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">Tick</span></code> 后向 <code class="docutils literal notranslate"><span class="pre">/api/tree/tick</span></code> 发起请求并显示状态 toast。</p></li>
-<li><p>XML 脚本预览实时显示当前画布导出的 XML。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">后端校验</span></code> 和 <code class="docutils literal notranslate"><span class="pre">后端格式化</span></code> 分别调用 <code class="docutils literal notranslate"><span class="pre">/api/tree/validate</span></code> 与 <code class="docutils literal notranslate"><span class="pre">/api/tree/format</span></code>。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">Run</span></code> 后向 <code class="docutils literal notranslate"><span class="pre">/api/tree/run</span></code> 发起请求并显示最终状态摘要。</p></li>
-<li><p>点击 <code class="docutils literal notranslate"><span class="pre">整理布局</span></code> 后对当前树执行层级布局。</p></li>
-<li><p>从节点面板拖拽节点到画布。</p></li>
-<li><p>通过 React Flow handle 连线并检查导出 XML 结构。</p></li>
-<li><p>编辑实例名与端口值后检查 XML 预览。</p></li>
-<li><p>Tick 后按 DFS 前序映射节点状态，并断言运行态上色。</p></li>
-<li><p>从服务器导入 XML 后检查结构一致性。</p></li>
+<li><p>页面加载、健康状态和动态 manifest 面板。</p></li>
+<li><p>通过文件选择器导入八节点 XML、发送 <code class="docutils literal notranslate"><span class="pre">/api/tree/load</span></code>、Tick 状态上色和 Run 摘要。</p></li>
+<li><p>后端 XML 校验、格式化和服务器 XML 导入。</p></li>
+<li><p>节点拖拽、画布内移动、父子连线、层级布局和 DFS 前序状态映射。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PrioritySelector</span></code> / <code class="docutils literal notranslate"><span class="pre">TickRate</span></code> 的视觉优先级顺序、分级端口编辑和 XML 同步。</p></li>
+<li><p>节点级 <code class="docutils literal notranslate"><span class="pre">+/-</span></code> 折叠、<code class="docutils literal notranslate"><span class="pre">折叠全部</span></code> / <code class="docutils literal notranslate"><span class="pre">展开全部</span></code>，并确认折叠不改变 XML。</p></li>
+<li><p>实例名/端口编辑后 XML 预览同步。</p></li>
+<li><p>黑板参数面板的新增、类型/初始值填写、XML 绑定，以及空键名/重复键名拦截。</p></li>
+<li><p>多树 XML 导入后直接 Run，断言 <code class="docutils literal notranslate"><span class="pre">/api/tree/load</span></code> 包含 Blackboard <code class="docutils literal notranslate"><span class="pre">Entry</span></code> 且不会发送
+第二次 <code class="docutils literal notranslate"><span class="pre">/api/tree/blackboard</span></code> 注入请求。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.bt.json</span></code> 的 XML/blackboard 一致导入和不一致拒绝错误路径。</p></li>
+<li><p>XML 黑板绑定：预览和下载的 XML 包含 <code class="docutils literal notranslate"><span class="pre">TreeNodesModel/Blackboard/Entry</span></code>，配置包同时包含
+<code class="docutils literal notranslate"><span class="pre">schema</span></code>、XML 和黑板数组；包含自定义 Yuyi 端口时还会保存 <code class="docutils literal notranslate"><span class="pre">editor_manifests</span></code>，下载文件
+内容与当前面板值一致。</p></li>
+<li><p>自定义 XML 节点可输入注册名/类别，并在属性面板添加 <code class="docutils literal notranslate"><span class="pre">path_file</span></code>、<code class="docutils literal notranslate"><span class="pre">ID</span></code>、service 名称等
+manifest 未声明属性；XML 预览保留这些属性，但后端仍会要求运行时注册和 <code class="docutils literal notranslate"><span class="pre">providedPorts()</span></code>。</p></li>
+<li><p>自定义 Yuyi 节点可在属性面板声明 typed 输入/输出端口；Playwright 会验证
+<code class="docutils literal notranslate"><span class="pre">LoadYuyiPath.path_file</span></code> 的固定值、<code class="docutils literal notranslate"><span class="pre">path</span></code> 的黑板输出映射，以及刷新后端口契约仍保留。</p></li>
+<li><p>自定义 Control 节点可以连接多个子节点；导入未知 Yuyi 节点时，属性面板提供 Control /
+Decorator / Action / Condition 的结构提示选择。该选择只服务于画布连线，运行时类型仍由
+插件 manifest 决定。</p></li>
+<li><p>多 <code class="docutils literal notranslate"><span class="pre">BehaviorTree</span></code> 定义可从服务器导入并在顶部标签间切换；<code class="docutils literal notranslate"><span class="pre">SubTree</span></code>/<code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code>
+结构节点可直接加入节点面板，新增/重命名子树后完整 XML 仍保留调用点、目标定义和黑板。</p></li>
+<li><p>ROS2 能力快照可为 <code class="docutils literal notranslate"><span class="pre">editor_hint=ros_topic</span></code> 端口提供运行时 topic 候选；普通后端的
+<code class="docutils literal notranslate"><span class="pre">available=false</span></code> 以及兼容旧后端的 404 都会回退到手填，并明确显示当前没有快照。</p></li>
+<li><p>编辑器通过固定本机 bridge 代理自动读取 ROS2 图；Playwright 断言不存在 URL 输入，并覆盖
+手动刷新、node/topic/service/action/manifest 统计和 bridge 不可用降级。</p></li>
+<li><p>黑板参数和 XML 侧初值摘要在刷新后保持；手机视口使用带字段标签的参数表单且不产生
+页面级横向滚动。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/api/tree/tick</span></code> 返回 HTTP 500 时，通过 <code class="docutils literal notranslate"><span class="pre">role=alert</span></code> 呈现可访问错误信息。</p></li>
+<li><p>后端错误响应的 <code class="docutils literal notranslate"><span class="pre">error</span></code> 字段会保留在提示中；Run 在后端尚无树时先自动载入当前画布，
+再调用 <code class="docutils literal notranslate"><span class="pre">/api/tree/run</span></code>，避免只得到无上下文的 404。</p></li>
+<li><p>后端离线时保留本地编辑，节点清单失败时仍显示内置结构节点和自定义 XML 入口；手工重连后
+runtime manifest 会替换降级条目并恢复后端按钮。</p></li>
+<li><p>Tick 上色后重置为 IDLE、删除连线节点、清空并回到空状态的完整生命周期。</p></li>
+<li><p>1280×720、768×1024、390×844 下无横向溢出、画布不坍缩、工具栏不越界，
+React Flow 浮层不遮挡节点；触控视口可点击节点条目直接添加。</p></li>
 </ul>
 <p>运行：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>bt_editor
@@ -67,33 +117,67 @@ npm<span class="w"> </span>run<span class="w"> </span>test:e2e
 </pre></div>
 </div>
 </section>
+<section id="e2e">
+<h2>真实后端 E2E<a class="headerlink" href="#e2e" title="Link to this heading">¶</a></h2>
+<p>以下 Linux 命令在独立 Release 目录构建真实 server/plugin，然后由 Playwright 管理两个
+短生命周期进程。调用方必须显式传入产物路径，避免误连陈旧或未加载插件的 server。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-S<span class="w"> </span>.<span class="w"> </span>-B<span class="w"> </span>/tmp/btx-docs-live-build<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DBT_BUILD_SERVER<span class="o">=</span>ON<span class="w"> </span>-DBT_BUILD_NODES<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DBT_BUILD_TESTS<span class="o">=</span>OFF<span class="w"> </span>-DBT_BUILD_EXAMPLES<span class="o">=</span>OFF
+cmake<span class="w"> </span>--build<span class="w"> </span>/tmp/btx-docs-live-build<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--target<span class="w"> </span>bt_server<span class="w"> </span>bt_nodes<span class="w"> </span>--parallel
+<span class="nb">cd</span><span class="w"> </span>bt_editor
+<span class="nv">BT_SERVER_BIN</span><span class="o">=</span>/tmp/btx-docs-live-build/bin/bt_server<span class="w"> </span><span class="se">\</span>
+<span class="nv">BT_NODES_PLUGIN</span><span class="o">=</span>/tmp/btx-docs-live-build/lib/libbt_nodes.so<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>npm<span class="w"> </span>run<span class="w"> </span>test:e2e:live
+</pre></div>
+</div>
+<p>live 用例会断言真实 manifest 恰好 27 个、<code class="docutils literal notranslate"><span class="pre">AlwaysSuccess</span></code> / <code class="docutils literal notranslate"><span class="pre">AlwaysFailure</span></code> 是
+Condition、<code class="docutils literal notranslate"><span class="pre">PrintMessage.message</span></code> 默认 <code class="docutils literal notranslate"><span class="pre">hello</span> <span class="pre">bt</span></code>，然后执行示例 load、validate、
+tick。它再清空浏览器画布，从 server 导回八节点树并执行 Run，证明生产 preview、编辑器
+状态和真实 C++ 树形成闭环。最后直接请求严格校验接口，确认 <code class="docutils literal notranslate"><span class="pre">messsage</span></code> 这类未声明属性
+返回 HTTP 400 和带节点上下文的错误。</p>
+</section>
 <section id="id2">
 <h2>截图资料<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<p>以下截图来自 <code class="docutils literal notranslate"><span class="pre">docs/blog/screenshots</span></code>，用于说明编辑器当前形态。</p>
-<a class="reference internal image-reference" href="_images/01_editor_loaded.png"><img alt="编辑器加载完成" src="_images/01_editor_loaded.png" style="width: 100%;" />
+<p>以下四张图片由固定 viewport、固定 mocked API 响应生成，目的不是冒充真实 server，
+而是提供稳定、可重现的文档视觉基线。真实后端闭环由上一节的独立 live 用例证明。
+1200 像素文档画布会隐藏 MiniMap/运行态浮层，避免辅助浮层遮挡可编辑节点；1280、768、
+390 像素的几何回归由 <code class="docutils literal notranslate"><span class="pre">responsive.spec.ts</span></code> 单独证明。</p>
+<a class="reference internal image-reference" href="_images/01_editor_loaded.png"><img alt="编辑器和分类正确的 mocked 节点面板加载完成" src="_images/01_editor_loaded.png" style="width: 100%;" />
 </a>
-<a class="reference internal image-reference" href="_images/02_sample_tree.png"><img alt="载入示例树" src="_images/02_sample_tree.png" style="width: 100%;" />
+<a class="reference internal image-reference" href="_images/02_sample_tree.png"><img alt="导入八节点 XML 后的画布及实时 XML 预览" src="_images/02_sample_tree.png" style="width: 100%;" />
 </a>
-<a class="reference internal image-reference" href="_images/03_tick_colored.png"><img alt="Tick 后节点状态上色" src="_images/03_tick_colored.png" style="width: 100%;" />
+<a class="reference internal image-reference" href="_images/03_tick_colored.png"><img alt="Tick 后节点按 SUCCESS FAILURE RUNNING 状态上色" src="_images/03_tick_colored.png" style="width: 100%;" />
 </a>
-<p>截图可用 Playwright 重新生成：</p>
+<a class="reference internal image-reference" href="_images/04_tick_highlight_fixed.png"><img alt="选中带节点契约说明的 PrintMessage 后编辑实例名和 message，并查看 ROS2 能力状态" src="_images/04_tick_highlight_fixed.png" style="width: 100%;" />
+</a>
+<p>重新生成并验证：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>bt_editor
 npm<span class="w"> </span>run<span class="w"> </span>screenshots
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">run</span> <span class="pre">screenshots</span></code> 会使用固定 viewport 与 mock 后端，把 <code class="docutils literal notranslate"><span class="pre">01_editor_loaded.png</span></code>、<code class="docutils literal notranslate"><span class="pre">02_sample_tree.png</span></code>、<code class="docutils literal notranslate"><span class="pre">03_tick_colored.png</span></code> 和 <code class="docutils literal notranslate"><span class="pre">04_tick_highlight_fixed.png</span></code> 写入 <code class="docutils literal notranslate"><span class="pre">docs/blog/screenshots</span></code>。它不属于默认 CI 流程，避免普通测试修改文档图片。</p>
+<p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">run</span> <span class="pre">screenshots</span></code> 先运行生产构建，再写入四张 PNG，最后调用
+<code class="docutils literal notranslate"><span class="pre">screenshots:check</span></code>。hash gate 会拒绝缺失、过小或内容重复的图片；默认 E2E 不会
+改写文档截图。</p>
 </section>
 <section id="id3">
-<h2>剩余测试缺口<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
-<p>Playwright 覆盖浏览器闭环，Vitest 已覆盖纯逻辑：</p>
-<ul class="simple">
-<li><p>XML 导入导出 round-trip。</p></li>
-<li><p>DFS 前序 id 对齐。</p></li>
-<li><p>连线规则。</p></li>
-<li><p>导入布局和整理布局算法。</p></li>
-<li><p>端口控件类型推断。</p></li>
-</ul>
-<p>剩余缺口是 live backend browser integration：当前浏览器测试用 mock 端点保证 UI 行为稳定，真实后端协议由 <code class="docutils literal notranslate"><span class="pre">scripts/smoke_server.sh</span></code> 覆盖。</p>
+<h2>稳定性与边界<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>发布前应让默认 Chromium 用例连续通过三次：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>bt_editor
+npm<span class="w"> </span>run<span class="w"> </span>build
+<span class="k">for</span><span class="w"> </span>run<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="m">3</span><span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--project<span class="o">=</span>chromium<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="p">;</span><span class="w"> </span><span class="k">done</span>
+</pre></div>
+</div>
+<p>默认集合的数量以 Playwright 当次输出为准；它包含编辑器主流程和 5 个响应式视口（桌面、
+平板和手机的可达性/触控路径）。CI 允许 retry 仅用于收集诊断，但 <code class="docutils literal notranslate"><span class="pre">failOnFlakyTests</span></code> 会让
+retry-pass 仍然失败；每一轮使用独立输出目录，HTML 报告、trace、失败截图和生成的文档图
+由 GitHub Actions 保留 14 天。preview 使用 <code class="docutils literal notranslate"><span class="pre">--strictPort</span></code>，4173 被占用时立即失败，
+不会静默切到其他端口并误测另一进程。</p>
+<p>Vitest 负责 XML round-trip、DFS id、连线规则、导入/整理布局和端口控件推断；
+统一发布 gate 中的 server API 集成阶段负责更宽的 HTTP 错误契约；Playwright 负责真实
+浏览器交互。三层验证互补，不能用其中一项代替另外两项。</p>
 </section>
 </section>
 
@@ -113,22 +197,36 @@ npm<span class="w"> </span>run<span class="w"> </span>screenshots
 
 
 
-<h3>导航</h3>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">编辑器与 Playwright</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">编辑器结构</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#e2e">已有 E2E 覆盖</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">验证拓扑</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mocked-e2e">默认 mocked E2E</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#e2e">真实后端 E2E</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id2">截图资料</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id3">剩余测试缺口</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">稳定性与边界</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="yuyi_ros2_optimization.html">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
 <ul>
@@ -136,27 +234,18 @@ npm<span class="w"> </span>run<span class="w"> </span>screenshots
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
 </ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="ros2_recharge_tutorial.html" title="上一章">ROS2 回充教程</a></li>
-      <li>Next: <a href="developer_workflow.html" title="下一章">开发流程</a></li>
+      <li>Previous: <a href="ros2_editor_capabilities.html" title="上一章">ROS2 能力与 5173 编辑器</a></li>
+      <li>Next: <a href="yuyi_ros2_optimization.html" title="下一章">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></li>
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">快速搜索</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -173,8 +262,8 @@ npm<span class="w"> </span>run<span class="w"> </span>screenshots
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
 

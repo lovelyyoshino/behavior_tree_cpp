@@ -7,10 +7,11 @@
 
     <title>BehaviorTree.CPP-X 文档 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
@@ -42,9 +43,10 @@
 <section id="id1">
 <h2>推荐路径<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p>先跑 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，确认本机 C++、前端、server smoke、Playwright 都能过。</p></li>
+<li><p>先跑 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，用统一验证入口确认 C++、server API、前端和 Playwright。</p></li>
 <li><p>再读 <a class="reference internal" href="function_manual.html"><span class="doc">函数手册</span></a>，理解工厂、端口、黑板、函数注册表和常用节点。</p></li>
 <li><p>用 <a class="reference internal" href="singleton_factory_function.html"><span class="doc">单例 + 工厂 + 生成器引用函数</span></a> 打通“单例 + 工厂 + 生成器引用函数”三模式与回充闭环。</p></li>
+<li><p>用 <a class="reference internal" href="scheduling.html"><span class="doc">单树优先级与分级 Tick 调度</span></a> 把输入优先级、抢占和 tick 分级收敛到一棵树。</p></li>
 <li><p>接着按 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 改出自己的 ROS2 数据流节点。</p></li>
 <li><p>用 <a class="reference internal" href="tree_script_style.html"><span class="doc">行为脚本风格</span></a> 规范 XML 命名、黑板 key、SubTree 和 formatter。</p></li>
 <li><p>最后用 <a class="reference internal" href="developer_workflow.html"><span class="doc">开发流程</span></a> 固化开发、测试和文档构建流程。</p></li>
@@ -80,29 +82,78 @@
 <li class="toctree-l2"><a class="reference internal" href="singleton_factory_function.html#ros2">从示例到真实 ROS2</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id1">目标与结论</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id2">调度模型</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id3">输入分级与抢占</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id4">Tick 分级</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id5">复杂任务的单树组织</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id6">后台与编辑器使用</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#yuyi">Yuyi 专用树接入前检查</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#id7">边界与约束</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#http-404">HTTP 404 排查</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id2">基本外壳</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id3">命名</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id4">端口值</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id5">内置示例树</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id6">格式化稳定性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id5">启动初值与运行时键</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id6">内置示例树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tree_script_style.html#id7">格式化稳定性</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id1">目标</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id1">目标与结果</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id2">涉及文件</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id3">外部消息如何进入黑板</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id4">低电量如何触发回充命令</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id5">默认注册如何工作</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id6">真实 ROS2 环境运行</a></li>
-<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id7">本机验证边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id3">消息如何进入黑板</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id4">八节点树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#rechargetask">RechargeTask 状态机</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id5">默认注册与扩展</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#humble">可复制的 Humble 演示</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#id6">验证边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#web">只读 Web 监视器</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_recharge_tutorial.html#debug">隔离 Debug 模式</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#id1">启动顺序</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#id2">在编辑器中配置</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#id3">动态候选与节点用法</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#id4">设计边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#yuyi">Yuyi 大树当前覆盖范围</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#id5">故障排查</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#ros-graph-bt-web">为什么 ROS graph 必须经过 bt_web</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#graph">graph 数据形状陷阱（已修复）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_editor_capabilities.html#ros2">ROS2 节点都是叶子节点</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_plugin_build.html">ROS2 插件构建与配置驱动启动</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#id2">背景：为什么需要一个插件入口</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#ros2-humble">如何构建（ROS2 Humble）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#server">启动 server 并加载插件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#dev-sh-ros2">dev.sh 的 ROS2 探测与自动构建</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#id3">配置驱动的启动范式</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#id4">验证：编辑器同时支持两类树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ros2_plugin_build.html#id5">通用节点目录与自定义模型</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#id1">编辑器结构</a></li>
-<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#e2e">已有 E2E 覆盖</a></li>
+<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#id1">验证拓扑</a></li>
+<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#mocked-e2e">默认 mocked E2E</a></li>
+<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#e2e">真实后端 E2E</a></li>
 <li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#id2">截图资料</a></li>
-<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#id3">剩余测试缺口</a></li>
+<li class="toctree-l2"><a class="reference internal" href="editor_playwright.html#id3">稳定性与边界</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="yuyi_ros2_optimization.html">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#id2">读者对象</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#yuyifollowroot">背景：YuyiFollowRoot 是什么</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#ros2">ROS2 订阅可以放进哪里</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#id6">三种整合写法</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#yuyi">如何优化一棵像 Yuyi 这样的复杂树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#id7">编辑器能不能完成这样的优化</a></li>
+<li class="toctree-l2"><a class="reference internal" href="yuyi_ros2_optimization.html#id8">验证清单</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a><ul>
@@ -110,6 +161,13 @@
 <li class="toctree-l2"><a class="reference internal" href="developer_workflow.html#ros2">新增 ROS2 数据节点</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer_workflow.html#id3">新增编辑器能力</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer_workflow.html#id4">提交前检查</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages_deployment.html#id1">发布模型</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages_deployment.html#id2">仓库设置</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages_deployment.html#environment">Environment 拒绝部署</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages_deployment.html#id3">备用分支模式</a></li>
 </ul>
 </li>
 </ul>
@@ -124,6 +182,8 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="node_catalog.html#id2">属性面板与运行时发现</a></li>
+<li class="toctree-l2"><a class="reference internal" href="node_catalog.html#key">端口值与黑板 key</a></li>
 <li class="toctree-l2"><a class="reference internal" href="node_catalog.html#bt-nodes">bt_nodes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="node_catalog.html#bt-ros2">bt_ros2</a></li>
 </ul>
@@ -133,12 +193,20 @@
 <li class="toctree-l2"><a class="reference internal" href="api_reference.html#tree">Tree</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_reference.html#xml">XML</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_reference.html#http">HTTP</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api_reference.html#id1">脚本入口</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_reference.html#id1">黑板初始化</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api_reference.html#id2">脚本入口</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="testing_matrix.html#id2">自动验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing_matrix.html#id2">统一自动验证</a></li>
 <li class="toctree-l2"><a class="reference internal" href="testing_matrix.html#ros2">ROS2 真机验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing_matrix.html#id3">商用边界</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="commercial_release.html#id2">当前阻塞项</a></li>
+<li class="toctree-l2"><a class="reference internal" href="commercial_release.html#id3">权威检查表与清单</a></li>
+<li class="toctree-l2"><a class="reference internal" href="commercial_release.html#id4">边界声明</a></li>
 </ul>
 </li>
 </ul>
@@ -162,16 +230,30 @@
 
 
 
-<h3>导航</h3>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_plugin_build.html">ROS2 插件构建与配置驱动启动</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yuyi_ros2_optimization.html">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
 <ul>
@@ -179,6 +261,7 @@
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
 </ul>
 
 <div class="relations">
@@ -189,16 +272,6 @@
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">快速搜索</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -215,8 +288,8 @@
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
 

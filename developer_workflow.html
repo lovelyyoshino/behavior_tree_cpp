@@ -7,15 +7,16 @@
 
     <title>开发流程 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
-    <link rel="next" title="架构总览" href="architecture.html" />
+    <link rel="next" title="GitHub Pages 发布" href="pages_deployment.html" />
     <link rel="prev" title="编辑器与 Playwright" href="editor_playwright.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -53,7 +54,7 @@
 <li><p>声明端口，复用 <code class="docutils literal notranslate"><span class="pre">subscriberPorts()</span></code> 或 <code class="docutils literal notranslate"><span class="pre">publisherPorts()</span></code>。</p></li>
 <li><p>在 <code class="docutils literal notranslate"><span class="pre">node_registration.cpp</span></code> 里用 <code class="docutils literal notranslate"><span class="pre">registerIfMissing</span></code> 注册。</p></li>
 <li><p>写 mock rclcpp 单测覆盖端口、黑板和发布输出。</p></li>
-<li><p>在 ROS2 Humble/Jazzy 环境补跑 <code class="docutils literal notranslate"><span class="pre">colcon</span> <span class="pre">build</span></code> 和 <code class="docutils literal notranslate"><span class="pre">ros2</span> <span class="pre">launch</span></code>。</p></li>
+<li><p>在 ROS2 Humble 环境按 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 验证真实消息闭环；没有 Jazzy 时明确记录 <code class="docutils literal notranslate"><span class="pre">unverified:</span> <span class="pre">ROS</span> <span class="pre">2</span> <span class="pre">Jazzy</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">installed</span> <span class="pre">on</span> <span class="pre">this</span> <span class="pre">machine.</span></code></p></li>
 </ol>
 </section>
 <section id="id3">
@@ -68,8 +69,10 @@
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">整理布局</span></code>：按树层级重新排版当前画布。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">XML</span> <span class="pre">脚本预览</span></code>：实时显示当前画布导出的 XML。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">下载</span> <span class="pre">XML</span></code> / <code class="docutils literal notranslate"><span class="pre">导出树</span> <span class="pre">+</span> <span class="pre">黑板</span></code>：分别下载完整 XML 和版本化 <code class="docutils literal notranslate"><span class="pre">.bt.json</span></code> 配置包；黑板启动初值写在 XML 元数据区。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">后端校验</span></code> / <code class="docutils literal notranslate"><span class="pre">后端格式化</span></code>：调用 <code class="docutils literal notranslate"><span class="pre">/api/tree/validate</span></code> 和 <code class="docutils literal notranslate"><span class="pre">/api/tree/format</span></code>。</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">Tick</span></code> / <code class="docutils literal notranslate"><span class="pre">Run</span></code>：单拍执行和跑到终态分开。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">折叠全部</span></code> / <code class="docutils literal notranslate"><span class="pre">展开全部</span></code> 和节点头部 <code class="docutils literal notranslate"><span class="pre">+/-</span></code>：只改变画布可见性，不改变 XML 或执行。</p></li>
 </ul>
 </section>
 <section id="id4">
@@ -101,14 +104,25 @@ git<span class="w"> </span>diff<span class="w"> </span>--check
 
 
 
-<h3>导航</h3>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">开发流程</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id2">新增普通业务功能</a></li>
@@ -117,6 +131,7 @@ git<span class="w"> </span>diff<span class="w"> </span>--check
 <li class="toctree-l2"><a class="reference internal" href="#id4">提交前检查</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
 <ul>
@@ -124,6 +139,7 @@ git<span class="w"> </span>diff<span class="w"> </span>--check
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
 </ul>
 
 <div class="relations">
@@ -131,20 +147,10 @@ git<span class="w"> </span>diff<span class="w"> </span>--check
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="editor_playwright.html" title="上一章">编辑器与 Playwright</a></li>
-      <li>Next: <a href="architecture.html" title="下一章">架构总览</a></li>
+      <li>Next: <a href="pages_deployment.html" title="下一章">GitHub Pages 发布</a></li>
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">快速搜索</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -161,8 +167,8 @@ git<span class="w"> </span>diff<span class="w"> </span>--check
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
 

@@ -7,14 +7,16 @@
 
     <title>测试矩阵 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
+    <link rel="next" title="商用发布边界" href="commercial_release.html" />
     <link rel="prev" title="API 参考" href="api_reference.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -36,7 +38,11 @@
   <section id="id1">
 <h1>测试矩阵<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
 <section id="id2">
-<h2>自动验证<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<h2>统一自动验证<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">./scripts/test.sh</span></code> 是用户和 CI 唯一需要调用的 mandatory non-ROS 发布入口。它使用
+当前 Release 构建产物，不允许 <code class="docutils literal notranslate"><span class="pre">BT_SKIP_E2E=1</span></code>。底层阶段由脚本内部编排，不作为
+独立的用户命令。当前入口面向 Linux/macOS Bash；Windows 使用 WSL。原生
+PowerShell/CMD 未验证。</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 30.0%" />
@@ -58,8 +64,16 @@
 <td><p>核心、XML、数据节点、函数注册表、mock ROS2 基类。</p></td>
 <td><p>全绿。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">./scripts/smoke_server.sh</span></code></p></td>
-<td><p>真实 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> HTTP API。</p></td>
+<tr class="row-even"><td><p>ASan/UBSan <code class="docutils literal notranslate"><span class="pre">PluginRuntime</span></code> focused CTest</p></td>
+<td><p>插件注册回滚、throwing plugin 回滚、树晚于工厂析构、宿主函数跨 DSO 可见。</p></td>
+<td><p>无 sanitizer 诊断，focused suite 全绿。</p></td>
+</tr>
+<tr class="row-odd"><td><p>SDK 安装消费阶段</p></td>
+<td><p>安装 <code class="docutils literal notranslate"><span class="pre">bt::core</span></code> / <code class="docutils literal notranslate"><span class="pre">bt::nodes</span></code>，外部 same-toolchain consumer 加载安装插件并调用宿主函数。</p></td>
+<td><p>外部 consumer 成功运行。</p></td>
+</tr>
+<tr class="row-even"><td><p>Server API 集成阶段</p></td>
+<td><p>真实 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> HTTP API 进程。</p></td>
 <td><p>health/nodes/load/validate/format/export/tick/run/structure/trees/open/save 和错误契约全通过。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">bt_editor</span> <span class="pre">&amp;&amp;</span> <span class="pre">npm</span> <span class="pre">run</span> <span class="pre">build</span></code></p></td>
@@ -68,29 +82,49 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">bt_editor</span> <span class="pre">&amp;&amp;</span> <span class="pre">npm</span> <span class="pre">test</span></code></p></td>
 <td><p>XML round-trip、DFS 前序 id、连线规则、导入布局、整理布局算法、端口控件推断。</p></td>
-<td><p>4 个测试文件、13 个用例通过。</p></td>
+<td><p>全绿。</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">bt_editor</span> <span class="pre">&amp;&amp;</span> <span class="pre">npx</span> <span class="pre">playwright</span> <span class="pre">test</span></code></p></td>
-<td><p>编辑器浏览器基础闭环，含 XML 预览、后端校验/格式化、Run 摘要和整理布局按钮。</p></td>
-<td><p>Chromium 通过。</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">bt_editor</span> <span class="pre">&amp;&amp;</span> <span class="pre">npx</span> <span class="pre">playwright</span> <span class="pre">test</span> <span class="pre">--project=chromium</span></code> （连续三轮）</p></td>
+<td><p>mocked 编辑器闭环，含 XML、Run、状态上色、离线/manifest 恢复、删除/重置/清空，以及 1280/768/390 响应式和触控添加。</p></td>
+<td><p>每轮 14/14，三轮均通过；CI retry-pass 仍按 flaky 失败。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">./scripts/build_docs.sh</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">bt_editor</span> <span class="pre">&amp;&amp;</span> <span class="pre">BT_SERVER_BIN=...</span> <span class="pre">BT_NODES_PLUGIN=...</span> <span class="pre">npm</span> <span class="pre">run</span> <span class="pre">test:e2e:live</span></code></p></td>
+<td><p>生产 preview 代理到真实 <code class="docutils literal notranslate"><span class="pre">bt_server</span> <span class="pre">+</span> <span class="pre">libbt_nodes</span></code>，验证 27 manifest、调度节点端口、load/validate/tick、清空后导回、Run 和严格 XML 错误。</p></td>
+<td><p>1/1；调用方显式提供刚构建的 Release 产物。</p></td>
+</tr>
+<tr class="row-odd"><td><p>临时目录 <code class="docutils literal notranslate"><span class="pre">docs-screenshots.spec.ts</span></code> + <code class="docutils literal notranslate"><span class="pre">screenshots:check</span></code></p></td>
+<td><p>固定 mocked 状态生成四张临时图片，验证 PNG/IHDR/尺寸和 SHA-256；Linux canonical gate 还会逐字节对比已提交文档图。</p></td>
+<td><p>capture 1/1；四张非空、互异图片，Linux reference 一致。</p></td>
+</tr>
+<tr class="row-even"><td><p>GitHub Actions <code class="docutils literal notranslate"><span class="pre">playwright-*</span></code> artifact</p></td>
+<td><p>mocked 三轮、live、截图用例的独立 HTML 报告、trace、失败截图和生成图。</p></td>
+<td><p>成功或失败均上传并保留 14 天；无诊断文件时给出 warning。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">./scripts/build_docs.sh</span></code></p></td>
 <td><p>Sphinx toctree、RST 语法、图片路径、literalinclude。</p></td>
-<td><p>HTML 构建通过。</p></td>
+<td><p>HTML 与 linkcheck 均通过，warning 视为 error。</p></td>
+</tr>
+<tr class="row-even"><td><p>ROS2 Humble 端到端验收</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">colcon</span> <span class="pre">build</span></code>、<code class="docutils literal notranslate"><span class="pre">ros2</span> <span class="pre">launch</span></code>、<code class="docutils literal notranslate"><span class="pre">/battery_state</span></code> 到 <code class="docutils literal notranslate"><span class="pre">/robot/command</span></code>，以及 <code class="docutils literal notranslate"><span class="pre">/dock/is_docked</span></code> 到 <code class="docutils literal notranslate"><span class="pre">/bt/task_done</span></code>。</p></td>
+<td><p>按 <a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a> 执行；无 ROS2 环境时不作为默认 gate。</p></td>
 </tr>
 </tbody>
 </table>
 </section>
 <section id="ros2">
 <h2>ROS2 真机验证<a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
-<p>当前机器没有 ROS2/rclcpp/colcon，因此以下命令不能在本机声明通过：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>colcon<span class="w"> </span>build<span class="w"> </span>--packages-select<span class="w"> </span>bt_ros2
-ros2<span class="w"> </span>launch<span class="w"> </span>bt_ros2<span class="w"> </span>bt_executor.launch.py<span class="w"> </span>tree_file:<span class="o">=</span>...
-ros2<span class="w"> </span>topic<span class="w"> </span>pub<span class="w"> </span>/battery<span class="w"> </span>sensor_msgs/msg/BatteryState<span class="w"> </span><span class="s2">&quot;{percentage: 0.18}&quot;</span>
-ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/robot/command
-</pre></div>
-</div>
-<p>本机只验证 ROS2 相关代码的 mock 路径、语法和 XML。</p>
+<p>当前机器已在 ROS2 Humble 环境完成 40 个默认注册、八节点安装树、幂等 start/stop 和
+单次 battery/command/dock/notifier 的端到端验证。可复制命令集中在
+<a class="reference internal" href="ros2_recharge_tutorial.html"><span class="doc">ROS2 回充教程</span></a>；按 observer-first 顺序启动观察者，不要用连续
+<code class="docutils literal notranslate"><span class="pre">ros2</span> <span class="pre">topic</span> <span class="pre">pub</span></code> 代替 one-shot 事件流程。</p>
+<p>默认 <code class="docutils literal notranslate"><span class="pre">./scripts/test.sh</span></code> 运行非 ROS gate、ROS2 mock、launch 语法和 XML 检查；无 ROS2
+环境时不声称真实 DDS 路径通过。</p>
+<p>Jazzy 环境状态：<strong>unverified: ROS 2 Jazzy is not installed on this machine.</strong></p>
+</section>
+<section id="id3">
+<h2>商用边界<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>工程 gate 全绿只证明当前源码的技术验证。根许可证、真实 maintainer/copyright 身份和
+第三方 notice 的最终审批仍由产品 owner/法务完成；见 <code class="docutils literal notranslate"><span class="pre">docs/COMMERCIAL_RELEASE_CHECKLIST.md</span></code>。</p>
 </section>
 </section>
 
@@ -110,16 +144,28 @@ ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</
 
 
 
-<h3>导航</h3>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
 <ul class="current">
@@ -127,10 +173,12 @@ ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">测试矩阵</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id2">自动验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">统一自动验证</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#ros2">ROS2 真机验证</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">商用边界</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
 </ul>
 
 <div class="relations">
@@ -138,19 +186,10 @@ ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="api_reference.html" title="上一章">API 参考</a></li>
+      <li>Next: <a href="commercial_release.html" title="下一章">商用发布边界</a></li>
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">快速搜索</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -167,8 +206,8 @@ ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
 

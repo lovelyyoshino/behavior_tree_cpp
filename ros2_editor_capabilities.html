@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>ROS2 能力与 5173 编辑器 &#8212; BehaviorTree.CPP-X 文档</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
+    <script src="_static/documentation_options.js?v=d786bb5c"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/translations.js?v=beaddf03"></script>
+    <link rel="index" title="索引" href="genindex.html" />
+    <link rel="search" title="搜索" href="search.html" />
+    <link rel="next" title="ROS2 插件构建与配置驱动启动" href="ros2_plugin_build.html" />
+    <link rel="prev" title="ROS2 回充教程" href="ros2_recharge_tutorial.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="ros2-5173">
+<h1>ROS2 能力与 5173 编辑器<a class="headerlink" href="#ros2-5173" title="Link to this heading">¶</a></h1>
+<p>这套系统把编辑器的树 API 与 ROS2 运行时发现拆成两个本机服务：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bt_server``（默认</span> <span class="pre">``http://127.0.0.1:8080</span></code>）负责 XML 校验、载入、Tick 和 Run。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bt_web``（默认</span> <span class="pre">``http://127.0.0.1:8088</span></code>）通过 <code class="docutils literal notranslate"><span class="pre">rclpy</span></code> 加入 DDS，直接读取实时 ROS graph。</p></li>
+</ul>
+<p>浏览器本身不能加入 DDS，因此仍需要一个本机 HTTP bridge，但用户不必手动维护它：
+<code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code> 会自动探测 <code class="docutils literal notranslate"><span class="pre">rclpy</span></code>，优先启动已安装的 <code class="docutils literal notranslate"><span class="pre">bt_ros2</span></code>，否则直接运行仓库
+中的 <code class="docutils literal notranslate"><span class="pre">bt_web.py</span></code>。编辑器属性面板看到“当前没有 ROS2 图快照”通常表示 bridge 尚未启动、
+ROS2 包和 Python 环境不可用，或 <code class="docutils literal notranslate"><span class="pre">ROS_DOMAIN_ID</span></code> 不一致。普通后端仍可用于控制节点、黑板和
+XML 设计，所有 ROS 端口也仍可手填。</p>
+<section id="id1">
+<h2>启动顺序<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>在仓库根目录显式构建 <code class="docutils literal notranslate"><span class="pre">bt_ros2</span></code>。不要直接使用不带 <code class="docutils literal notranslate"><span class="pre">--base-paths</span></code> 的
+<code class="docutils literal notranslate"><span class="pre">colcon</span> <span class="pre">build</span> <span class="pre">--packages-select</span> <span class="pre">bt_ros2</span></code>，因为 colcon 会把顶层 CMake 项目识别成另一个包，
+并停止继续发现内部的 ROS 包。</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/opt/ros/humble/setup.bash
+colcon<span class="w"> </span>--log-base<span class="w"> </span>log_ros2<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--base-paths<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/bt_ros2&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--build-base<span class="w"> </span>build_ros2<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--install-base<span class="w"> </span>install_ros2<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--packages-select<span class="w"> </span>bt_ros2
+<span class="nb">source</span><span class="w"> </span>install_ros2/setup.bash
+ros2<span class="w"> </span>pkg<span class="w"> </span>prefix<span class="w"> </span>bt_ros2
+</pre></div>
+</div>
+<p>启动执行器：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/opt/ros/humble/setup.bash
+<span class="nb">source</span><span class="w"> </span>install_ros2/setup.bash
+ros2<span class="w"> </span>launch<span class="w"> </span>bt_ros2<span class="w"> </span>bt_executor.launch.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>tree_file:<span class="o">=</span><span class="k">$(</span>ros2<span class="w"> </span>pkg<span class="w"> </span>prefix<span class="w"> </span>bt_ros2<span class="k">)</span>/share/bt_ros2/trees/recharge.xml
+</pre></div>
+</div>
+<p>单独调试时可在另一个终端启动只读网关：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/opt/ros/humble/setup.bash
+<span class="nb">source</span><span class="w"> </span>install_ros2/setup.bash
+ros2<span class="w"> </span>launch<span class="w"> </span>bt_ros2<span class="w"> </span>bt_web.launch.py<span class="w"> </span>http_port:<span class="o">=</span><span class="m">8088</span>
+</pre></div>
+</div>
+<p>日常使用推荐从仓库根目录运行 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code>。它会自动托管 8088 bridge，并自动 source
+仓库已有的 <code class="docutils literal notranslate"><span class="pre">install_ros2/setup.bash</span></code> overlay；只有单独
+运行 Vite 或调试 bridge 时才需要上面的手动命令。若没有其他 ROS2 节点在相同
+<code class="docutils literal notranslate"><span class="pre">ROS_DOMAIN_ID</span></code> 中运行，bridge 在线但 graph 为空属于正常结果。</p>
+<p><code class="docutils literal notranslate"><span class="pre">dev.sh</span></code> 其余部分保持 Bash 严格 <code class="docutils literal notranslate"><span class="pre">nounset</span></code>，但 source ROS/colcon setup 时会临时关闭该选项，
+以兼容它们使用的可选变量 <code class="docutils literal notranslate"><span class="pre">AMENT_TRACE_SETUP_FILES</span></code> 和 <code class="docutils literal notranslate"><span class="pre">COLCON_TRACE</span></code>。用户不需要手动
+执行 <code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">+u</span></code>。</p>
+<p>验证能力消息：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>http://127.0.0.1:8088/api/v1/bt/capabilities<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">available=true</span></code> 且 <code class="docutils literal notranslate"><span class="pre">capabilities</span></code> 非空时，<code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 已完成一次 graph 读取。查看
+<code class="docutils literal notranslate"><span class="pre">ros_nodes</span></code>、<code class="docutils literal notranslate"><span class="pre">topics</span></code>、<code class="docutils literal notranslate"><span class="pre">services</span></code> 和 <code class="docutils literal notranslate"><span class="pre">actions</span></code> 可确认当前 DDS 资源；<code class="docutils literal notranslate"><span class="pre">manifests</span></code>
+来自在线 executor 的节点工厂目录，没有 executor 时可以为空。</p>
+<p>快照只代表当前 graph：如果 executor 节点消失，bridge 下一次刷新会清掉旧的 <code class="docutils literal notranslate"><span class="pre">manifests</span></code>，
+不会把已卸载的 Yuyi/ROS 插件继续当成可执行节点。ROS Action 的
+<code class="docutils literal notranslate"><span class="pre">send_goal/get_result/cancel_goal</span></code> 内部 service 仅用于推导 <code class="docutils literal notranslate"><span class="pre">actions</span></code>，不会作为普通
+<code class="docutils literal notranslate"><span class="pre">services</span></code> 候选显示。</p>
+</section>
+<section id="id2">
+<h2>在编辑器中配置<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>运行 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code> 后打开 <code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:5173</span></code>。脚本会同时托管 ROS2 graph bridge；
+编辑器固定通过
+<code class="docutils literal notranslate"><span class="pre">/ros-api/api/v1/bt/capabilities</span></code> 代理本机 8088，右侧“ROS2 运行时能力”区域提供：</p>
+<ul class="simple">
+<li><p>首次打开自动连接；bridge 离线时每五秒重试，成功后每三秒刷新；</p></li>
+<li><p>“连接 / 刷新 ROS2 图”按钮、最近刷新时间以及 node/topic/service/action/manifest 统计；</p></li>
+<li><p>bridge 不可达、graph 为空和 domain 不一致的明确诊断。</p></li>
+</ul>
+<p>界面不提供可编辑 URL。部署到其他主机时由运维配置 Vite 的 <code class="docutils literal notranslate"><span class="pre">BT_ROS_WEB_URL</span></code>，而不是把
+基础设施地址写进树或浏览器草稿。稍后启动 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 时无需重载页面；所有动态候选仍允许
+手工修改，因为 ROS graph 会变化。</p>
+<p>如果只想启动普通编辑器，可运行 <code class="docutils literal notranslate"><span class="pre">BT_ROS_WEB_MODE=off</span> <span class="pre">./scripts/dev.sh</span></code>；如果希望 ROS bridge
+不可用时直接让脚本失败，可运行 <code class="docutils literal notranslate"><span class="pre">BT_ROS_WEB_MODE=on</span> <span class="pre">./scripts/dev.sh</span></code>。</p>
+</section>
+<section id="id3">
+<h2>动态候选与节点用法<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>候选来源由节点 manifest 的 <code class="docutils literal notranslate"><span class="pre">editor_hint</span></code> 决定，不按端口名猜测，也不包含 Yuyi 业务白名单：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ros_node</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_topic</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_service</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_action</span></code> 对应固定资源类型；</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ros_graph_entity</span></code> 根据同一节点的 <code class="docutils literal notranslate"><span class="pre">entity_type</span></code> 在四类资源间切换；</p></li>
+<li><p>旧 executor 快照没有 <code class="docutils literal notranslate"><span class="pre">services</span></code> / <code class="docutils literal notranslate"><span class="pre">actions</span></code> 时，网关和编辑器补空数组，不返回 500。</p></li>
+</ul>
+<p>默认 <code class="docutils literal notranslate"><span class="pre">RosGraphCondition</span></code> 可以检查资源是否存在：</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;RosGraphCondition</span><span class="w"> </span><span class="na">entity_type=</span><span class="s">&quot;node&quot;</span><span class="w"> </span><span class="na">entity_name=</span><span class="s">&quot;/planner&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;RosGraphCondition</span><span class="w"> </span><span class="na">entity_type=</span><span class="s">&quot;service&quot;</span><span class="w"> </span><span class="na">entity_name=</span><span class="s">&quot;/planner/reset&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;RosGraphCondition</span><span class="w"> </span><span class="na">entity_type=</span><span class="s">&quot;action&quot;</span><span class="w"> </span><span class="na">entity_name=</span><span class="s">&quot;/navigate_to_pose&quot;</span><span class="nt">/&gt;</span>
+</pre></div>
+</div>
+<p>存在返回 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code>，不存在返回 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code>；反向条件使用 <code class="docutils literal notranslate"><span class="pre">Inverter</span></code>。DDS graph 发现
+不是健康检查，生产故障检测仍应优先使用带 <code class="docutils literal notranslate"><span class="pre">timeout_ms</span></code> 的周期心跳 topic。</p>
+<p>Yuyi 常见的无参数命令和布尔开关可直接使用两个非阻塞 service 节点：</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;CallTriggerService</span><span class="w"> </span><span class="na">service_name=</span><span class="s">&quot;/sweeper/up/lower&quot;</span>
+<span class="w">                    </span><span class="na">timeout_sec=</span><span class="s">&quot;2.0&quot;</span>
+<span class="w">                    </span><span class="na">message=</span><span class="s">&quot;{lower_response}&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;CallSetBoolService</span><span class="w"> </span><span class="na">service_name=</span><span class="s">&quot;/sweeper/up/enable&quot;</span>
+<span class="w">                    </span><span class="na">data=</span><span class="s">&quot;true&quot;</span>
+<span class="w">                    </span><span class="na">timeout_sec=</span><span class="s">&quot;2.0&quot;</span>
+<span class="w">                    </span><span class="na">message=</span><span class="s">&quot;{enable_response}&quot;</span><span class="nt">/&gt;</span>
+</pre></div>
+</div>
+<p>它们等待 service 或响应时返回 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>，响应 <code class="docutils literal notranslate"><span class="pre">success</span></code> 决定终态，<code class="docutils literal notranslate"><span class="pre">message</span></code> 写入黑板；
+超时或 halt 会清理 pending request。其他 service/action 消息必须用编译期类型实现插件节点，
+但同样可以通过 manifest hint 获得动态名称候选。</p>
+<p>对于尚未注册到当前 executor 的 Yuyi 节点，选中“自定义 XML 节点”后可在属性面板声明
+typed 端口。例如 <code class="docutils literal notranslate"><span class="pre">LoadYuyiPath</span></code> 可以声明 <code class="docutils literal notranslate"><span class="pre">path_file``（输入、``string</span></code>）和 <code class="docutils literal notranslate"><span class="pre">path</span></code>
+（输出、项目路径类型），再把输出绑定为 <code class="docutils literal notranslate"><span class="pre">{route_path}</span></code>。这会改变编辑器控件、黑板提示和
+配置包中的 <code class="docutils literal notranslate"><span class="pre">editor_manifests</span></code>，但不会伪造 ROS2 执行能力；真正插件仍必须用同名
+<code class="docutils literal notranslate"><span class="pre">providedPorts()</span></code> 注册端口并实现 ROS 句柄、异步状态、超时和 <code class="docutils literal notranslate"><span class="pre">halt()</span></code>。</p>
+<p>原始 XML 保持标准执行格式，只保存节点属性和 <code class="docutils literal notranslate"><span class="pre">TreeNodesModel/Blackboard</span></code>；跨机器迁移时
+使用“导出树 + 黑板”配置包即可同时恢复 XML、黑板初值、多树定义和自定义端口契约。若当前
+executor 已发布同名 runtime manifest，运行时 manifest 优先于包内旧的编辑器声明。</p>
+<p>如果 <code class="docutils literal notranslate"><span class="pre">/api/nodes</span></code> 暂时不可达，节点面板不会被清空，而是进入“仅设计”降级模式：
+<code class="docutils literal notranslate"><span class="pre">Sequence</span></code>、<code class="docutils literal notranslate"><span class="pre">Fallback</span></code>、<code class="docutils literal notranslate"><span class="pre">Parallel</span></code>、常用装饰器以及 <code class="docutils literal notranslate"><span class="pre">SubTree</span></code>/<code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 仍可
+拖入画布，自定义 XML 节点也仍可手动添加。此时只能下载/复制 XML；载入、Tick、Run 仍要等
+树后端恢复，运行期端口和节点说明以之后返回的 runtime manifest 为准。</p>
+</section>
+<section id="id4">
+<h2>设计边界<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>能力快照只描述“当前运行时能看到什么”和“executor 注册了什么”，不会凭接口名称自动生成
+任意消息类型的 C++ 行为树节点。发现 <code class="docutils literal notranslate"><span class="pre">custom_msgs/msg/Status</span></code> 后，仍需要实现并注册一个
+真正的节点，再由 executor 运行。普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 也不能执行依赖 <code class="docutils literal notranslate"><span class="pre">rclcpp</span></code> 的节点：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>5173 编辑器
+  ├── /api/*       -&gt; 8080 bt_server（编辑/普通节点执行）
+  └── /ros-api/*   -&gt; 8088 bt_web（ROS2 能力发现，只读）
+</pre></div>
+</div>
+<p>包含 <code class="docutils literal notranslate"><span class="pre">ReadScalar</span></code>、<code class="docutils literal notranslate"><span class="pre">IsFlagTrue</span></code>、<code class="docutils literal notranslate"><span class="pre">RosTopicAction</span></code>、service 动作或自定义 ROS 节点的最终 XML，应由
+<code class="docutils literal notranslate"><span class="pre">BtExecutorNode</span></code> 加载和 Tick。当前 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 不提供 <code class="docutils literal notranslate"><span class="pre">/api/tree/load</span></code>、<code class="docutils literal notranslate"><span class="pre">/api/tree/run</span></code>；
+要做到单地址的编辑、载入和运行，需要后续实现 ROS-aware editor backend，并复用同一套
+<code class="docutils literal notranslate"><span class="pre">/api</span></code> 契约，而不是把只读网关冒充成执行后端。</p>
+</section>
+<section id="yuyi">
+<h2>Yuyi 大树当前覆盖范围<a class="headerlink" href="#yuyi" title="Link to this heading">¶</a></h2>
+<p>编辑器可以直接导入并继续设计用户给出的多树 XML，但“可显示”和“可执行”必须分开判断：</p>
+<ul class="simple">
+<li><p>已原生支持结构：<code class="docutils literal notranslate"><span class="pre">Sequence</span></code>、<code class="docutils literal notranslate"><span class="pre">Fallback</span></code>、<code class="docutils literal notranslate"><span class="pre">Parallel</span></code>、<code class="docutils literal notranslate"><span class="pre">Inverter</span></code>、
+<code class="docutils literal notranslate"><span class="pre">ForceSuccess</span></code>、多 <code class="docutils literal notranslate"><span class="pre">BehaviorTree</span></code>、<code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 映射和 XML 黑板初值。</p></li>
+<li><p>已提供通用 ROS2 节点：<code class="docutils literal notranslate"><span class="pre">RosGraphCondition</span></code>、<code class="docutils literal notranslate"><span class="pre">RosTopicCondition</span></code>、
+<code class="docutils literal notranslate"><span class="pre">RosTopicAction</span></code>、<code class="docutils literal notranslate"><span class="pre">ReadScalar</span></code>、<code class="docutils literal notranslate"><span class="pre">ReadBattery</span></code>、<code class="docutils literal notranslate"><span class="pre">IsFlagTrue</span></code>、
+<code class="docutils literal notranslate"><span class="pre">CallTriggerService</span></code> 和 <code class="docutils literal notranslate"><span class="pre">CallSetBoolService</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LoadYuyiPath</span></code>、<code class="docutils literal notranslate"><span class="pre">FollowPath</span></code>、<code class="docutils literal notranslate"><span class="pre">ObstacleSpeedLimiter</span></code>、
+<code class="docutils literal notranslate"><span class="pre">DetectCurrentMapZone</span></code>、<code class="docutils literal notranslate"><span class="pre">RunOnZoneTransition</span></code>、<code class="docutils literal notranslate"><span class="pre">TimeCondition</span></code>、
+<code class="docutils literal notranslate"><span class="pre">KeepRunningUntilFailure</span></code>、<code class="docutils literal notranslate"><span class="pre">NonBlockingDelay</span></code> 和
+<code class="docutils literal notranslate"><span class="pre">CleanupWorkToolsOnHalt</span></code> 等业务标签仍需 Yuyi ROS2 插件实现并注册。</p></li>
+</ul>
+<p>未知节点可通过“自定义 XML 节点”选择 Control/Decorator/Action/Condition 并添加任意 XML
+属性，前端不会写死 topic、service 或 Yuyi 字段。该类别只决定画布连线约束；真正的端口、
+<code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>/超时/<code class="docutils literal notranslate"><span class="pre">halt()</span></code> 语义和执行能力必须由 C++ manifest 与注册类型提供。</p>
+</section>
+<section id="id5">
+<h2>故障排查<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">HTTP</span> <span class="pre">500</span> <span class="pre">&#64;</span> <span class="pre">/ros-api/...</span></code>：Vite 代理连不到 8088；优先重新运行 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code>，它会
+自动托管 bridge。只有单独运行 Vite 时才手动启动 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code>，并检查端口和进程日志。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Package</span> <span class="pre">not</span> <span class="pre">found:</span> <span class="pre">bt_ros2</span></code>：只 source 了 <code class="docutils literal notranslate"><span class="pre">/opt/ros/humble</span></code>，没有 source 仓库 overlay。
+执行 <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">install_ros2/setup.bash</span></code>，或者从仓库根目录重新运行 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code>。</p></li>
+<li><p>bridge 启动脚本会把完整日志写入 <code class="docutils literal notranslate"><span class="pre">/tmp/bt_ros_web.log</span></code>，也可通过
+<code class="docutils literal notranslate"><span class="pre">BT_ROS_WEB_LOG_FILE=/path/to/bridge.log</span></code> 指定。日志中的 <code class="docutils literal notranslate"><span class="pre">Operation</span> <span class="pre">not</span> <span class="pre">permitted</span></code> 通常
+表示运行环境禁止 DDS/HTTP socket，不是 ROS graph 为空。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">available=false</span></code>：bridge 尚未完成第一次 graph 读取；若持续出现，检查 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 日志。</p></li>
+<li><p>有 topic/service 但没有预期 ROS 节点：能力快照来自另一个 domain 或 executor，检查两个终端的环境变量。</p></li>
+<li><p>候选存在但载入失败：发现能力和执行后端不是同一个进程；把 XML 交给 ROS2 executor，而不是
+普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code>。</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 的结构观察器与 C++ 执行器使用同一套子树展开顺序；<code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 会按目标
+<code class="docutils literal notranslate"><span class="pre">BehaviorTree</span></code> 展开，Yuyi 的 <code class="docutils literal notranslate"><span class="pre">RunOnZoneTransition</span></code> 等未知标签则按子节点数量保留为
+Control/Decorator 结构，而不会被错误压成不可展开的叶子。它只用于显示，不替代执行器的
+端口和状态契约校验。</p>
+</section>
+<section id="ros-graph-bt-web">
+<h2>为什么 ROS graph 必须经过 bt_web<a class="headerlink" href="#ros-graph-bt-web" title="Link to this heading">¶</a></h2>
+<p>常见疑问：为什么编辑器不直接读 ROS graph，还要多一个 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code> 进程？</p>
+<p>这是**刻意的架构约束**，不是实现偷懒：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 是纯 C++ / cpp-httplib 进程，<strong>完全不链接 rclcpp</strong>。可用
+<code class="docutils literal notranslate"><span class="pre">ldd</span> <span class="pre">build/bin/bt_server</span> <span class="pre">|</span> <span class="pre">grep</span> <span class="pre">-c</span> <span class="pre">rclcpp</span></code> 验证，结果为 <code class="docutils literal notranslate"><span class="pre">0</span></code>。它不知道 ROS 是什么，
+因此 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/v1/bt/capabilities</span></code> 硬编码返回 <code class="docutils literal notranslate"><span class="pre">{&quot;available&quot;:false,&quot;capabilities&quot;:null}</span></code>，
+宁可明确降级也不伪造 node/topic 数据。</p></li>
+<li><p>只有 <code class="docutils literal notranslate"><span class="pre">bt_web``（Python</span> <span class="pre">+</span> <span class="pre">``rclpy</span></code>）能加入 DDS 并调用
+<code class="docutils literal notranslate"><span class="pre">get_node_names_and_namespaces()</span></code> / <code class="docutils literal notranslate"><span class="pre">get_topic_names_and_types()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">get_service_names_and_types()</span></code>。</p></li>
+<li><p>浏览器同样不能加入 DDS，所以必须有一个本机 HTTP bridge 把 graph 暴露出来。</p></li>
+</ul>
+<p>这个分工的收益是：<strong>没有安装 ROS2 的机器上，编辑器依然能用</strong>——控制节点、装饰节点、
+黑板和 XML 设计全部可用，只是 ROS 端口需要手填而非下拉选择。若把 rclcpp 链进
+<code class="docutils literal notranslate"><span class="pre">bt_server</span></code>，就会丧失这一能力。</p>
+<p>如果确实需要单进程方案，正确做法是让本身就是 <code class="docutils literal notranslate"><span class="pre">rclcpp</span></code> 节点的 <code class="docutils literal notranslate"><span class="pre">bt_executor</span></code>
+额外提供 HTTP 端点，而不是给 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 增加 ROS 依赖。</p>
+</section>
+<section id="graph">
+<h2>graph 数据形状陷阱（已修复）<a class="headerlink" href="#graph" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">rclpy</span></code> 的 <code class="docutils literal notranslate"><span class="pre">get_topic_names_and_types()</span></code> 与 <code class="docutils literal notranslate"><span class="pre">get_service_names_and_types()</span></code> 返回
+<strong>``list[tuple[str, list[str]]]``</strong>，而不是 dict：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">node</span><span class="o">.</span><span class="n">get_topic_names_and_types</span><span class="p">()</span>
+<span class="go">[(&#39;/nav3d/current_pose&#39;, [&#39;geometry_msgs/msg/PoseStamped&#39;]), ...]</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">bt_web_core._interface_list()</span></code> 早期只接受 dict，导致真实 graph 的 topic/service 被
+静默丢成空列表——编辑器显示 <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">个</span> <span class="pre">ROS</span> <span class="pre">node、0</span> <span class="pre">个</span> <span class="pre">topic、0</span> <span class="pre">个</span> <span class="pre">service</span></code>，明显自相矛盾
+（有节点却没有任何话题）。现已修复为同时接受 list 与 dict 两种形状，并补充回归测试
+<code class="docutils literal notranslate"><span class="pre">test_builds_capabilities_from_rclpy_list_shape</span></code>。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>排查此类问题的判据：<strong>ROS node 数量非零但 topic/service 全为 0</strong>。任何活着的 ROS2
+节点至少会暴露 <code class="docutils literal notranslate"><span class="pre">/parameter_events</span></code>、<code class="docutils literal notranslate"><span class="pre">/rosout</span></code> 和参数服务，因此全零一定异常。
+反之 <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">个</span> <span class="pre">action</span></code> 通常是正常的——环境里确实没有 action server 时就该是 0，可用
+<code class="docutils literal notranslate"><span class="pre">ros2</span> <span class="pre">action</span> <span class="pre">list</span></code> 交叉确认。</p>
+</div>
+<a class="reference internal image-reference" href="_images/07_ros_graph_capabilities.png"><img alt="修复后编辑器显示真实的 topic 与 service 数量" src="_images/07_ros_graph_capabilities.png" style="width: 100%;" />
+</a>
+<p>修复后属性面板的 ROS 端口可以直接从实时候选中选择，无需手敲话题名。</p>
+</section>
+<section id="ros2">
+<h2>ROS2 节点都是叶子节点<a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
+<p><strong>所有 ROS2 适配节点都不能挂子节点。</strong> 它们的 manifest <code class="docutils literal notranslate"><span class="pre">type</span></code> 只会是 <code class="docutils literal notranslate"><span class="pre">Action</span></code> 或
+<code class="docutils literal notranslate"><span class="pre">Condition</span></code>，即行为树中的叶子；XML 解析器会拒绝给叶子添加子元素。</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="cm">&lt;!-- 错误：Condition 是叶子，解析器报错 --&gt;</span>
+<span class="nt">&lt;RosGraphCondition</span><span class="w"> </span><span class="na">entity_type=</span><span class="s">&quot;node&quot;</span><span class="w"> </span><span class="na">entity_name=</span><span class="s">&quot;/planner&quot;</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="nt">&lt;SubTreePlus</span><span class="w"> </span><span class="na">ID=</span><span class="s">&quot;WorkRoute&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/RosGraphCondition&gt;</span>
+
+<span class="cm">&lt;!-- 正确：条件与动作作为兄弟节点，由控制节点组织 --&gt;</span>
+<span class="nt">&lt;ReactiveSequence&gt;</span>
+<span class="w">  </span><span class="nt">&lt;RosGraphCondition</span><span class="w"> </span><span class="na">entity_type=</span><span class="s">&quot;node&quot;</span><span class="w"> </span><span class="na">entity_name=</span><span class="s">&quot;/planner&quot;</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;SubTreePlus</span><span class="w"> </span><span class="na">ID=</span><span class="s">&quot;WorkRoute&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/ReactiveSequence&gt;</span>
+</pre></div>
+</div>
+<p>要&quot;在 ROS 条件之后接另一棵行为树&quot;，用 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> / <code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code> / <code class="docutils literal notranslate"><span class="pre">Fallback</span></code>
+组织，并用 <code class="docutils literal notranslate"><span class="pre">SubTree</span></code> 或 <code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 引用目标树。可用如下命令随时确认某节点能否
+拥有子节点：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-s<span class="w"> </span>http://127.0.0.1:8080/api/nodes<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sys,json;[print(f\&quot;{x[&#39;registration_name&#39;]:24} {x[&#39;type&#39;]}\&quot;) for x in json.load(sys.stdin)]&quot;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Control</span></code> 可有多个子节点，<code class="docutils literal notranslate"><span class="pre">Decorator</span></code> 恰好一个，<code class="docutils literal notranslate"><span class="pre">Action</span></code> 与 <code class="docutils literal notranslate"><span class="pre">Condition</span></code> 不可有子节点。</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">BehaviorTree.CPP-X</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
+<p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">ROS2 能力与 5173 编辑器</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id1">启动顺序</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">在编辑器中配置</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">动态候选与节点用法</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">设计边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#yuyi">Yuyi 大树当前覆盖范围</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">故障排查</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ros-graph-bt-web">为什么 ROS graph 必须经过 bt_web</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#graph">graph 数据形状陷阱（已修复）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ros2">ROS2 节点都是叶子节点</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_plugin_build.html">ROS2 插件构建与配置驱动启动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yuyi_ros2_optimization.html">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">架构总览</a></li>
+<li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ros2_recharge_tutorial.html" title="上一章">ROS2 回充教程</a></li>
+      <li>Next: <a href="ros2_plugin_build.html" title="下一章">ROS2 插件构建与配置驱动启动</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

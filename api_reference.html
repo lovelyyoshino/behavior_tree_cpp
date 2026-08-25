@@ -7,10 +7,11 @@
 
     <title>API 参考 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
@@ -46,6 +47,20 @@
 <span class="n">factory</span><span class="p">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="s">&quot;RegName&quot;</span><span class="p">);</span>
 </pre></div>
 </div>
+<p>节点如果提供可选的 <code class="docutils literal notranslate"><span class="pre">providedDocumentation()</span></code>，<code class="docutils literal notranslate"><span class="pre">manifests()</span></code> 会把节点用途、状态语义、
+失败边界和最小 XML 一起返回。未提供说明的旧插件仍可注册：</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="n">bt_core</span><span class="o">::</span><span class="n">NodeDocumentation</span><span class="w"> </span><span class="nf">providedDocumentation</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="s">&quot;用途&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;放置和配置方式&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;状态转换&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;失败边界&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="sa">R</span><span class="s">&quot;</span><span class="dl">(</span><span class="s">&lt;MyAction message=&quot;hello&quot;/&gt;</span><span class="dl">)</span><span class="s">&quot;</span><span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>HTTP <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/nodes</span></code> 对应字段为 <code class="docutils literal notranslate"><span class="pre">documentation.summary</span></code>、
+<code class="docutils literal notranslate"><span class="pre">documentation.usage</span></code>、<code class="docutils literal notranslate"><span class="pre">documentation.status_semantics</span></code>、
+<code class="docutils literal notranslate"><span class="pre">documentation.failure_conditions</span></code> 和 <code class="docutils literal notranslate"><span class="pre">documentation.example_xml</span></code>。
+ROS-aware backend 的 <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/v1/bt/capabilities</span></code> 返回真实 ROS node、topic、消息类型和
+同一份 manifest；普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 在同一路径返回 <code class="docutils literal notranslate"><span class="pre">available=false</span></code> 和
+<code class="docutils literal notranslate"><span class="pre">capabilities=null</span></code>，让编辑器无 404 地降级为手填，但不会伪造 ROS 图数据。</p>
 </section>
 <section id="tree">
 <h2>Tree<a class="headerlink" href="#tree" title="Link to this heading">¶</a></h2>
@@ -85,8 +100,15 @@
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/nodes</span></code></p></td>
 <td><p>获取节点 manifest。</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tree/load</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/v1/bt/capabilities</span></code></p></td>
+<td><p>获取 ROS2 动态能力快照；普通后端返回明确的不可用状态，ROS-aware 后端返回真实 graph。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tree/load</span></code></p></td>
 <td><p>用 XML 加载当前树。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tree/blackboard</span></code></p></td>
+<td><p>给已加载树的内存黑板写入一个 <code class="docutils literal notranslate"><span class="pre">string</span></code>、<code class="docutils literal notranslate"><span class="pre">bool</span></code>、<code class="docutils literal notranslate"><span class="pre">int</span></code> 或 <code class="docutils literal notranslate"><span class="pre">double</span></code> 初值。
+请求为 <code class="docutils literal notranslate"><span class="pre">{&quot;key&quot;:&quot;temperature&quot;,&quot;type&quot;:&quot;double&quot;,&quot;value&quot;:&quot;25.5&quot;}</span></code>；未加载树返回 404。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tree/validate</span></code></p></td>
 <td><p>只校验 XML，不替换当前树；成功返回 <code class="docutils literal notranslate"><span class="pre">ok</span></code> 和 <code class="docutils literal notranslate"><span class="pre">node_count</span></code>。</p></td>
@@ -120,11 +142,44 @@
 <p>文件 API 只接受 workspace 内普通 <code class="docutils literal notranslate"><span class="pre">.xml</span></code> 文件名，拒绝绝对路径、子目录和 <code class="docutils literal notranslate"><span class="pre">../</span></code>。</p>
 </section>
 <section id="id1">
-<h2>脚本入口<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<h2>黑板初始化<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>黑板参数分为“可迁移启动初值”和“运行时值”。编辑器的“黑板参数”面板会把启动初值写入
+XML 的 <code class="docutils literal notranslate"><span class="pre">TreeNodesModel/Blackboard</span></code> 元数据区；<code class="docutils literal notranslate"><span class="pre">load</span></code> 或 <code class="docutils literal notranslate"><span class="pre">run</span></code> 只发送这份完整 XML，
+解析器一次性恢复 typed 初值。<code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tree/blackboard</span></code> 只保留给树载入后的调试工具，
+不是编辑器标准流程的第二数据源。节点仍通过端口重映射访问共享 <code class="docutils literal notranslate"><span class="pre">Blackboard</span></code>：</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;Sequence</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;temperature_alarm&quot;</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="nt">&lt;ReadScalar</span><span class="w"> </span><span class="na">topic=</span><span class="s">&quot;/temperature&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;{temperature}&quot;</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;ScalarThreshold</span><span class="w"> </span><span class="na">key=</span><span class="s">&quot;temperature&quot;</span><span class="w"> </span><span class="na">op=</span><span class="s">&quot;&gt;=&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;80&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/Sequence&gt;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">key=&quot;temperature&quot;</span></code> 是键名本身，<code class="docutils literal notranslate"><span class="pre">value=&quot;{temperature}&quot;</span></code> 是输出端口重映射。XML 中的
+启动初值示例：</p>
+<div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;TreeNodesModel&gt;</span>
+<span class="w">  </span><span class="nt">&lt;Blackboard&gt;</span>
+<span class="w">    </span><span class="nt">&lt;Entry</span><span class="w"> </span><span class="na">key=</span><span class="s">&quot;temperature&quot;</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;double&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;25.5&quot;</span>
+<span class="w">           </span><span class="na">description=</span><span class="s">&quot;启动测试值&quot;</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/Blackboard&gt;</span>
+<span class="nt">&lt;/TreeNodesModel&gt;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">XmlParser</span></code> 载入时会初始化这些 typed 值，<code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/tree/export</span></code> 和 <code class="docutils literal notranslate"><span class="pre">format</span></code> 也会保留
+元数据。ROS 输入节点收到新消息后可以覆盖运行时键，但不会改写 XML 中的启动值；浏览器面板
+另存于 <code class="docutils literal notranslate"><span class="pre">localStorage</span></code> 仅用于刷新恢复草稿。编辑器底部“下载 XML”导出完整 XML，“导出树 +
+黑板”另生成版本化 <code class="docutils literal notranslate"><span class="pre">behavior_tree.bt.json</span></code> 配置包。</p>
+<p>编辑器还会把多树文档的节点、连线、位置、主树 ID 和当前定义标签保存到同一浏览器的
+<code class="docutils literal notranslate"><span class="pre">localStorage</span></code>，因此刷新不会丢失尚未导出的工作现场；跨浏览器或跨机器仍应使用 XML/配置包。</p>
+<p>多树文档会同时保留所有 <code class="docutils literal notranslate"><span class="pre">&lt;BehaviorTree</span> <span class="pre">ID=&quot;...&quot;&gt;</span></code> 定义。解析器运行主树时按
+<code class="docutils literal notranslate"><span class="pre">SubTree</span></code>/<code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 展开并检查循环，服务器的 <code class="docutils literal notranslate"><span class="pre">format</span></code>/<code class="docutils literal notranslate"><span class="pre">export</span></code> 则保留原始
+子树调用和定义，避免把可维护的 Yuyi 结构导出成不可编辑的展开副本。编辑器顶部“树定义”栏
+可以分别编辑这些定义；业务节点（例如 <code class="docutils literal notranslate"><span class="pre">LoadYuyiPath</span></code>）仍必须由插件注册并声明端口。</p>
+</section>
+<section id="id2">
+<h2>脚本入口<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./scripts/bootstrap.sh
 ./scripts/dev.sh
-./scripts/smoke_server.sh
 ./scripts/build_docs.sh
+./scripts/build_pages.sh
 ./scripts/test.sh
 </pre></div>
 </div>
@@ -147,16 +202,28 @@
 
 
 
-<h3>导航</h3>
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
 <ul class="current">
@@ -167,10 +234,12 @@
 <li class="toctree-l2"><a class="reference internal" href="#tree">Tree</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#xml">XML</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#http">HTTP</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id1">脚本入口</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">黑板初始化</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">脚本入口</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
 </ul>
 
 <div class="relations">
@@ -182,16 +251,6 @@
   </ul></li>
 </ul>
 </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">快速搜索</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -208,8 +267,8 @@
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
     </div>
 

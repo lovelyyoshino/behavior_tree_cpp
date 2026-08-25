@@ -3,8 +3,9 @@
 <html lang="zh-CN" data-content_root="./">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>索引 &#8212; BehaviorTree.CPP-X 文档</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>商用发布边界 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
@@ -13,8 +14,9 @@
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
-    <link rel="index" title="索引" href="#" />
+    <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
+    <link rel="prev" title="测试矩阵" href="testing_matrix.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -32,12 +34,35 @@
 
           <div class="body" role="main">
             
-
-<h1 id="index">索引</h1>
-
-<div class="genindex-jumpbox">
- 
-</div>
+  <section id="id1">
+<h1>商用发布边界<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>工程验证与法律授权是两个独立 gate。<code class="docutils literal notranslate"><span class="pre">./scripts/test.sh</span></code> 全绿可以证明当前源码达到
+工程发布条件，但不能替产品 owner 选择许可证、声明 copyright holder 或批准分发。</p>
+<section id="id2">
+<h2>当前阻塞项<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>仓库没有 owner 批准的根 <code class="docutils literal notranslate"><span class="pre">LICENSE</span></code> 文件。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bt_ros2/package.xml</span></code> 声明 <code class="docutils literal notranslate"><span class="pre">Apache-2.0</span></code>，但 maintainer 仍是 placeholder。</p></li>
+<li><p>第三方 notice inventory 已建立，但目标 source/binary 包的 notice bundle 尚未获得 owner/法务批准。</p></li>
+</ul>
+<p>在这些事项关闭前，只能表述为 <strong>engineering release-ready</strong>，不能声称已经获得公开或
+商业分发授权。</p>
+</section>
+<section id="id3">
+<h2>权威检查表与清单<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">docs/COMMERCIAL_RELEASE_CHECKLIST.md</span></code>：工程 gate、owner/legal gate 和发布边界。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">THIRD_PARTY_NOTICES.md</span></code>：vendored C++、直接前端依赖和外部 ROS2 依赖清单。</p></li>
+</ul>
+</section>
+<section id="id4">
+<h2>边界声明<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>Engineering can make the repository release-ready, but project licensing is a
+legal/product-owner decision. The package currently claims Apache-2.0 without a
+root license file. A commercial-release claim remains conditional on the owner
+supplying the approved root license and maintainer identity.</p>
+</section>
+</section>
 
 
           </div>
@@ -70,29 +95,30 @@
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
-<li class="toctree-l1"><a class="reference internal" href="scheduling.html">单树优先级与分级 Tick 调度</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
-<li class="toctree-l1"><a class="reference internal" href="ros2_plugin_build.html">ROS2 插件构建与配置驱动启动</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
-<li class="toctree-l1"><a class="reference internal" href="yuyi_ros2_optimization.html">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages_deployment.html">GitHub Pages 发布</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">设计与参考</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="architecture.html">架构总览</a></li>
 <li class="toctree-l1"><a class="reference internal" href="node_catalog.html">节点目录</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API 参考</a></li>
 <li class="toctree-l1"><a class="reference internal" href="testing_matrix.html">测试矩阵</a></li>
-<li class="toctree-l1"><a class="reference internal" href="commercial_release.html">商用发布边界</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">商用发布边界</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">当前阻塞项</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">权威检查表与清单</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">边界声明</a></li>
+</ul>
+</li>
 </ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="testing_matrix.html" title="上一章">测试矩阵</a></li>
   </ul></li>
 </ul>
 </div>
