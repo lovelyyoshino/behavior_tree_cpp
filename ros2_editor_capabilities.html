@@ -246,7 +246,32 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
 </div>
 <a class="reference internal image-reference" href="_images/07_ros_graph_capabilities.png"><img alt="修复后编辑器显示真实的 topic 与 service 数量" src="_images/07_ros_graph_capabilities.png" style="width: 100%;" />
 </a>
-<p>修复后属性面板的 ROS 端口可以直接从实时候选中选择，无需手敲话题名。</p>
+<p>上图右侧「ROS2 运行时能力」面板显示 <code class="docutils literal notranslate"><span class="pre">已连接</span> <span class="pre">/bt_web：4</span> <span class="pre">个</span> <span class="pre">ROS</span> <span class="pre">node、8</span> <span class="pre">个</span> <span class="pre">topic、</span>
+<span class="pre">18</span> <span class="pre">个</span> <span class="pre">service</span></code>。修复前同样的环境只会显示 <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">个</span> <span class="pre">topic、0</span> <span class="pre">个</span> <span class="pre">service</span></code>。</p>
+<p>修复带来的直接收益是属性面板的端口候选：</p>
+<a class="reference internal image-reference" href="_images/08_ros_topic_candidates.png"><img alt="属性面板的 ROS 端口从实时 graph 提供候选" src="_images/08_ros_topic_candidates.png" style="width: 100%;" />
+</a>
+<p>选中任意带 <code class="docutils literal notranslate"><span class="pre">editor_hint=&quot;ros_topic&quot;</span></code> 的端口（例如 <code class="docutils literal notranslate"><span class="pre">RosTopicCondition</span></code> 的 <code class="docutils literal notranslate"><span class="pre">topic</span></code>、
+<code class="docutils literal notranslate"><span class="pre">WaitUntilTopic</span></code> 的 <code class="docutils literal notranslate"><span class="pre">topic</span></code>），下拉框会列出当前 graph 中的真实话题，无需手敲名字，
+也避免拼写错误导致运行时订阅不到数据。同理 <code class="docutils literal notranslate"><span class="pre">ros_service</span></code> 端口会列出真实 service，
+<code class="docutils literal notranslate"><span class="pre">ros_graph_entity</span></code> 端口会列出 node/topic/service/action 全集。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>候选只是**设计期辅助**，不改变执行契约。端口仍可手填任意名称——话题尚未启动时
+照样能先写好树，等运行时再由执行器订阅。候选缺失（bridge 未启动）不阻塞任何编辑操作。</p>
+</div>
+<section id="id6">
+<h3>自查清单<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>遇到候选为空时按顺序确认：</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://127.0.0.1:8088/api/v1/bt/capabilities</span> <span class="pre">|</span> <span class="pre">head</span> <span class="pre">-c</span> <span class="pre">200</span></code> —— bridge 是否在线且
+<code class="docutils literal notranslate"><span class="pre">available=true</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ros2</span> <span class="pre">topic</span> <span class="pre">list</span></code> 与上一步返回的 <code class="docutils literal notranslate"><span class="pre">topics</span></code> 数量是否一致。<strong>不一致且 bridge 报 0</strong> 就是
+数据形状或 domain 问题。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">echo</span> <span class="pre">$ROS_DOMAIN_ID</span></code> 在 bridge 终端与目标节点终端是否相同。</p></li>
+<li><p>编辑器右侧面板点「连接 / 刷新 ROS2 图」，观察是否有「连接诊断」告警。</p></li>
+</ol>
+</section>
 </section>
 <section id="ros2">
 <h2>ROS2 节点都是叶子节点<a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
