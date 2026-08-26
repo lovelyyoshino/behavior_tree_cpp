@@ -4,9 +4,11 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.2.0
+//  @last_modified 2026-08-18
 //  @changelog
+//    - v1.3.0 (2026-08-18): 发布真实 ROS graph 与 factory manifest 能力快照
+//    - v1.2.0 (2026-08-18): 串行化 tick、服务与调试回调，防止多线程 executor 争抢树状态
 //    - v1.1.0 (2026-07-13): 增加可外部调用且幂等的 start/stop Trigger 服务
 //
 //  职责（一个标准的 rclcpp::Node 包装器）：
@@ -32,6 +34,8 @@
 
 #include <memory>
 #include <cstdint>
+#include <chrono>
+#include <mutex>
 #include <unordered_map>
 #include <string>
 
@@ -77,6 +81,9 @@ private:
 
   /// @brief 发布一份可由只读 Web 观察器消费的完整运行快照。
   void publishTreeSnapshot(bt_core::NodeStatus root_status);
+
+  /// @brief 发布当前工厂清单和 ROS graph，供编辑器动态生成候选项。
+  void publishCapabilities();
 
   /// @brief 发布 start/stop service 生命周期事件。
   void publishServiceEvent(const std::string& interface_name,
@@ -124,6 +131,7 @@ private:
   std::string status_topic_{"~/bt_status"};  ///< 根状态发布 topic
   std::string snapshot_topic_{"~/tree_snapshot"};  ///< 完整节点快照 topic
   std::string service_event_topic_{"~/service_event"};  ///< service 事件 topic
+  std::string capabilities_topic_{"~/capabilities"};  ///< 动态节点/topic 能力 topic
   bool        autostart_{true};    ///< 是否构造后自动开始
   bool        stop_on_terminal_{false};  ///< 根节点终结后是否停止 tick
   bool        debug_mode_{false};  ///< 是否启用隔离 debug 控制面
@@ -140,15 +148,20 @@ private:
   std::uint64_t snapshot_sequence_{0};
   std::uint64_t service_event_sequence_{0};
   std::uint64_t service_call_sequence_{0};
+  std::uint64_t capabilities_sequence_{0};
   std::uint64_t session_sequence_{0};
   std::string debug_scenario_id_{"all_auto"};
+  std::chrono::steady_clock::time_point last_capabilities_publish_{};
   std::unordered_map<std::uint16_t, bt_core::NodeStatus> debug_overrides_;
+  // Tree/Blackboard 按单线程设计；所有可能触达运行态的入口统一经过此锁。
+  mutable std::recursive_mutex execution_mutex_;
 
   // -- ROS2 资源 ------------------------------------------------------------
   rclcpp::TimerBase::SharedPtr timer_;   ///< 周期 tick 定时器
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;  ///< 根状态发布器
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr snapshot_pub_;  ///< 树快照发布器
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr service_event_pub_;  ///< service 事件发布器
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr capabilities_pub_;  ///< 动态能力发布器
   rclcpp::Service<Trigger>::SharedPtr start_service_;  ///< 幂等启动服务
   rclcpp::Service<Trigger>::SharedPtr stop_service_;   ///< 幂等停止服务
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr debug_state_pub_;

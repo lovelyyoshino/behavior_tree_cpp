@@ -30,6 +30,9 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
 # ---- 解析 bt::core target（方式 A / B 自适应）-----------------------------
@@ -86,6 +89,9 @@ endif()
 add_library(bt_ros2_lib
   src/bt_executor_node.cpp
   src/node_registration.cpp
+  src/ros_graph_utils.cpp
+  src/ros_graph_condition_node.cpp
+  src/call_service_nodes.cpp
   src/recharge_task.cpp
   src/ros_topic_condition_node.cpp
   src/ros_topic_action_node.cpp
@@ -105,12 +111,15 @@ target_include_directories(bt_ros2_lib
 
 target_compile_features(bt_ros2_lib PUBLIC cxx_std_17)
 
+# 要让 bt_ros2_lib 能被链入共享插件 libbt_ros2_plugin.so，必须编译成 PIC。
+set_target_properties(bt_ros2_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # 链接 bt::core 与共享 FunctionRegistry 所在的 bt::nodes；rclcpp 等用 ament 方式注入。
 target_link_libraries(bt_ros2_lib PUBLIC bt::core bt::nodes)
 if(COMMAND ament_target_dependencies)
   ament_target_dependencies(
     bt_ros2_lib PUBLIC
-    rclcpp rclcpp_action std_msgs sensor_msgs std_srvs)
+    rclcpp rclcpp_action std_msgs sensor_msgs geometry_msgs nav_msgs nav2_msgs std_srvs)
 else()
   # ROS 2 Lyrical removed ament_target_dependencies; use its exported targets.
   target_link_libraries(bt_ros2_lib PUBLIC
@@ -118,7 +127,21 @@ else()
     rclcpp_action::rclcpp_action
     std_msgs::std_msgs
     sensor_msgs::sensor_msgs
+    geometry_msgs::geometry_msgs
+    nav_msgs::nav_msgs
+    nav2_msgs::nav2_msgs
     std_srvs::std_srvs)
+endif()
+
+# ---- 插件：供 bt_server --plugin 加载的共享库（导出 BT_RegisterNodes） ------
+# bt_ros2_lib 是静态库，不含插件入口；bt_server 用 NodeFactory::loadPlugin 加载，
+# 需要 dlsym 到 BT_RegisterNodes。这里编译一个共享库作为入口，链接 bt_ros2_lib。
+add_library(bt_ros2_plugin SHARED src/plugin_registration.cpp)
+target_link_libraries(bt_ros2_plugin bt_ros2_lib bt::core bt::nodes)
+if(COMMAND ament_target_dependencies)
+  ament_target_dependencies(
+    bt_ros2_plugin
+    rclcpp rclcpp_action std_msgs sensor_msgs geometry_msgs nav_msgs nav2_msgs std_srvs)
 endif()
 
 # ---- 可执行：bt_executor 入口 --------------------------------------------

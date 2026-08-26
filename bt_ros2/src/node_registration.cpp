@@ -1,11 +1,27 @@
 // ============================================================================
 //  bt_ros2/src/node_registration.cpp
 //  默认节点注册器实现。
+//
+//  @author pony
+//  @date 2026-07-12
+//  @version v1.2.0
+//  @last_modified 2026-08-19
+//  @changelog
+//    - v1.2.0 (2026-08-19): 默认注册 ROS graph 条件和 Trigger/SetBool 服务动作
+//    - v1.1.0 (2026-08-18): 默认注册单树优先级与分级 tick 调度节点
 // ============================================================================
 #include "bt_ros2/node_registration.hpp"
 
 #include "bt_ros2/example_data_nodes.hpp"
+#include "bt_ros2/call_service_nodes.hpp"
+#include "bt_ros2/command_subscriber_node.hpp"
+#include "bt_ros2/follow_path_node.hpp"
+#include "bt_ros2/follow_path_topic_node.hpp"
+#include "bt_ros2/load_path_from_file_node.hpp"
+#include "bt_ros2/obstacle_speed_limiter_node.hpp"
 #include "bt_ros2/recharge_task.hpp"
+#include "bt_ros2/wait_until_topic_node.hpp"
+#include "bt_ros2/ros_graph_condition_node.hpp"
 #include "bt_ros2/ros_topic_action_node.hpp"
 #include "bt_ros2/ros_topic_condition_node.hpp"
 
@@ -14,6 +30,7 @@
 #include "bt_nodes/action/print_message_node.hpp"
 #include "bt_nodes/control/fallback_node.hpp"
 #include "bt_nodes/control/parallel_node.hpp"
+#include "bt_nodes/control/priority_selector_node.hpp"
 #include "bt_nodes/control/sequence_node.hpp"
 #include "bt_nodes/data/check_bool_node.hpp"
 #include "bt_nodes/data/blackboard_exists_condition_node.hpp"
@@ -29,6 +46,7 @@
 #include "bt_nodes/decorator/inverter_node.hpp"
 #include "bt_nodes/decorator/repeat_node.hpp"
 #include "bt_nodes/decorator/retry_node.hpp"
+#include "bt_nodes/decorator/tick_rate_node.hpp"
 #include "bt_nodes/diagnostic/log_event_node.hpp"
 #include "bt_nodes/function/function_registry.hpp"
 #include "bt_nodes/timer/delay_node.hpp"
@@ -55,12 +73,14 @@ void registerBtNodes(bt_core::NodeFactory& factory) {
   registerIfMissing<bt_nodes::SequenceNode>(factory, "Sequence");
   registerIfMissing<bt_nodes::FallbackNode>(factory, "Fallback");
   registerIfMissing<bt_nodes::ParallelNode>(factory, "Parallel");
+  registerIfMissing<bt_nodes::PrioritySelectorNode>(factory, "PrioritySelector");
 
   registerIfMissing<bt_nodes::InverterNode>(factory, "Inverter");
   registerIfMissing<bt_nodes::RetryNode>(factory, "Retry");
   registerIfMissing<bt_nodes::RepeatNode>(factory, "Repeat");
   registerIfMissing<bt_nodes::ForceSuccessNode>(factory, "ForceSuccess");
   registerIfMissing<bt_nodes::ForceFailureNode>(factory, "ForceFailure");
+  registerIfMissing<bt_nodes::TickRateNode>(factory, "TickRate");
 
   registerIfMissing<bt_nodes::AlwaysSuccessNode>(factory, "AlwaysSuccess");
   registerIfMissing<bt_nodes::AlwaysFailureNode>(factory, "AlwaysFailure");
@@ -91,6 +111,9 @@ void registerBtNodes(bt_core::NodeFactory& factory) {
 void registerRosTopicNodes(bt_core::NodeFactory& factory) {
   registerIfMissing<RosTopicConditionNode>(factory, "RosTopicCondition");
   registerIfMissing<RosTopicActionNode>(factory, "RosTopicAction");
+  registerIfMissing<RosGraphConditionNode>(factory, "RosGraphCondition");
+  registerIfMissing<CallTriggerServiceNode>(factory, "CallTriggerService");
+  registerIfMissing<CallSetBoolServiceNode>(factory, "CallSetBoolService");
 }
 
 void registerRosDataNodes(bt_core::NodeFactory& factory) {
@@ -98,6 +121,12 @@ void registerRosDataNodes(bt_core::NodeFactory& factory) {
   registerIfMissing<IsFlagTrue>(factory, "IsFlagTrue");
   registerIfMissing<ReadBattery>(factory, "ReadBattery");
   registerIfMissing<ReadScalar>(factory, "ReadScalar");
+  registerIfMissing<CommandSubscriber>(factory, "CommandSubscriber");
+  registerIfMissing<LoadPathFromFileNode>(factory, "LoadPathFromFile");
+  registerIfMissing<ObstacleSpeedLimiterNode>(factory, "ObstacleSpeedLimiter");
+  registerIfMissing<FollowPathNode>(factory, "FollowPath");
+  registerIfMissing<FollowPathTopicNode>(factory, "FollowPathTopic");
+  registerIfMissing<WaitUntilTopicNode>(factory, "WaitUntilTopic");
 }
 
 void registerRechargeNodes(bt_core::NodeFactory& factory) {
