@@ -15,9 +15,10 @@ BehaviorTree.CPP-X 是一个插件化、ROS 解耦的 C++17 行为树框架。�
 1. 先跑 :doc:`quickstart`，用统一验证入口确认 C++、server API、前端和 Playwright。
 2. 再读 :doc:`function_manual`，理解工厂、端口、黑板、函数注册表和常用节点。
 3. 用 :doc:`singleton_factory_function` 打通“单例 + 工厂 + 生成器引用函数”三模式与回充闭环。
-4. 接着按 :doc:`ros2_recharge_tutorial` 改出自己的 ROS2 数据流节点。
-5. 用 :doc:`tree_script_style` 规范 XML 命名、黑板 key、SubTree 和 formatter。
-6. 最后用 :doc:`developer_workflow` 固化开发、测试和文档构建流程。
+4. 用 :doc:`scheduling` 把输入优先级、抢占和 tick 分级收敛到一棵树。
+5. 接着按 :doc:`ros2_recharge_tutorial` 改出自己的 ROS2 数据流节点。
+6. 用 :doc:`tree_script_style` 规范 XML 命名、黑板 key、SubTree 和 formatter。
+7. 最后用 :doc:`developer_workflow` 固化开发、测试和文档构建流程。
 
 .. toctree::
    :maxdepth: 2
@@ -26,9 +27,13 @@ BehaviorTree.CPP-X 是一个插件化、ROS 解耦的 C++17 行为树框架。�
    quickstart
    function_manual
    singleton_factory_function
+   scheduling
    tree_script_style
    ros2_recharge_tutorial
+   ros2_editor_capabilities
+   ros2_plugin_build
    editor_playwright
+   yuyi_ros2_optimization
    developer_workflow
    pages_deployment
 
