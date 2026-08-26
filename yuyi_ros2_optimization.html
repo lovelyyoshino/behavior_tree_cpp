@@ -37,41 +37,42 @@
           <div class="body" role="main">
             
   <section id="yuyi-ros2">
-<h1><a class="toc-backref" href="#id9" role="doc-backlink">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a><a class="headerlink" href="#yuyi-ros2" title="Link to this heading">¶</a></h1>
+<h1><a class="toc-backref" href="#id10" role="doc-backlink">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a><a class="headerlink" href="#yuyi-ros2" title="Link to this heading">¶</a></h1>
 <nav class="contents" id="id1">
 <p class="topic-title">本文目录</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#yuyi-ros2" id="id9">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></p>
+<li><p><a class="reference internal" href="#yuyi-ros2" id="id10">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a></p>
 <ul>
-<li><p><a class="reference internal" href="#id2" id="id10">读者对象</a></p></li>
-<li><p><a class="reference internal" href="#yuyifollowroot" id="id11">背景：YuyiFollowRoot 是什么</a></p>
+<li><p><a class="reference internal" href="#id2" id="id11">读者对象</a></p></li>
+<li><p><a class="reference internal" href="#yuyifollowroot" id="id12">背景：YuyiFollowRoot 是什么</a></p>
 <ul>
-<li><p><a class="reference internal" href="#id3" id="id12">子树结构 —— 并行区依赖</a></p></li>
+<li><p><a class="reference internal" href="#id3" id="id13">子树结构 —— 并行区依赖</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#ros2" id="id13">ROS2 订阅可以放进哪里</a></p>
+<li><p><a class="reference internal" href="#ros2" id="id14">ROS2 订阅可以放进哪里</a></p>
 <ul>
-<li><p><a class="reference internal" href="#id4" id="id14">直接可用的现成节点</a></p></li>
-<li><p><a class="reference internal" href="#id5" id="id15">需要写一个子类的场景</a></p></li>
+<li><p><a class="reference internal" href="#id4" id="id15">直接可用的现成节点</a></p></li>
+<li><p><a class="reference internal" href="#id5" id="id16">需要写一个子类的场景</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#id6" id="id16">三种整合写法</a></p>
+<li><p><a class="reference internal" href="#id6" id="id17">三种整合写法</a></p>
 <ul>
-<li><p><a class="reference internal" href="#a" id="id17">写法 A：用条件节点给分支设闸</a></p></li>
-<li><p><a class="reference internal" href="#b-parallel" id="id18">写法 B：用 Parallel 并行订阅、写黑板</a></p></li>
-<li><p><a class="reference internal" href="#c-reactivesequence" id="id19">写法 C：用 ReactiveSequence 让数据变化立即打断</a></p></li>
+<li><p><a class="reference internal" href="#a" id="id18">写法 A：用条件节点给分支设闸</a></p></li>
+<li><p><a class="reference internal" href="#b-parallel" id="id19">写法 B：用 Parallel 并行订阅、写黑板</a></p></li>
+<li><p><a class="reference internal" href="#c-reactivesequence" id="id20">写法 C：用 ReactiveSequence 让数据变化立即打断</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#yuyi" id="id20">如何优化一棵像 Yuyi 这样的复杂树</a></p>
+<li><p><a class="reference internal" href="#yuyi" id="id21">如何优化一棵像 Yuyi 这样的复杂树</a></p>
 <ul>
-<li><p><a class="reference internal" href="#step-1-extract-repeated-pattern-into-subtreeplus" id="id21">Step 1: Extract Repeated Pattern into SubTreePlus</a></p></li>
-<li><p><a class="reference internal" href="#step-2-use-tickrate-instead-of-hand-written-polling" id="id22">Step 2: Use TickRate Instead of Hand-Written Polling</a></p></li>
-<li><p><a class="reference internal" href="#step-3-health-check-at-entry" id="id23">Step 3: Health Check at Entry</a></p></li>
-<li><p><a class="reference internal" href="#step-4-use-parallel-thresholds" id="id24">Step 4: Use Parallel Thresholds</a></p></li>
+<li><p><a class="reference internal" href="#step-1-extract-repeated-pattern-into-subtreeplus" id="id22">Step 1: Extract Repeated Pattern into SubTreePlus</a></p></li>
+<li><p><a class="reference internal" href="#step-2-use-tickrate-instead-of-hand-written-polling" id="id23">Step 2: Use TickRate Instead of Hand-Written Polling</a></p></li>
+<li><p><a class="reference internal" href="#step-3-health-check-at-entry" id="id24">Step 3: Health Check at Entry</a></p></li>
+<li><p><a class="reference internal" href="#step-4-use-parallel-thresholds" id="id25">Step 4: Use Parallel Thresholds</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#id7" id="id25">编辑器能不能完成这样的优化</a></p></li>
-<li><p><a class="reference internal" href="#id8" id="id26">验证清单</a></p></li>
+<li><p><a class="reference internal" href="#id7" id="id26">编辑器能不能完成这样的优化</a></p></li>
+<li><p><a class="reference internal" href="#id8" id="id27">复杂层级设计示例</a></p></li>
+<li><p><a class="reference internal" href="#id9" id="id28">验证清单</a></p></li>
 </ul>
 </li>
 </ul>
@@ -80,7 +81,7 @@
 把 ROS2 订阅接入行为树的三种写法，最后说明如何用可视化编辑器优化这样的复杂树。
 所有截图均由 Playwright 在真实编辑器上抓取。</p>
 <section id="id2">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">读者对象</a><a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">读者对象</a><a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>已经跑通 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，会加载一棵多子树树。</p></li>
 <li><p>想给行为树接入电量、雷达、分区、健康心跳等 ROS2 数据，但不确定该放哪个节点。</p></li>
@@ -88,7 +89,7 @@
 </ul>
 </section>
 <section id="yuyifollowroot">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">背景：YuyiFollowRoot 是什么</a><a class="headerlink" href="#yuyifollowroot" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">背景：YuyiFollowRoot 是什么</a><a class="headerlink" href="#yuyifollowroot" title="Link to this heading">¶</a></h2>
 <p>这是一个 <code class="docutils literal notranslate"><span class="pre">KeepRunningUntilFailure</span></code> 包住整个生产调度的树：外层用 <code class="docutils literal notranslate"><span class="pre">TimeCondition</span></code>
 按固定间隔 <code class="docutils literal notranslate"><span class="pre">interval_sec=1800</span></code> 触发，内层 <code class="docutils literal notranslate"><span class="pre">SubTreePlus</span> <span class="pre">ID=&quot;YuyiScheduledRoutes&quot;</span></code>
 承载真正的路线执行。它把两个逻辑清晰地解耦：</p>
@@ -100,7 +101,7 @@
 <a class="reference internal image-reference" href="_images/05_yuyi_root_tree.png"><img alt="编辑器中渲染的 YuyiFollowRoot 主树" src="_images/05_yuyi_root_tree.png" style="width: 100%;" />
 </a>
 <section id="id3">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">子树结构 —— 并行区依赖</a><a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">子树结构 —— 并行区依赖</a><a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <p><cite>YuyiScheduledRoutes</cite> 用 <code class="docutils literal notranslate"><span class="pre">Parallel</span> <span class="pre">success_threshold=1</span> <span class="pre">failure_threshold=1</span></code> 同时跑两件事：</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">FollowRoutes</span></code> —— 串行加载并跟随两条路线（ReverseWork、WorkAndBack）。</p></li>
@@ -114,11 +115,11 @@
 </section>
 </section>
 <section id="ros2">
-<h2><a class="toc-backref" href="#id13" role="doc-backlink">ROS2 订阅可以放进哪里</a><a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">ROS2 订阅可以放进哪里</a><a class="headerlink" href="#ros2" title="Link to this heading">¶</a></h2>
 <p>框架已经在 <code class="docutils literal notranslate"><span class="pre">bt_ros2</span></code> 里提供了一批「把 ROS2 数据桥接成行为树状态」的节点。下面
 按用途归类，标清楚哪些**直接用现成节点**、哪些需要**自己继承基类写一个**。</p>
 <section id="id4">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">直接可用的现成节点</a><a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">直接可用的现成节点</a><a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>RosTopicCondition（Condition）—— 订阅 std_msgs/Bool，最近一次 true 即 SUCCESS</p></li>
 <li><p>RosTopicAction（Action）—— 向 std_msgs/String 话题发布一条消息</p></li>
@@ -132,7 +133,7 @@
 </ul>
 </section>
 <section id="id5">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">需要写一个子类的场景</a><a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">需要写一个子类的场景</a><a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
 <p>当你要订阅的不是上述现成类型——比如订阅 <code class="docutils literal notranslate"><span class="pre">sensor_msgs/LaserScan</span></code> 判断最近障碍物
 距离、订阅自定义分区消息、或把某个 topic 里的值同时写成多个黑板键——就继承
 <code class="docutils literal notranslate"><span class="pre">bt_ros2</span></code> 提供的可复用基类。基类已经帮你处理了「从黑板拿 ROS 句柄、首次 tick 惰性
@@ -179,10 +180,10 @@
 </section>
 </section>
 <section id="id6">
-<h2><a class="toc-backref" href="#id16" role="doc-backlink">三种整合写法</a><a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">三种整合写法</a><a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
 <p>按「要不要打断当前动作、要不要等数据」分为三种，选哪种取决于业务语义。</p>
 <section id="a">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">写法 A：用条件节点给分支设闸</a><a class="headerlink" href="#a" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">写法 A：用条件节点给分支设闸</a><a class="headerlink" href="#a" title="Link to this heading">¶</a></h3>
 <p>适用：<strong>允许先检查后继续</strong>。条件节点只返回 SUCCESS/FAILURE，绝不 RUNNING，所以在
 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> 里放一个 <code class="docutils literal notranslate"><span class="pre">RosTopicCondition</span></code>，就是「先确认再干活」。</p>
 <div class="highlight-xml notranslate"><div class="highlight"><pre><span></span><span class="nt">&lt;Sequence</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;SafeToStartRoute&quot;</span><span class="nt">&gt;</span>
@@ -194,7 +195,7 @@
 </div>
 </section>
 <section id="b-parallel">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">写法 B：用 Parallel 并行订阅、写黑板</a><a class="headerlink" href="#b-parallel" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">写法 B：用 Parallel 并行订阅、写黑板</a><a class="headerlink" href="#b-parallel" title="Link to this heading">¶</a></h3>
 <p>适用：动作在跑的同时**持续刷新**数据，比如边导航边记录电量/速度。每个订阅节点独立
 tick，互不阻塞，写入黑板后别的节点用 <code class="docutils literal notranslate"><span class="pre">{key}</span></code> 读。</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;Parallel name=&quot;RunWithLiveData&quot; success_threshold=&quot;1&quot; failure_threshold=&quot;1&quot;&gt;
@@ -210,7 +211,7 @@ tick，互不阻塞，写入黑板后别的节点用 <code class="docutils liter
 </div>
 </section>
 <section id="c-reactivesequence">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">写法 C：用 ReactiveSequence 让数据变化立即打断</a><a class="headerlink" href="#c-reactivesequence" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">写法 C：用 ReactiveSequence 让数据变化立即打断</a><a class="headerlink" href="#c-reactivesequence" title="Link to this heading">¶</a></h3>
 <p>适用：一旦某个条件变假，<em>马上</em> 中止当前正在跑的动作（而不是等它自然结束）。标准
 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> 是「跑到失败才短路」，<code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code> 是「每拍重新评估条件，
 当前子节点回到 RUNNING 时重新分派」。要「电量低立即停」或「雷达触发立即停」就用它。</p>
@@ -223,10 +224,10 @@ tick，互不阻塞，写入黑板后别的节点用 <code class="docutils liter
 </section>
 </section>
 <section id="yuyi">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">如何优化一棵像 Yuyi 这样的复杂树</a><a class="headerlink" href="#yuyi" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">如何优化一棵像 Yuyi 这样的复杂树</a><a class="headerlink" href="#yuyi" title="Link to this heading">¶</a></h2>
 <p>优化不是重写，而是「把重复收起来、把单调的轮询交给专门的节点、把边界条件提到最前」。</p>
 <section id="step-1-extract-repeated-pattern-into-subtreeplus">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">Step 1: Extract Repeated Pattern into SubTreePlus</a><a class="headerlink" href="#step-1-extract-repeated-pattern-into-subtreeplus" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Step 1: Extract Repeated Pattern into SubTreePlus</a><a class="headerlink" href="#step-1-extract-repeated-pattern-into-subtreeplus" title="Link to this heading">¶</a></h3>
 <p>Yuyi 里 <code class="docutils literal notranslate"><span class="pre">FollowPath</span></code> 和 <code class="docutils literal notranslate"><span class="pre">ObstacleSpeedLimiter</span></code> 的组合出现了两次
 （ReverseWork 和 WorkAndBack），只是参数不同。抽成子树，主树只调用一次：</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;BehaviorTree ID=&quot;FollowWithObstacleProtection&quot;&gt;
@@ -243,7 +244,7 @@ tick，互不阻塞，写入黑板后别的节点用 <code class="docutils liter
 </div>
 </section>
 <section id="step-2-use-tickrate-instead-of-hand-written-polling">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">Step 2: Use TickRate Instead of Hand-Written Polling</a><a class="headerlink" href="#step-2-use-tickrate-instead-of-hand-written-polling" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Step 2: Use TickRate Instead of Hand-Written Polling</a><a class="headerlink" href="#step-2-use-tickrate-instead-of-hand-written-polling" title="Link to this heading">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">MonitorCurrentWorkArea</span></code> 用 <code class="docutils literal notranslate"><span class="pre">NonBlockingDelay</span> <span class="pre">msec=&quot;1000&quot;</span></code> 做采样，功能对，但
 采样率藏在叶子节点里。改用 <code class="docutils literal notranslate"><span class="pre">TickRate</span></code> 装饰器把「多少毫秒 tick 一次」放到节点本身，
 语义更清楚：</p>
@@ -258,7 +259,7 @@ tick，互不阻塞，写入黑板后别的节点用 <code class="docutils liter
 </div>
 </section>
 <section id="step-3-health-check-at-entry">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">Step 3: Health Check at Entry</a><a class="headerlink" href="#step-3-health-check-at-entry" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Step 3: Health Check at Entry</a><a class="headerlink" href="#step-3-health-check-at-entry" title="Link to this heading">¶</a></h3>
 <p>用 <code class="docutils literal notranslate"><span class="pre">RosGraphCondition</span></code> 在启动前一次性确认关键 ROS 资源在位，避免跑到一半才发现
 server 不在。放在主树最外层，失败就整体不启动：</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;Sequence name=&quot;PreFlight&quot;&gt;
@@ -271,7 +272,7 @@ server 不在。放在主树最外层，失败就整体不启动：</p>
 </div>
 </section>
 <section id="step-4-use-parallel-thresholds">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Step 4: Use Parallel Thresholds</a><a class="headerlink" href="#step-4-use-parallel-thresholds" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Step 4: Use Parallel Thresholds</a><a class="headerlink" href="#step-4-use-parallel-thresholds" title="Link to this heading">¶</a></h3>
 <blockquote>
 <div><p>Yuyi 里每一层 <code class="docutils literal notranslate"><span class="pre">Parallel</span></code> 都写 <code class="docutils literal notranslate"><span class="pre">success_threshold=&quot;1&quot;</span> <span class="pre">failure_threshold=&quot;1&quot;</span></code>。
 如果将来想让「工具全部停完才算成功」，直接改成 <code class="docutils literal notranslate"><span class="pre">success_threshold=&quot;2&quot;</span></code>。这个
@@ -280,7 +281,7 @@ server 不在。放在主树最外层，失败就整体不启动：</p>
 </section>
 </section>
 <section id="id7">
-<h2><a class="toc-backref" href="#id25" role="doc-backlink">编辑器能不能完成这样的优化</a><a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">编辑器能不能完成这样的优化</a><a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
 <p>能。上面所有改动都只涉及 XML 结构，不用碰 C++。编辑器原生支持：</p>
 <ul class="simple">
 <li><p><strong>多定义</strong>：顶部「树定义」标签页分别编辑主树和子树，<cite>SubTree</cite> / <cite>SubTreePlus</cite>
@@ -296,7 +297,45 @@ server 不在。放在主树最外层，失败就整体不启动：</p>
 端口、连线都完整保留，说明这类复杂树完全可以在这个界面里排布、检查和改属性。</p>
 </section>
 <section id="id8">
-<h2><a class="toc-backref" href="#id26" role="doc-backlink">验证清单</a><a class="headerlink" href="#id8" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">复杂层级设计示例</a><a class="headerlink" href="#id8" title="Link to this heading">¶</a></h2>
+<p><cite>examples/trees/complex_nested_nav.xml</cite> 展示如何用通用节点拼出&quot;多层嵌套 + 条件抢占
++ 并行监视&quot;的复杂设计逻辑，全程不写自定义插件（除分区业务）：</p>
+<a class="reference internal image-reference" href="_images/10_complex_nested_design.png"><img alt="复杂嵌套调度树在编辑器中的完整渲染" src="_images/10_complex_nested_design.png" style="width: 100%;" />
+</a>
+<p><strong>结构层级</strong>：</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>KeepRunningUntilFailure        ── 主调度：保持存活
+  Fallback
+    Sequence                  ── 到点触发路线
+      TimeCondition (interval)
+      SubTreePlus → ComplexNavRoute
+    NonBlockingDelay          ── 非触发期兜底
+
+ComplexNavRoute:                ── 路线：四层门控依次收窄
+  ReactiveSequence             ── 第 1 层：每拍重评估（抢占语义）
+    RosTopicCondition /safety/e_stop   ── 急停，最高优先级
+    WaitUntilTopic /robot/ready        ── 第 2 层：等外部就绪
+    BlackboardGate mode==zone2         ── 第 3 层：工作模式门控
+    Sequence                          ── 第 4 层：真实导航
+      LoadPathFromFile                ── 读 YAML → 发 /reference_path
+      Parallel                        ── 并行：跟随 与 限速
+        FollowPathTopic               ── 纯话题跟随，发 cmd_vel
+        ObstacleSpeedLimiter          ── 激光限速，兜底安全
+</pre></div>
+</div>
+<p><strong>设计要点</strong>：</p>
+<ol class="arabic simple">
+<li><p><strong>抢占用 ``ReactiveSequence``</strong>。急停条件放在最前，每拍都重新评估——急停一触发立即
+打断下方四层，而不是等当前导航自然结束。</p></li>
+<li><p><strong>嵌套不是堆自定义节点</strong>。四层全用通用节点，只把 <cite>RunOnZoneTransition`（分区业务）
+留在 `CustomZoneLogic</cite>，通过 <cite>BT_PLUGIN_DIR</cite> 加载。</p></li>
+<li><p><strong>并行分工明确</strong>。<cite>FollowPathTopic</cite> 负责&quot;走&quot;，<cite>ObstacleSpeedLimiter</cite> 负责&quot;安全&quot;，
+二者互不阻塞，任一失败按 <cite>failure_threshold=1</cite> 触发整体失败。</p></li>
+</ol>
+<p>验证这类复杂树能否载入：导入后应显示 <cite>3 棵树、2 个黑板初值、无根节点错误</cite>，仅
+1 个未注册节点（<cite>RunOnZoneTransition</cite>）。</p>
+</section>
+<section id="id9">
+<h2><a class="toc-backref" href="#id28" role="doc-backlink">验证清单</a><a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
 <p>改完后请按顺序验证，任何一步失败都优先看失败项，不要跳过：</p>
 <table class="docutils align-default">
 <thead>
@@ -368,6 +407,7 @@ server 不在。放在主树最外层，失败就整体不启动：</p>
 <li class="toctree-l1"><a class="reference internal" href="tree_script_style.html">行为脚本风格</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_recharge_tutorial.html">ROS2 回充教程</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ros2_editor_capabilities.html">ROS2 能力与 5173 编辑器</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ros2_plugin_build.html">ROS2 插件构建与配置驱动启动</a></li>
 <li class="toctree-l1"><a class="reference internal" href="editor_playwright.html">编辑器与 Playwright</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Yuyi 复杂树：ROS2 订阅整合与编辑器优化</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id2">读者对象</a></li>
@@ -376,7 +416,8 @@ server 不在。放在主树最外层，失败就整体不启动：</p>
 <li class="toctree-l2"><a class="reference internal" href="#id6">三种整合写法</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#yuyi">如何优化一棵像 Yuyi 这样的复杂树</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id7">编辑器能不能完成这样的优化</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id8">验证清单</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id8">复杂层级设计示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id9">验证清单</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="developer_workflow.html">开发流程</a></li>
