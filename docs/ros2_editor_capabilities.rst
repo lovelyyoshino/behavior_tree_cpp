@@ -89,6 +89,39 @@ XML 设计，所有 ROS 端口也仍可手填。
 如果只想启动普通编辑器，可运行 ``BT_ROS_WEB_MODE=off ./scripts/dev.sh``；如果希望 ROS bridge
 不可用时直接让脚本失败，可运行 ``BT_ROS_WEB_MODE=on ./scripts/dev.sh``。
 
+行为树使用示意
+--------------
+
+从服务器导入一棵已注册的树后，编辑器按三类面板工作：左侧**节点面板**负责从模板库或
+Control/Decorator/Action/Condition 分类中拖入节点，中间**画布**负责连线、缩放与编排，
+右侧**属性面板**在选中节点时给出注册名、端口与失败条件说明，底部**XML 脚本预览**实时
+反映画布对应的 XML、黑板初值与运行期节点绑定。
+
+.. image:: blog/screenshots/11_editor_loaded_complex.png
+   :alt: 从服务器导入后的画布：KeepRunningUntilFailure 包裹 Fallback，含 Sequence + 条件/动作分支
+   :width: 100%
+
+.. image:: blog/screenshots/13_node_palette.png
+   :alt: 节点面板：通用模板库（反应式急停门控/黑板值门控/长驻调度器）与 Control/Decorator 分类
+   :width: 100%
+
+.. image:: blog/screenshots/12_property_panel.png
+   :alt: 属性面板：选中 KeepRunningUntilFailure 后显示注册名、状态语义、失败条件与示例 XML
+   :width: 100%
+
+.. image:: blog/screenshots/14_xml_preview.png
+   :alt: 底部 XML 脚本预览：当前画布的 XML 与黑板初值实时生成
+   :width: 100%
+
+要点：
+
+* 画布允许把**多个行为树**放在同一工作区（顶部 ``ComplexScheduler | ComplexNavRoute``
+  标签），主调度与子路线分离，通过 ``SubTreePlus`` 引用。
+* 属性面板来自节点 ``manifest``，因此 ROS2 端口候选、状态语义与示例 XML 都随当前
+  executor 动态更新；未注册的 Yuyi 节点用「自定义 XML 节点」声明端口。
+* 底部 ``导出树 + 黑板`` 按钮打包完整配置（XML + 黑板初值 + 多树定义 + 端口契约），
+  跨机器迁移时一次恢复。
+
 动态候选与节点用法
 ------------------
 
