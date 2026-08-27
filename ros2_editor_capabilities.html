@@ -7,11 +7,10 @@
 
     <title>ROS2 能力与 5173 编辑器 &#8212; BehaviorTree.CPP-X 文档</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
     <link rel="stylesheet" type="text/css" href="_static/btx.css?v=1b27c74e" />
     <script src="_static/documentation_options.js?v=d786bb5c"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
@@ -111,7 +110,31 @@ ros2<span class="w"> </span>launch<span class="w"> </span>bt_ros2<span class="w"
 不可用时直接让脚本失败，可运行 <code class="docutils literal notranslate"><span class="pre">BT_ROS_WEB_MODE=on</span> <span class="pre">./scripts/dev.sh</span></code>。</p>
 </section>
 <section id="id3">
-<h2>动态候选与节点用法<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<h2>行为树使用示意<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>从服务器导入一棵已注册的树后，编辑器按三类面板工作：左侧**节点面板**负责从模板库或
+Control/Decorator/Action/Condition 分类中拖入节点，中间**画布**负责连线、缩放与编排，
+右侧**属性面板**在选中节点时给出注册名、端口与失败条件说明，底部**XML 脚本预览**实时
+反映画布对应的 XML、黑板初值与运行期节点绑定。</p>
+<a class="reference internal image-reference" href="_images/11_editor_loaded_complex.png"><img alt="从服务器导入后的画布：KeepRunningUntilFailure 包裹 Fallback，含 Sequence + 条件/动作分支" src="_images/11_editor_loaded_complex.png" style="width: 100%;" />
+</a>
+<a class="reference internal image-reference" href="_images/13_node_palette.png"><img alt="节点面板：通用模板库（反应式急停门控/黑板值门控/长驻调度器）与 Control/Decorator 分类" src="_images/13_node_palette.png" style="width: 100%;" />
+</a>
+<a class="reference internal image-reference" href="_images/12_property_panel.png"><img alt="属性面板：选中 KeepRunningUntilFailure 后显示注册名、状态语义、失败条件与示例 XML" src="_images/12_property_panel.png" style="width: 100%;" />
+</a>
+<a class="reference internal image-reference" href="_images/14_xml_preview.png"><img alt="底部 XML 脚本预览：当前画布的 XML 与黑板初值实时生成" src="_images/14_xml_preview.png" style="width: 100%;" />
+</a>
+<p>要点：</p>
+<ul class="simple">
+<li><p>画布允许把**多个行为树**放在同一工作区（顶部 <code class="docutils literal notranslate"><span class="pre">ComplexScheduler</span> <span class="pre">|</span> <span class="pre">ComplexNavRoute</span></code>
+标签），主调度与子路线分离，通过 <code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 引用。</p></li>
+<li><p>属性面板来自节点 <code class="docutils literal notranslate"><span class="pre">manifest</span></code>，因此 ROS2 端口候选、状态语义与示例 XML 都随当前
+executor 动态更新；未注册的 Yuyi 节点用「自定义 XML 节点」声明端口。</p></li>
+<li><p>底部 <code class="docutils literal notranslate"><span class="pre">导出树</span> <span class="pre">+</span> <span class="pre">黑板</span></code> 按钮打包完整配置（XML + 黑板初值 + 多树定义 + 端口契约），
+跨机器迁移时一次恢复。</p></li>
+</ul>
+</section>
+<section id="id4">
+<h2>动态候选与节点用法<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
 <p>候选来源由节点 manifest 的 <code class="docutils literal notranslate"><span class="pre">editor_hint</span></code> 决定，不按端口名猜测，也不包含 Yuyi 业务白名单：</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ros_node</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_topic</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_service</span></code> / <code class="docutils literal notranslate"><span class="pre">ros_action</span></code> 对应固定资源类型；</p></li>
@@ -152,8 +175,8 @@ executor 已发布同名 runtime manifest，运行时 manifest 优先于包内�
 拖入画布，自定义 XML 节点也仍可手动添加。此时只能下载/复制 XML；载入、Tick、Run 仍要等
 树后端恢复，运行期端口和节点说明以之后返回的 runtime manifest 为准。</p>
 </section>
-<section id="id4">
-<h2>设计边界<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<section id="id5">
+<h2>设计边界<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
 <p>能力快照只描述“当前运行时能看到什么”和“executor 注册了什么”，不会凭接口名称自动生成
 任意消息类型的 C++ 行为树节点。发现 <code class="docutils literal notranslate"><span class="pre">custom_msgs/msg/Status</span></code> 后，仍需要实现并注册一个
 真正的节点，再由 executor 运行。普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 也不能执行依赖 <code class="docutils literal notranslate"><span class="pre">rclcpp</span></code> 的节点：</p>
@@ -185,8 +208,8 @@ executor 已发布同名 runtime manifest，运行时 manifest 优先于包内�
 属性，前端不会写死 topic、service 或 Yuyi 字段。该类别只决定画布连线约束；真正的端口、
 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>/超时/<code class="docutils literal notranslate"><span class="pre">halt()</span></code> 语义和执行能力必须由 C++ manifest 与注册类型提供。</p>
 </section>
-<section id="id5">
-<h2>故障排查<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h2>故障排查<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">HTTP</span> <span class="pre">500</span> <span class="pre">&#64;</span> <span class="pre">/ros-api/...</span></code>：Vite 代理连不到 8088；优先重新运行 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code>，它会
 自动托管 bridge。只有单独运行 Vite 时才手动启动 <code class="docutils literal notranslate"><span class="pre">bt_web</span></code>，并检查端口和进程日志。</p></li>
@@ -260,8 +283,8 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
 <p>候选只是**设计期辅助**，不改变执行契约。端口仍可手填任意名称——话题尚未启动时
 照样能先写好树，等运行时再由执行器订阅。候选缺失（bridge 未启动）不阻塞任何编辑操作。</p>
 </div>
-<section id="id6">
-<h3>自查清单<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<section id="id7">
+<h3>自查清单<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
 <p>遇到候选为空时按顺序确认：</p>
 <ol class="arabic simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-s</span> <span class="pre">http://127.0.0.1:8088/api/v1/bt/capabilities</span> <span class="pre">|</span> <span class="pre">head</span> <span class="pre">-c</span> <span class="pre">200</span></code> —— bridge 是否在线且
@@ -289,7 +312,7 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
 <span class="nt">&lt;/ReactiveSequence&gt;</span>
 </pre></div>
 </div>
-<p>要&quot;在 ROS 条件之后接另一棵行为树&quot;，用 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> / <code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code> / <code class="docutils literal notranslate"><span class="pre">Fallback</span></code>
+<p>要”在 ROS 条件之后接另一棵行为树”，用 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> / <code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code> / <code class="docutils literal notranslate"><span class="pre">Fallback</span></code>
 组织，并用 <code class="docutils literal notranslate"><span class="pre">SubTree</span></code> 或 <code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code> 引用目标树。可用如下命令随时确认某节点能否
 拥有子节点：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-s<span class="w"> </span>http://127.0.0.1:8080/api/nodes<span class="w"> </span><span class="se">\</span>
@@ -316,16 +339,7 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
 
 
 
-
-<search id="searchbox" style="display: none" role="search">
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
-      <input type="submit" value="提交" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script><h3>导航</h3>
+<h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
@@ -337,10 +351,11 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
 <li class="toctree-l1 current"><a class="current reference internal" href="#">ROS2 能力与 5173 编辑器</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">启动顺序</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id2">在编辑器中配置</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id3">动态候选与节点用法</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id4">设计边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">行为树使用示意</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">动态候选与节点用法</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">设计边界</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#yuyi">Yuyi 大树当前覆盖范围</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id5">故障排查</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id6">故障排查</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#ros-graph-bt-web">为什么 ROS graph 必须经过 bt_web</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#graph">graph 数据形状陷阱（已修复）</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#ros2">ROS2 节点都是叶子节点</a></li>
@@ -370,6 +385,16 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
   </ul></li>
 </ul>
 </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">快速搜索</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="提交" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -386,8 +411,8 @@ Control/Decorator 结构，而不会被错误压成不可展开的叶子。它�
       &#169;.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
     </div>
 
