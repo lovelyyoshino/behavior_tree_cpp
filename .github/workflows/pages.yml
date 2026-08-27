@@ -37,6 +37,10 @@ jobs:
 
       - name: Build clean Pages artifact
         run: ./scripts/build_pages.sh
+        env:
+          # linkcheck 容错：文档含本机回环地址(127.0.0.1/localhost)与外部站点，
+          # CI 沙箱网络不可达时不应阻断 Pages 构建。HTML 构建仍保持 -W 严格。
+          BT_DOCS_ALLOW_LINKCHECK_WARN: '1'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
