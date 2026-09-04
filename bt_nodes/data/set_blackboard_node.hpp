@@ -36,6 +36,15 @@ class SetBlackboardNode : public bt_core::ActionNode {
  public:
   using bt_core::ActionNode::ActionNode;
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "把固定值或另一个黑板值写入指定的黑板键。",
+        "output_key 填目标键名本身（例如 cached），value 才可以用 {incoming} 读取另一个黑板键。",
+        "写入完成返回 SUCCESS；目标键为空返回 FAILURE。",
+        "value 缺省时写入空字符串；output_key 为空不会静默成功。",
+        R"(<SetBlackboard value="{incoming}" output_key="cached"/>)"};
+  }
+
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("value", "", "要写入黑板的值（字符串形式）"),

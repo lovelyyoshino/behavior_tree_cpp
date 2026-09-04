@@ -4,9 +4,11 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.2.0
+//  @last_modified 2026-08-18
 //  @changelog
+//    - v1.3.0 (2026-08-18): 覆盖多 BehaviorTree/SubTreePlus 源文档导出保真
+//    - v1.2.0 (2026-08-18): 覆盖 SubTreePlus 输入/输出黑板映射
 //    - v1.1.0 (2026-07-13): 覆盖重复/缺失树 ID 与 SubTree 非法结构
 //
 //  覆盖:
@@ -37,11 +39,28 @@ using namespace bt_core;
 
 namespace {
 
+class CheckTextAction : public bt_core::ActionNode {
+ public:
+  using bt_core::ActionNode::ActionNode;
+
+  static bt_core::PortsList providedPorts() {
+    return bt_core::makePorts(
+        bt_core::InputPort<std::string>("message", "", "待匹配文本"));
+  }
+
+  bt_core::NodeStatus tick() override {
+    return getInput<std::string>("message").value_or("") == "hello"
+               ? bt_core::NodeStatus::SUCCESS
+               : bt_core::NodeStatus::FAILURE;
+  }
+};
+
 /// 注册 SubTree 测试所需的最小节点集合。
 void registerCore(NodeFactory& f) {
   f.registerNodeType<bt_nodes::SequenceNode>("Sequence");
   f.registerNodeType<bt_nodes::AlwaysSuccessNode>("AlwaysSuccess");
   f.registerNodeType<bt_nodes::AlwaysFailureNode>("AlwaysFailure");
+  f.registerNodeType<CheckTextAction>("CheckText");
 }
 
 /// 生成 Main -> T1 -> ... -> TN 的线性引用链，最后以成功叶子收束。
@@ -82,6 +101,98 @@ TEST(SubTree, BasicReferenceExpandsAndTicks) {
   EXPECT_EQ(t.tickWhileRunning(), NodeStatus::SUCCESS);
   // 展开后节点总数 = Main的Sequence + Helper的Sequence + 2 个 AlwaysSuccess = 4
   EXPECT_EQ(t.nodes().size(), 4u);
+}
+
+TEST(SubTree, SubTreePlusMapsParentBlackboardKeys) {
+  NodeFactory f;
+  registerCore(f);
+  XmlParser p(f);
+  auto bb = Blackboard::create();
+  bb->set<std::string>("parent_message", "hello");
+
+  const char* xml = R"(<root main_tree_to_execute="Main">
+    <BehaviorTree ID="Main">
+      <SubTreePlus ID="Helper" message="{parent_message}"/>
+    </BehaviorTree>
+    <BehaviorTree ID="Helper">
+      <CheckText message="{message}"/>
+    </BehaviorTree>
+  </root>)";
+
+  Tree tree = p.loadFromText(xml, bb);
+  EXPECT_EQ(tree.tickOnce(), NodeStatus::SUCCESS);
+}
+
+TEST(SubTree, SubTreeCallAllowsInstanceNameButRejectsLiteralRemap) {
+  NodeFactory f; registerCore(f);
+  XmlParser p(f);
+
+  const char* named_xml = R"(<root main_tree_to_execute="Main">
+    <BehaviorTree ID="Main"><SubTree name="worker_call" ID="Helper"/></BehaviorTree>
+    <BehaviorTree ID="Helper"><AlwaysSuccess/></BehaviorTree>
+  </root>)";
+  EXPECT_EQ(p.loadFromText(named_xml).tickOnce(), NodeStatus::SUCCESS);
+
+  const char* invalid_mapping_xml = R"(<root main_tree_to_execute="Main">
+    <BehaviorTree ID="Main"><SubTreePlus ID="Helper" message="fixed"/></BehaviorTree>
+    <BehaviorTree ID="Helper"><AlwaysSuccess/></BehaviorTree>
+  </root>)";
+  EXPECT_THROW(p.loadFromText(invalid_mapping_xml), std::runtime_error);
+}
+
+TEST(SubTree, ReloadingIntoSharedBlackboardReplacesXmlInitialValues) {
+  NodeFactory f;
+  registerCore(f);
+  XmlParser p(f);
+  auto bb = Blackboard::create();
+
+  const char* first_xml = R"(<root main_tree_to_execute="Main">
+    <TreeNodesModel><Blackboard>
+      <Entry key="stale_value" type="string" value="old"/>
+    </Blackboard></TreeNodesModel>
+    <BehaviorTree ID="Main"><AlwaysSuccess/></BehaviorTree>
+  </root>)";
+  const char* second_xml = R"(<root main_tree_to_execute="Main">
+    <TreeNodesModel><Blackboard>
+      <Entry key="fresh_value" type="int" value="7"/>
+    </Blackboard></TreeNodesModel>
+    <BehaviorTree ID="Main"><AlwaysSuccess/></BehaviorTree>
+  </root>)";
+
+  p.loadFromText(first_xml, bb);
+  ASSERT_TRUE(bb->contains("stale_value"));
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+
+  p.loadFromText(second_xml, bb);
+  EXPECT_FALSE(bb->contains("stale_value"));
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+  EXPECT_EQ(bb->initialEntries().front().key, "fresh_value");
+  EXPECT_EQ(bb->get<int>("fresh_value").value(), 7);
+}
+
+TEST(SubTree, ExportPreservesDefinitionsAndCallSite) {
+  NodeFactory f;
+  registerCore(f);
+  XmlParser p(f);
+  const char* xml = R"(<root main_tree_to_execute="Main">
+    <TreeNodesModel><Blackboard>
+      <Entry key="parent_message" type="string" value="hello"/>
+    </Blackboard></TreeNodesModel>
+    <BehaviorTree ID="Main">
+      <SubTreePlus ID="Helper" message="{parent_message}"/>
+    </BehaviorTree>
+    <BehaviorTree ID="Helper">
+      <CheckText message="{message}"/>
+    </BehaviorTree>
+  </root>)";
+  const Tree tree = p.loadFromText(xml);
+  const std::string exported = p.writeToText(tree);
+  EXPECT_NE(exported.find("<BehaviorTree ID=\"Main\">"), std::string::npos);
+  EXPECT_NE(exported.find("<BehaviorTree ID=\"Helper\">"), std::string::npos);
+  EXPECT_NE(exported.find("<SubTreePlus ID=\"Helper\" message=\"{parent_message}\"/>"),
+            std::string::npos);
+  EXPECT_NE(exported.find("key=\"parent_message\""), std::string::npos);
+  EXPECT_EQ(p.loadFromText(exported).treeId(), "Main");
 }
 
 TEST(SubTree, MainTreeIdDefaultsToOnlyDefinition) {

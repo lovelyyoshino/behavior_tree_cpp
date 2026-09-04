@@ -5,9 +5,10 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.2.0
+//  @last_modified 2026-08-19
 //  @changelog
+//    - v1.2.0 (2026-08-19): 增加 graph 查询与异步 service client 测试表面
 //    - v1.1.0 (2026-07-13): 增加可控订阅匹配计数，覆盖有界首包等待
 //
 //  覆盖范围 (按"被 ros_subscriber_node.hpp / ros_publisher_node.hpp 用到的
@@ -30,7 +31,11 @@
 // ============================================================================
 #pragma once
 
+#include <algorithm>
+#include <cstdint>
 #include <functional>
+#include <future>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -83,9 +88,84 @@ struct Publisher {
   }
 };
 
+template <typename ServiceT>
+struct Client {
+  using SharedPtr = std::shared_ptr<Client<ServiceT>>;
+  using SharedRequest = typename ServiceT::Request::SharedPtr;
+  using SharedResponse = typename ServiceT::Response::SharedPtr;
+  using SharedFuture = std::shared_future<SharedResponse>;
+
+  struct FutureAndRequestId {
+    std::future<SharedResponse> future;
+    std::int64_t request_id{0};
+  };
+
+  std::string service_name;
+  bool ready{true};
+  std::vector<SharedRequest> requests;
+
+  bool service_is_ready() const { return ready; }
+
+  FutureAndRequestId async_send_request(SharedRequest request) {
+    const std::int64_t request_id = next_request_id_++;
+    auto promise = std::make_shared<std::promise<SharedResponse>>();
+    auto future = promise->get_future();
+    requests.push_back(std::move(request));
+    pending_.push_back({request_id, std::move(promise)});
+    return {std::move(future), request_id};
+  }
+
+  bool remove_pending_request(std::int64_t request_id) {
+    const auto it = std::find_if(
+        pending_.begin(), pending_.end(),
+        [request_id](const Pending& pending) { return pending.id == request_id; });
+    if (it == pending_.end()) return false;
+    pending_.erase(it);
+    return true;
+  }
+
+  void respond_next(SharedResponse response) {
+    if (pending_.empty()) {
+      throw std::runtime_error("mock client has no pending request");
+    }
+    auto pending = pending_.front();
+    pending_.erase(pending_.begin());
+    pending.promise->set_value(std::move(response));
+  }
+
+private:
+  struct Pending {
+    std::int64_t id;
+    std::shared_ptr<std::promise<SharedResponse>> promise;
+  };
+
+  std::int64_t next_request_id_{1};
+  std::vector<Pending> pending_;
+};
+
 class Node {
 public:
   Logger get_logger() const { return {}; }
+
+  std::vector<std::string> get_node_names() const { return node_names_; }
+  std::map<std::string, std::vector<std::string>>
+  get_topic_names_and_types() const { return topic_names_and_types_; }
+  std::map<std::string, std::vector<std::string>>
+  get_service_names_and_types() const { return service_names_and_types_; }
+
+  void set_node_names(std::vector<std::string> names) {
+    node_names_ = std::move(names);
+  }
+
+  void set_topic_names_and_types(
+      std::map<std::string, std::vector<std::string>> values) {
+    topic_names_and_types_ = std::move(values);
+  }
+
+  void set_service_names_and_types(
+      std::map<std::string, std::vector<std::string>> values) {
+    service_names_and_types_ = std::move(values);
+  }
 
   template <typename MsgT, typename CB>
   typename Subscription<MsgT>::SharedPtr create_subscription(
@@ -121,6 +201,30 @@ public:
     last_publisher_ = std::static_pointer_cast<void>(p);
     last_topic_ = topic;
     return p;
+  }
+
+  template <typename ServiceT>
+  typename Client<ServiceT>::SharedPtr create_client(
+      const std::string& service_name) {
+    auto client = std::make_shared<Client<ServiceT>>();
+    client->service_name = service_name;
+    client_records_.push_back(
+        {service_name, std::type_index(typeid(ServiceT)),
+         std::weak_ptr<void>(client)});
+    return client;
+  }
+
+  template <typename ServiceT>
+  typename Client<ServiceT>::SharedPtr client(
+      const std::string& service_name) const {
+    const std::type_index service_type(typeid(ServiceT));
+    for (auto it = client_records_.crbegin(); it != client_records_.crend(); ++it) {
+      if (it->service_name == service_name && it->service_type == service_type) {
+        auto handle = it->handle.lock();
+        if (handle) return std::static_pointer_cast<Client<ServiceT>>(handle);
+      }
+    }
+    return nullptr;
   }
 
   template <typename MsgT>
@@ -220,9 +324,19 @@ private:
     std::weak_ptr<void> handle;
   };
 
+  struct ClientRecord {
+    std::string service_name;
+    std::type_index service_type;
+    std::weak_ptr<void> handle;
+  };
+
   std::function<bool(void*)>       last_dispatcher_;
   std::vector<SubscriptionRecord> subscription_records_;
   std::vector<PublisherRecord>    publisher_records_;
+  std::vector<ClientRecord>       client_records_;
+  std::vector<std::string> node_names_;
+  std::map<std::string, std::vector<std::string>> topic_names_and_types_;
+  std::map<std::string, std::vector<std::string>> service_names_and_types_;
 };
 
 }  // namespace rclcpp

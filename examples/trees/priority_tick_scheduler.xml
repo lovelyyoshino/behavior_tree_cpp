@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!--
+  单树分级调度示例：PrioritySelector 的子节点从左到右表示高到低优先级，
+  TickRate 只降低对应子树的执行频率，不创建额外线程。
+
+  @author pony
+  @date 2026-08-18
+  @version v1.0.0
+  @last_modified 2026-08-18
+  @changelog
+    - v1.0.0 (2026-08-18): 初始单树优先级与 tick 分级示例
+-->
+<root main_tree_to_execute="PrioritySchedulerTree">
+  <BehaviorTree ID="PrioritySchedulerTree">
+    <PrioritySelector name="single_tree_scheduler">
+      <Sequence name="critical_input_branch">
+        <AlwaysFailure name="no_critical_input"/>
+        <PrintMessage message="handle critical input"/>
+      </Sequence>
+      <Sequence name="normal_task_branch">
+        <TickRate tier="normal">
+          <AlwaysSuccess name="normal_task_ready"/>
+        </TickRate>
+        <PrintMessage message="run normal task"/>
+      </Sequence>
+      <TickRate name="background_branch" tier="background">
+        <PrintMessage message="run background maintenance"/>
+      </TickRate>
+    </PrioritySelector>
+  </BehaviorTree>
+</root>

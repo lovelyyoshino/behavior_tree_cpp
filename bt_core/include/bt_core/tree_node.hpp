@@ -4,9 +4,10 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.2.0
+//  @last_modified 2026-08-18
 //  @changelog
+//    - v1.2.0 (2026-08-18): 增加节点级使用说明元数据，供清单与编辑器展示
 //    - v1.1.0 (2026-07-13): 跟踪已执行但尚未显式 halt 的节点，支持幂等深度复位
 //
 //  设计说明：
@@ -33,6 +34,19 @@
 #include "bt_core/node_status.hpp"
 
 namespace bt_core {
+
+/**
+ * @brief 节点类型的使用说明，由工厂清单透传给编辑器。
+ * @details 这些字段只描述节点契约，不参与 tick；保持独立结构可让插件按需提供，
+ *          未提供说明的旧节点仍能正常注册和执行。
+ */
+struct NodeDocumentation {
+  std::string summary;             ///< 节点解决什么问题
+  std::string usage;               ///< 应放在树的哪里、如何配置
+  std::string status_semantics;    ///< SUCCESS/FAILURE/RUNNING 的含义
+  std::string failure_conditions;  ///< 常见失败、超时和边界条件
+  std::string example_xml;         ///< 可复制的最小 XML 片段
+};
 
 /// @brief 节点配置：构造节点时注入的运行期环境。
 struct NodeConfig {

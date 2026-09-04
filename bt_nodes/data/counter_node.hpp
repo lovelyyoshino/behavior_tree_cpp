@@ -39,6 +39,15 @@ class CounterNode : public bt_core::ActionNode {
  public:
   using bt_core::ActionNode::ActionNode;
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "对黑板中的整数键做累加或递减，常用于次数统计和节流。",
+        "把 key 填成要操作的黑板键名本身（例如 mission_count），通常不要加花括号；step 可填正数或负数。",
+        "每次 tick 读取 key，解析失败或不存在按 0 处理，写回新整数后返回 SUCCESS。",
+        "key 为空返回 FAILURE；非数字旧值按 0 重新开始；结果始终以 int 写回。",
+        R"(<Counter name="count_missions" key="mission_count" step="1"/>)"};
+  }
+
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("key", "", "计数所在的黑板键名"),

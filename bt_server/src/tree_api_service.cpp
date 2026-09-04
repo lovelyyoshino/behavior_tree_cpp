@@ -1,3 +1,15 @@
+/**
+ * tree_api_service.cpp — 行为树 HTTP API 与节点清单序列化
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.2.0
+ * @last_modified 2026-08-18
+ * @changelog
+ *   - v1.2.0 (2026-08-18): 黑板 API 初值随 XML 导出并由解析器恢复
+ *   - v1.1.0 (2026-08-18): /api/nodes 返回节点用途、状态语义与 XML 示例
+ */
+
 #include "tree_api_service.hpp"
 
 #include <fstream>
@@ -25,6 +37,7 @@ std::string portToJson(const bt_core::PortInfo& p) {
   out += jsonKV("type_name", p.type_name) + ",";
   out += jsonKV("default_value", p.default_value) + ",";
   out += jsonKV("description", p.description) + ",";
+  out += jsonKV("editor_hint", p.editor_hint) + ",";
   out += jsonString("enum_values") + ":[";
   for (size_t i = 0; i < p.enum_values.size(); ++i) {
     if (i) out += ",";
@@ -38,6 +51,13 @@ std::string manifestToJson(const bt_core::NodeManifest& m) {
   std::string out = "{";
   out += jsonKV("registration_name", m.registration_name) + ",";
   out += jsonKV("type", bt_core::toStr(m.type)) + ",";
+  out += jsonString("documentation") + ":{";
+  out += jsonKV("summary", m.documentation.summary) + ",";
+  out += jsonKV("usage", m.documentation.usage) + ",";
+  out += jsonKV("status_semantics", m.documentation.status_semantics) + ",";
+  out += jsonKV("failure_conditions", m.documentation.failure_conditions) + ",";
+  out += jsonKV("example_xml", m.documentation.example_xml);
+  out += "},";
   out += jsonString("ports") + ":[";
   bool first = true;
   for (const auto& [name, info] : m.ports) {
@@ -123,6 +143,32 @@ ApiResponse TreeApiService::loadTree(const std::string& body) {
   }
 }
 
+ApiResponse TreeApiService::setBlackboardValue(const std::string& body) {
+  const auto key = jsonExtractString(body, "key");
+  const auto type = jsonExtractString(body, "type");
+  const auto value = jsonExtractString(body, "value");
+  const auto description = jsonExtractString(body, "description");
+  if (!key || key->empty() ||
+      key->find_first_not_of(" \t\r\n") == std::string::npos ||
+      !type || !value) {
+    return error(400, "请求体需要非空 key，以及 type/value 字段");
+  }
+
+  std::lock_guard<std::mutex> lock(tree_mutex_);
+  if (!tree_ || !tree_->root()) {
+    return error(404, "当前没有已加载的树");
+  }
+
+  try {
+    auto blackboard = tree_->blackboard();
+    blackboard->setInitialValue(*key, *type, *value,
+                                description.value_or(""));
+    return ApiResponse{200, "{\"ok\":true}"};
+  } catch (const std::exception& e) {
+    return error(400, e.what());
+  }
+}
+
 ApiResponse TreeApiService::parseOnly(const std::string& body,
                                       bool formatted) const {
   auto xml = jsonExtractString(body, "xml");
@@ -140,7 +186,7 @@ ApiResponse TreeApiService::parseOnly(const std::string& body,
     out += jsonKVNum("node_count", static_cast<long long>(node_count));
     if (formatted) {
       out += ",";
-      out += jsonKV("xml", parser.writeToText(parsed, "MainTree"));
+      out += jsonKV("xml", parser.writeToText(parsed, parsed.treeId()));
     }
     out += "}";
     return ApiResponse{200, out};
@@ -172,7 +218,7 @@ ApiResponse TreeApiService::exportTree() const {
 
   try {
     bt_core::XmlParser parser(factory_);
-    return ApiResponse{200, "{" + jsonKV("xml", parser.writeToText(*tree_, "MainTree")) + "}"};
+    return ApiResponse{200, "{" + jsonKV("xml", parser.writeToText(*tree_, tree_->treeId())) + "}"};
   } catch (const std::exception& e) {
     ApiResponse res = error(500, e.what());
     res.body = "{" + jsonKV("xml", "") + "," + jsonKV("error", e.what()) + "}";

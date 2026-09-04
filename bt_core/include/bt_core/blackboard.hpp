@@ -2,6 +2,14 @@
 //  bt_core/blackboard.hpp
 //  黑板(Blackboard) —— 节点之间共享数据的类型安全 KV 存储。
 //
+//  @author lovelyyoshino
+//  @date 2026-06-30
+//  @version v1.3.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.3.0 (2026-08-18): 支持 XML 重新载入时原子替换黑板初值
+//    - v1.1.0 (2026-08-18): 区分可导出的启动初值和不可持久化的运行时值
+//
 //  设计说明：
 //    行为树的节点本身应保持“无状态可复用”。节点之间、节点与外部世界之间需要
 //    交换数据(例如：感知节点写入目标坐标，移动节点读取它)。黑板就是这个共享
@@ -13,7 +21,9 @@
 #ifndef BT_CORE_BLACKBOARD_HPP
 #define BT_CORE_BLACKBOARD_HPP
 
+#include <algorithm>
 #include <any>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -22,6 +32,8 @@
 #include <type_traits>
 #include <typeinfo>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 // demangle：把 typeid(T).name() 的编译器修饰名还原为可读类型名。
@@ -93,6 +105,14 @@ class Blackboard {
 public:
   using Ptr = std::shared_ptr<Blackboard>;
 
+  /** 可随 XML 导出的启动参数；只记录显式初始化值，不记录运行期临时输出。 */
+  struct InitialEntry {
+    std::string key;
+    std::string type;
+    std::string value;
+    std::string description;
+  };
+
   static Ptr create() { return std::make_shared<Blackboard>(); }
 
   /**
@@ -102,6 +122,107 @@ public:
   template <typename T>
   void set(const std::string& key, T value) {
     storage_[key] = std::any(std::move(value));
+  }
+
+  /**
+   * @brief 写入可迁移的 typed 初值。
+   * @details XML 解析器和 HTTP 初始化接口共用此入口；普通 set<T>() 只改变
+   *          运行时存储，避免 ROS 传感器输出被误导出成下一次启动初值。
+   */
+  void setInitialValue(const std::string& key, const std::string& type,
+                       const std::string& value,
+                       const std::string& description = "") {
+    const std::string normalized_key = trimKey(key);
+    const std::string normalized_value =
+        type == "string" ? value : trimKey(value);
+    if (normalized_key.empty()) {
+      throw std::invalid_argument("黑板初值 key 不能为空");
+    }
+    if (type == "string") {
+      set<std::string>(normalized_key, value);
+    } else if (type == "bool") {
+      if (normalized_value != "true" && normalized_value != "false" &&
+          normalized_value != "1" && normalized_value != "0") {
+        throw std::invalid_argument("bool 黑板初值只能是 true/false/1/0");
+      }
+      set<bool>(normalized_key, normalized_value == "true" ||
+                                    normalized_value == "1");
+    } else if (type == "int") {
+      std::istringstream input(normalized_value);
+      int parsed = 0;
+      if (!(input >> parsed)) {
+        throw std::invalid_argument("int 黑板初值无法解析：" + value);
+      }
+      input >> std::ws;
+      if (!input.eof()) {
+        throw std::invalid_argument("int 黑板初值无法解析：" + value);
+      }
+      set<int>(normalized_key, parsed);
+    } else if (type == "double") {
+      std::istringstream input(normalized_value);
+      double parsed = 0.0;
+      if (!(input >> parsed)) {
+        throw std::invalid_argument("double 黑板初值无法解析：" + value);
+      }
+      input >> std::ws;
+      if (!input.eof() || !std::isfinite(parsed)) {
+        throw std::invalid_argument("double 黑板初值无法解析：" + value);
+      }
+      set<double>(normalized_key, parsed);
+    } else {
+      throw std::invalid_argument("不支持的黑板初值类型：" + type);
+    }
+    initial_entries_[normalized_key] = InitialEntry{
+        normalized_key, type,
+        type == "string" ? value : normalized_value,
+        description};
+  }
+
+  /**
+   * @brief 用一份 XML/配置快照替换全部可迁移初值。
+   * @details 先在临时黑板中完整校验，成功后才修改当前黑板，因此非法 XML
+   *          不会留下半套参数；非初值运行时对象（例如 ROS node 句柄）保持不变。
+   */
+  void replaceInitialValues(const std::vector<InitialEntry>& entries) {
+    auto validated = Blackboard::create();
+    std::unordered_set<std::string> seen;
+    for (const auto& entry : entries) {
+      const std::string normalized_key = trimKey(entry.key);
+      if (!seen.insert(normalized_key).second) {
+        throw std::invalid_argument("黑板初值键名重复：" + normalized_key);
+      }
+      validated->setInitialValue(normalized_key, entry.type, entry.value,
+                                  entry.description);
+    }
+
+    clearInitialValues();
+    for (const auto& entry : entries) {
+      setInitialValue(entry.key, entry.type, entry.value, entry.description);
+    }
+  }
+
+  /** @brief 删除所有 XML 初值，但保留运行时写入的非初值对象。 */
+  void clearInitialValues() {
+    for (const auto& [key, entry] : initial_entries_) {
+      (void)entry;
+      storage_.erase(key);
+    }
+    initial_entries_.clear();
+  }
+
+  /** 返回按 key 排序的启动参数快照，供 XML 序列化和 API 导出使用。 */
+  std::vector<InitialEntry> initialEntries() const {
+    std::vector<InitialEntry> result;
+    result.reserve(initial_entries_.size());
+    for (const auto& [key, entry] : initial_entries_) {
+      (void)key;
+      result.push_back(entry);
+    }
+    std::sort(result.begin(), result.end(),
+              [](const InitialEntry& lhs, const InitialEntry& rhs) {
+                return lhs.key < rhs.key;
+              });
+    return result;
   }
 
   /**
@@ -130,13 +251,27 @@ public:
   }
 
   /// @brief 删除一个 key。
-  void remove(const std::string& key) { storage_.erase(key); }
+  void remove(const std::string& key) {
+    storage_.erase(key);
+    initial_entries_.erase(key);
+  }
 
   /// @brief 清空黑板。
-  void clear() { storage_.clear(); }
+  void clear() {
+    storage_.clear();
+    initial_entries_.clear();
+  }
 
 private:
+  static std::string trimKey(const std::string& key) {
+    const auto first = key.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return {};
+    const auto last = key.find_last_not_of(" \t\r\n");
+    return key.substr(first, last - first + 1);
+  }
+
   std::unordered_map<std::string, std::any> storage_;
+  std::unordered_map<std::string, InitialEntry> initial_entries_;
 };
 
 // ---------------------------------------------------------------------------
@@ -173,10 +308,21 @@ struct PortInfo {
   std::string   default_value;        ///< 默认值(字符串形式)
   std::string   description;          ///< 说明文字
   std::vector<std::string> enum_values; ///< 枚举可选值(非空时编辑器属性面板渲染下拉框)
+  std::string   editor_hint;          ///< 编辑器能力提示，例如 ros_topic；不影响运行期语义
 };
 
 /// @brief 一个节点声明的端口列表：端口名 -> 端口信息。
 using PortsList = std::unordered_map<std::string, PortInfo>;
+
+/**
+ * @brief 给端口附加编辑器提示，不改变节点运行时端口类型和解析规则。
+ * @details 提示只用于动态候选项（例如从 ROS 图发现 topic），未知前端应安全忽略。
+ */
+template <typename Port>
+inline Port withEditorHint(Port port, std::string hint) {
+  port.second.editor_hint = std::move(hint);
+  return port;
+}
 
 // ---------------------------------------------------------------------------
 //  端口声明辅助函数 —— 让节点 providedPorts() 写起来简洁
@@ -196,7 +342,7 @@ inline std::pair<std::string, PortInfo> InputPort(
     const std::string& default_value = "",
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::INPUT, demangleTypeName(typeid(T).name()),
-                         default_value, description, {}}};
+                         default_value, description, {}, {}}};
 }
 
 /**
@@ -216,7 +362,7 @@ inline std::pair<std::string, PortInfo> InputPort(
   return {name, PortInfo{name, PortDirection::INPUT,
                          demangleTypeName(typeid(T).name()),
                          default_value, description,
-                         std::move(enum_values)}};
+                         std::move(enum_values), {}}};
 }
 
 /// @brief 声明一个输出端口。
@@ -225,7 +371,7 @@ inline std::pair<std::string, PortInfo> OutputPort(
     const std::string& name,
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::OUTPUT, demangleTypeName(typeid(T).name()),
-                         "", description, {}}};
+                         "", description, {}, {}}};
 }
 
 /// @brief 声明一个双向端口。
@@ -234,7 +380,7 @@ inline std::pair<std::string, PortInfo> BidirectionalPort(
     const std::string& name,
     const std::string& description = "") {
   return {name, PortInfo{name, PortDirection::INOUT, demangleTypeName(typeid(T).name()),
-                         "", description, {}}};
+                         "", description, {}, {}}};
 }
 
 /**

@@ -31,8 +31,25 @@ add_executable(test_bt_core test_bt_core.cpp)
 target_link_libraries(test_bt_core
   PRIVATE
     bt::core
-    GTest::gtest_main
+  GTest::gtest_main
 )
+
+if(TARGET bt_server)
+  # HTTP service 的黑板初始化接口直接复用 service 实现，避免只测 httplib 路由而漏掉类型校验。
+  add_executable(test_tree_api
+    test_tree_api.cpp
+    ${CMAKE_SOURCE_DIR}/bt_server/src/tree_api_service.cpp
+  )
+  target_include_directories(test_tree_api
+    PRIVATE
+      ${CMAKE_SOURCE_DIR}/bt_server/src
+  )
+  target_link_libraries(test_tree_api
+    PRIVATE
+      bt::core
+      GTest::gtest_main
+  )
+endif()
 
 # bt_core 进阶单元测试(异步 RUNNING / halt / 端口语义 / XML round-trip / 错误路径 / 类型转换)
 add_executable(test_bt_advanced test_bt_advanced.cpp)
@@ -41,6 +58,13 @@ target_link_libraries(test_bt_advanced
     bt::core
     GTest::gtest_main
 )
+
+if(TARGET bt::nodes)
+  # 通用核心节点回归：KeepRunningUntilFailure/UntilSuccess/Reactive* 语义。
+  add_executable(test_generic_nodes test_generic_nodes.cpp)
+  target_include_directories(test_generic_nodes PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries(test_generic_nodes PRIVATE bt::core bt::nodes GTest::gtest_main)
+endif()
 
 if(TARGET bt::nodes)
   # 数据层单元测试(data_freshness 纯逻辑 + header-only 数据节点 + 函数注册表)
@@ -62,6 +86,16 @@ if(TARGET bt::nodes)
       GTest::gtest_main
   )
 
+  # 单树调度回归：响应式优先级抢占与分级 tick 周期。
+  add_executable(test_scheduling test_scheduling.cpp)
+  target_include_directories(test_scheduling PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries(test_scheduling
+    PRIVATE
+      bt::core
+      bt::nodes
+      GTest::gtest_main
+  )
+
   # bt_ros2 订阅/发布可复用基类的单元测试
   # 用 tests/mock_rclcpp 假冒 rclcpp 让基类模板能在零 ROS2 环境实例化运行。
   # 仅供测试,不进任何发布产物。
@@ -69,6 +103,9 @@ if(TARGET bt::nodes)
     test_ros_bases.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/recharge_task.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/node_registration.cpp
+    ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_graph_utils.cpp
+    ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_graph_condition_node.cpp
+    ${CMAKE_SOURCE_DIR}/bt_ros2/src/call_service_nodes.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_topic_action_node.cpp
     ${CMAKE_SOURCE_DIR}/bt_ros2/src/ros_topic_condition_node.cpp
   )
@@ -139,10 +176,26 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(test_bt_core)
+if(TARGET test_tree_api)
+  gtest_discover_tests(test_tree_api)
+endif()
 gtest_discover_tests(test_bt_advanced)
 gtest_discover_tests(test_subtree)
 if(TARGET bt::nodes)
   gtest_discover_tests(test_data_nodes)
+  gtest_discover_tests(test_scheduling)
   gtest_discover_tests(test_ros_bases)
   gtest_discover_tests(test_plugin_runtime)
+  gtest_discover_tests(test_generic_nodes)
+
+  # Google Benchmark 性能剖析（可选，需 libbenchmark-dev）
+  find_package(benchmark QUIET)
+  if(benchmark_FOUND)
+    add_executable(benchmark_reactive_nodes benchmark_reactive_nodes.cpp)
+    target_link_libraries(benchmark_reactive_nodes
+      PRIVATE bt::core bt::nodes benchmark::benchmark)
+    message(STATUS "Google Benchmark found, building benchmark_reactive_nodes")
+  else()
+    message(STATUS "Google Benchmark not found, skipping benchmark_reactive_nodes")
+  endif()
 endif()

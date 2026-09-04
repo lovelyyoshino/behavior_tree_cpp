@@ -4,9 +4,11 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.3.0
+//  @last_modified 2026-08-18
 //  @changelog
+//    - v1.3.0 (2026-08-18): 多树源文档导出保留 SubTree/SubTreePlus 定义
+//    - v1.2.0 (2026-08-18): 支持 TreeNodesModel/Blackboard 启动初值元数据
 //    - v1.1.0 (2026-07-13): 增加全量结构/端口校验与确定性导出契约
 //
 //  设计说明：
@@ -23,6 +25,15 @@
 //        </BehaviorTree>
 //      </root>
 //
+//    可选的启动黑板值放在兼容元数据区，不会成为行为树节点：
+//
+//      <TreeNodesModel>
+//        <Blackboard>
+//          <Entry key="temperature" type="double" value="25.5"
+//                 description="启动测试值"/>
+//        </Blackboard>
+//      </TreeNodesModel>
+//
 //    解析规则：
 //      - 每个 XML 元素的“标签名”= 节点的注册名(registration name)，经 NodeFactory
 //        实例化。
@@ -32,7 +43,8 @@
 //      - 每个 BehaviorTree 恰有一个根节点；叶子不得包含子节点；XML 端口必须
 //        在节点 manifest 中声明。错误会携带节点注册名、实例名与行号。
 //
-//    反序列化产出一棵可执行 Tree；序列化把内存 Tree 写回等价 XML。
+//    反序列化产出一棵展开后的可执行 Tree，同时保存源文档；含多个 BehaviorTree 或
+//    SubTree 引用时，序列化保留原始定义/调用并刷新黑板初值元数据。
 // ============================================================================
 #ifndef BT_CORE_XML_PARSER_HPP
 #define BT_CORE_XML_PARSER_HPP

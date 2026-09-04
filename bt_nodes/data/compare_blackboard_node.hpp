@@ -40,6 +40,15 @@ class CompareBlackboardNode : public bt_core::ConditionNode {
  public:
   using bt_core::ConditionNode::ConditionNode;
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "读取黑板键并与右侧值比较，适合把传感器或任务状态变成条件分支。",
+        "key 填黑板键名本身；op 从下拉运算符中选择；value 可填固定值或用 {key} 读取另一个黑板值。",
+        "比较成立返回 SUCCESS，不成立返回 FAILURE；数值双方优先按 double 比较。",
+        "key 不存在、key 为空或 op 非法返回 FAILURE；无法都解析为数字时按字符串比较。",
+        R"(<CompareBlackboard key="mission_count" op=">=" value="3"/>)"};
+  }
+
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("key", "", "要比较的黑板键名"),

@@ -74,15 +74,15 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "插件已加载，注册节点数 = " << factory.size() << "\n";
-  check(factory.size() == 25,
-        "注册了 25 个内置节点（控制3+装饰5+动作3+数据9+时间2+诊断1+函数2）");
-  for (const char* n : {"Sequence", "Fallback", "Parallel", "Inverter",
+  check(factory.size() == 27,
+        "注册了 27 个内置节点（含 PrioritySelector 与 TickRate）");
+  for (const char* n : {"Sequence", "Fallback", "Parallel", "PrioritySelector", "Inverter",
                         "Retry", "Repeat", "ForceSuccess", "ForceFailure",
                         "AlwaysSuccess", "AlwaysFailure", "PrintMessage",
                         "SetBlackboard", "CompareBlackboard", "CheckBool",
                         "Counter", "CooldownCondition", "SetBool",
                         "BlackboardExists", "ClearBlackboard", "ScalarThreshold",
-                        "Delay", "WaitUntilElapsed", "LogEvent",
+                        "Delay", "WaitUntilElapsed", "TickRate", "LogEvent",
                         "FunctionAction", "FunctionCondition"}) {
     check(factory.isRegistered(n), std::string("已注册: ") + n);
   }

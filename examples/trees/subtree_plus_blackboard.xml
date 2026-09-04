@@ -1,0 +1,21 @@
+<root main_tree_to_execute="MainTree">
+  <TreeNodesModel>
+    <Blackboard>
+      <Entry key="route_message" type="string" value="subtree plus ready"
+             description="SubTreePlus 父黑板启动值"/>
+    </Blackboard>
+  </TreeNodesModel>
+
+  <BehaviorTree ID="MainTree">
+    <SubTreePlus ID="RouteStage" message="{route_message}"/>
+  </BehaviorTree>
+
+  <BehaviorTree ID="RouteStage">
+    <Parallel name="MappedRouteStage"
+              success_threshold="1"
+              failure_threshold="1">
+      <PrintMessage name="PrintMappedValue" message="{message}"/>
+      <AlwaysSuccess name="RouteStageReady"/>
+    </Parallel>
+  </BehaviorTree>
+</root>

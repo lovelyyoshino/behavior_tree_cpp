@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================================
+     complex_nested_nav.xml — 复杂层级设计示例
+
+     演示如何用通用节点搭建"多层嵌套 + 条件抢占 + 并行监视"的复杂设计逻辑：
+       1. 主调度（KeepRunningUntilFailure + Fallback）
+       2. 反应式急停门控（ReactiveSequence，每拍重评估）
+       3. 并行导航（LoadPathFromFile + FollowPathTopic + ObstacleSpeedLimiter）
+       4. 分区业务留在 CustomZoneLogic（唯一需要自定义插件的部分）
+
+     结构层级（Visualization）：
+       KeepRunningUntilFailure
+         Fallback
+           Sequence  <- 到点触发
+             TimeCondition
+             SubTreePlus -> GenericNavRoute
+           NonBlockingDelay  <- 等待下一次触发
+
+       GenericNavRoute:
+         ReactiveSequence  <- 急停优先
+           RosTopicCondition /safety/e_stop
+           WaitUntilTopic /robot/ready
+           BlackboardGate mode==zone2
+           Sequence
+             LoadPathFromFile
+             Parallel
+               FollowPathTopic
+               ObstacleSpeedLimiter
+
+     这展示了"复杂设计"不是堆大量自定义节点，而是：通用节点 + 层级组合。
+   ============================================================================ -->
+<root main_tree_to_execute="ComplexScheduler">
+
+  <TreeNodesModel>
+    <Blackboard>
+      <Entry key="mode" type="string" value="zone2" description="工作模式"/>
+      <Entry key="battery_level" type="double" value="0.95" description="电量"/>
+    </Blackboard>
+  </TreeNodesModel>
+
+  <!-- 主调度：保持存活，到点触发一条路线；非触发期用延时兜底。 -->
+  <BehaviorTree ID="ComplexScheduler">
+    <KeepRunningUntilFailure name="KeepSchedulerAlive">
+      <Fallback name="WaitOrRun">
+        <Sequence name="RunWhenDue">
+          <TimeCondition start_time="06:30:00" end_time="03:00:00"
+                         mode="interval" interval_sec="1800.0"/>
+          <SubTreePlus ID="ComplexNavRoute"/>
+        </Sequence>
+        <NonBlockingDelay msec="1000"/>
+      </Fallback>
+    </KeepRunningUntilFailure>
+  </BehaviorTree>
+
+  <!-- 复杂导航路线：急停 > 等待就绪 > 模式门控 > 加载并跟随。 -->
+  <BehaviorTree ID="ComplexNavRoute">
+    <ReactiveSequence name="RouteWithLayeredGates">
+      <!-- 第 1 层：急停，最高优先级，每拍重评估 -->
+      <RosTopicCondition name="NoEmergencyStop" topic="/safety/e_stop" default="false"/>
+      <!-- 第 2 层：等外部系统就绪 -->
+      <WaitUntilTopic name="WaitForReady" topic="/robot/ready" timeout_ms="0"/>
+      <!-- 第 3 层：工作模式门控 -->
+      <BlackboardGate name="EnforceZone2" key="mode" expected="zone2"/>
+      <!-- 第 4 层：真实导航（加载 + 并行跟随/限速） -->
+      <Sequence name="LoadAndFollow">
+        <LoadPathFromFile path_file="config/trajectories/work.yaml"
+                          frame_id="map" topic="/reference_path"/>
+        <Parallel name="NavigateWithSafety" success_threshold="1" failure_threshold="1">
+          <FollowPathTopic path_topic="/reference_path" cmd_vel_topic="/cmd_vel"
+                           linear_speed="0.25" angular_gain="0.7" goal_tolerance="0.08"/>
+          <ObstacleSpeedLimiter scan_topic="/scan"
+                                input_cmd_vel_topic="/cmd_vel_nav_raw"
+                                output_cmd_vel_topic="/cmd_vel_smoothed"
+                                slow_distance="3.0" stop_distance="1.5"/>
+        </Parallel>
+      </Sequence>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- 自定义层：分区业务（唯一需要自定义插件的部分）。 -->
+  <BehaviorTree ID="CustomZoneLogic">
+    <Parallel name="ZoneLogic" success_threshold="1" failure_threshold="1">
+      <Sequence name="EnterWorkZone">
+        <CallTriggerService service_name="/sweeper/up/lower" timeout_sec="2.0"/>
+        <CallSetBoolService service_name="/sweeper/up/enable" data="true" timeout_sec="2.0"/>
+      </Sequence>
+      <KeepRunningUntilFailure name="ExitWorkZone">
+        <Sequence name="RaiseOnZoneExit">
+          <RunOnZoneTransition expected="zone2" delimiter=",">
+            <CallTriggerService service_name="/sweeper/up/raise" timeout_sec="2.0"/>
+            <CallSetBoolService service_name="/sweeper/up/enable" data="false" timeout_sec="2.0"/>
+          </RunOnZoneTransition>
+        </Sequence>
+      </KeepRunningUntilFailure>
+    </Parallel>
+  </BehaviorTree>
+
+</root>

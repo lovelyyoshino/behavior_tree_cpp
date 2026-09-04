@@ -1,6 +1,13 @@
 // ============================================================================
 //  bt_nodes/control/parallel_node.hpp
-//  ParallelNode —— 并行控制节点（可配置成功阈值）。
+//  ParallelNode —— 并行控制节点（可配置成功/失败阈值）。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.1.0 (2026-08-18): 兼容 success_threshold/failure_threshold 外部命名
 // ============================================================================
 #ifndef BT_NODES_CONTROL_PARALLEL_NODE_HPP
 #define BT_NODES_CONTROL_PARALLEL_NODE_HPP
@@ -27,6 +34,8 @@ namespace bt_nodes {
  *  - success_count (int, 默认 -1)：需要多少个子节点成功才算整体成功。
  *        -1 表示“全部成功”（等价于 N）。
  *  - failure_count (int, 默认 1) ：多少个子节点失败即判整体失败，默认 1。
+ *  - success_threshold / failure_threshold：兼容外部行为树工具的别名；当对应
+ *    canonical 端口仍保持默认值时，别名值生效。
  *
  * @note 这里的“并行”是单线程逻辑并行：同一拍顺序 tick 每个子节点，
  *       不涉及真正的多线程。这是行为树并行节点的标准做法。
@@ -41,7 +50,11 @@ class ParallelNode : public bt_core::ControlNode {
         bt_core::InputPort<int>("success_count", "-1",
                                 "需要成功的子节点数；-1 表示全部"),
         bt_core::InputPort<int>("failure_count", "1",
-                                "判定整体失败所需的失败子节点数"));
+                                "判定整体失败所需的失败子节点数"),
+        bt_core::InputPort<int>("success_threshold", "-1",
+                                "兼容外部 XML 的成功阈值别名"),
+        bt_core::InputPort<int>("failure_threshold", "1",
+                                "兼容外部 XML 的失败阈值别名"));
   }
 
   bt_core::NodeStatus tick() override {
@@ -52,7 +65,17 @@ class ParallelNode : public bt_core::ControlNode {
 
     // 解析阈值（端口读取一次即可，缺省走默认值）。
     int success_threshold = getInput<int>("success_count").value_or(-1);
-    const int failure_threshold = getInput<int>("failure_count").value_or(1);
+    const int success_alias =
+        getInput<int>("success_threshold").value_or(-1);
+    if (success_threshold == -1 && success_alias != -1) {
+      success_threshold = success_alias;
+    }
+    int failure_threshold = getInput<int>("failure_count").value_or(1);
+    const int failure_alias =
+        getInput<int>("failure_threshold").value_or(1);
+    if (failure_threshold == 1 && failure_alias != 1) {
+      failure_threshold = failure_alias;
+    }
     if (success_threshold < 0 || success_threshold > static_cast<int>(n)) {
       success_threshold = static_cast<int>(n);  // -1 或越界 → 全部成功
     }

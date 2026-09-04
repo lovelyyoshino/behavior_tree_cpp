@@ -14,7 +14,15 @@
 //                入口里再调 registerNodeType。两条路径最终都落到同一张表。
 //
 //    “providedPorts() 可选”：节点若定义了静态 providedPorts() 则自动收集端口
-//    元信息；没有也能注册(端口列表为空)。用 SFINAE 检测。
+//    元信息；providedDocumentation() 同样可选，用于向编辑器提供节点级帮助。
+//    两者都通过 SFINAE 检测，旧插件源码无需修改。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.1.0 (2026-08-18): manifest 增加可选节点使用说明元数据
 // ============================================================================
 #ifndef BT_CORE_NODE_FACTORY_HPP
 #define BT_CORE_NODE_FACTORY_HPP
@@ -43,6 +51,7 @@ struct NodeManifest {
   std::string registration_name;  ///< 注册名(即 XML 标签名)
   NodeType    type{NodeType::UNDEFINED};
   PortsList   ports;              ///< 端口声明
+  NodeDocumentation documentation; ///< 用途、状态语义、边界和示例
 };
 
 class NodeFactory;
@@ -65,6 +74,25 @@ template <typename T>
 PortsList collectPorts() {
   if constexpr (has_provided_ports<T>::value) {
     return T::providedPorts();
+  } else {
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  SFINAE：检测并收集可选的静态 providedDocumentation()
+// ---------------------------------------------------------------------------
+template <typename T, typename = void>
+struct has_provided_documentation : std::false_type {};
+
+template <typename T>
+struct has_provided_documentation<
+    T, std::void_t<decltype(T::providedDocumentation())>> : std::true_type {};
+
+template <typename T>
+NodeDocumentation collectDocumentation() {
+  if constexpr (has_provided_documentation<T>::value) {
+    return T::providedDocumentation();
   } else {
     return {};
   }
@@ -113,6 +141,7 @@ public:
     manifest.registration_name = registration_name;
     manifest.type = type;
     manifest.ports = std::move(ports);
+    manifest.documentation = collectDocumentation<T>();
 
     auto [builder_it, builder_inserted] =
         builders_.emplace(registration_name, std::move(builder));

@@ -24,6 +24,7 @@ class TreeApiService {
 
   ApiResponse nodes() const;
   ApiResponse loadTree(const std::string& body);
+  ApiResponse setBlackboardValue(const std::string& body);
   ApiResponse validateTree(const std::string& body) const;
   ApiResponse formatTree(const std::string& body) const;
   ApiResponse exportTree() const;

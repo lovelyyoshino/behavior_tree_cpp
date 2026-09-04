@@ -5,9 +5,11 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.3
-//  @last_modified 2026-07-13
+//  @version v1.3.0
+//  @last_modified 2026-08-19
 //  @changelog
+//    - v1.3.0 (2026-08-19): 覆盖 ROS graph 条件与非阻塞 Trigger/SetBool service 动作
+//    - v1.2.0 (2026-08-18): 覆盖并发输入快照与回调晚于行为节点销毁的边界
 //    - v1.1.3 (2026-07-13): 锁定连续重拍无副作用与显式 halt 后第二轮执行边界
 //    - v1.1.2 (2026-07-13): 覆盖整树终态 halt 后的第二轮回充与通知
 //    - v1.1.1 (2026-07-13): 增加终态重拍不重复发布的回归断言
@@ -36,8 +38,11 @@
 #include "control/sequence_node.hpp"
 #include "data/compare_blackboard_node.hpp"
 #include "bt_ros2/example_data_nodes.hpp"
+#include "bt_ros2/call_service_nodes.hpp"
 #include "bt_ros2/node_registration.hpp"
 #include "bt_ros2/recharge_task.hpp"
+#include "bt_ros2/ros_graph_condition_node.hpp"
+#include "bt_ros2/ros_graph_utils.hpp"
 #include "bt_ros2/ros_publisher_node.hpp"
 #include "bt_ros2/ros_subscriber_node.hpp"
 
@@ -136,6 +141,42 @@ TEST_F(RosBasesTest, ConditionSuccessAndFailureBasedOnEvaluate) {
   auto m2 = std::make_shared<RangeMsg>(); m2->range = 1.5;
   node.deliver(&m2);
   EXPECT_EQ(n.tick(), NodeStatus::FAILURE);  // 1.5 不 < 1.0 → 不成立
+}
+
+TEST_F(RosBasesTest, SubscriberSnapshotSupportsConcurrentCallbackAndTick) {
+  auto cfg = makeCfg(
+      bb, {{"topic", "/range"}, {"timeout_ms", "0"}, {"threshold", "1.0"}});
+  IsClose condition("c", cfg);
+  ASSERT_EQ(condition.tick(), NodeStatus::FAILURE);
+  auto sub = node.subscription<RangeMsg>("/range");
+  ASSERT_NE(sub, nullptr);
+
+  std::thread producer([sub] {
+    for (int i = 0; i < 2000; ++i) {
+      auto message = std::make_shared<RangeMsg>();
+      message->range = 0.25;
+      sub->cb(message);
+    }
+  });
+  for (int i = 0; i < 2000; ++i) {
+    (void)condition.tick();
+  }
+  producer.join();
+
+  EXPECT_EQ(condition.tick(), NodeStatus::SUCCESS);
+}
+
+TEST_F(RosBasesTest, InFlightSubscriberCallbackDoesNotCaptureDestroyedNode) {
+  auto condition = std::make_unique<IsClose>(
+      "c", makeCfg(bb, {{"topic", "/range"}, {"timeout_ms", "0"}}));
+  ASSERT_EQ(condition->tick(), NodeStatus::FAILURE);
+  auto sub = node.subscription<RangeMsg>("/range");
+  ASSERT_NE(sub, nullptr);
+
+  condition.reset();
+  auto late_message = std::make_shared<RangeMsg>();
+  late_message->range = 0.1;
+  EXPECT_NO_THROW(sub->cb(late_message));
 }
 
 TEST_F(RosBasesTest, ConditionRespectsTimeoutMs) {
@@ -479,6 +520,94 @@ TEST_F(RosBasesTest, RechargeCommandAndDoneNotifierExposeManualPorts) {
   EXPECT_TRUE(done_ports.count("task_name"));
 }
 
+TEST_F(RosBasesTest, RosGraphConditionChecksAllRuntimeEntityTypes) {
+  node.set_node_names({"/bt_executor", "/planner"});
+  node.set_topic_names_and_types({
+      {"/planner/healthy", {"std_msgs/msg/Bool"}},
+  });
+  node.set_service_names_and_types({
+      {"/sweeper/up/enable", {"std_srvs/srv/SetBool"}},
+      {"/navigate_to_pose/_action/send_goal",
+       {"nav2_msgs/action/NavigateToPose_SendGoal"}},
+  });
+
+  const std::vector<std::pair<std::string, std::string>> existing = {
+      {"node", "/planner"},
+      {"topic", "/planner/healthy"},
+      {"service", "/sweeper/up/enable"},
+      {"action", "/navigate_to_pose"},
+  };
+  for (const auto& [entity_type, entity_name] : existing) {
+    SCOPED_TRACE(entity_type);
+    bt_ros2::RosGraphConditionNode condition(
+        "graph_condition",
+        makeCfg(bb, {{"entity_type", entity_type},
+                     {"entity_name", entity_name}}));
+    EXPECT_EQ(condition.tick(), NodeStatus::SUCCESS);
+  }
+
+  bt_ros2::RosGraphConditionNode missing(
+      "missing",
+      makeCfg(bb, {{"entity_type", "service"},
+                   {"entity_name", "/missing"}}));
+  EXPECT_EQ(missing.tick(), NodeStatus::FAILURE);
+  const auto graph = bt_ros2::inspectRosGraph(node);
+  ASSERT_TRUE(graph.actions.count("/navigate_to_pose"));
+  EXPECT_EQ(graph.actions.at("/navigate_to_pose"),
+            std::vector<std::string>({"nav2_msgs/action/NavigateToPose"}));
+}
+
+TEST_F(RosBasesTest, CallTriggerServiceRunsAsynchronouslyAndWritesMessage) {
+  bt_ros2::CallTriggerServiceNode action(
+      "lower",
+      makeCfg(bb,
+              {{"service_name", "/sweeper/up/lower"},
+               {"timeout_sec", "2.0"}},
+              {{"message", "lower_response"}}));
+
+  EXPECT_EQ(action.tick(), NodeStatus::RUNNING);
+  auto client =
+      node.client<std_srvs::srv::Trigger>("/sweeper/up/lower");
+  ASSERT_NE(client, nullptr);
+  ASSERT_EQ(client->requests.size(), 1u);
+
+  auto response = std::make_shared<std_srvs::srv::Trigger::Response>();
+  response->success = true;
+  response->message = "lowered";
+  client->respond_next(response);
+  EXPECT_EQ(action.tick(), NodeStatus::SUCCESS);
+  EXPECT_EQ(bb->get<std::string>("lower_response").value(), "lowered");
+}
+
+TEST_F(RosBasesTest, CallSetBoolServiceMapsDataFailureAndHaltRestart) {
+  bt_ros2::CallSetBoolServiceNode action(
+      "enable",
+      makeCfg(bb,
+              {{"service_name", "/sweeper/up/enable"},
+               {"data", "true"},
+               {"timeout_sec", "2.0"}},
+              {{"message", "enable_response"}}));
+
+  EXPECT_EQ(action.tick(), NodeStatus::RUNNING);
+  auto client =
+      node.client<std_srvs::srv::SetBool>("/sweeper/up/enable");
+  ASSERT_NE(client, nullptr);
+  ASSERT_EQ(client->requests.size(), 1u);
+  EXPECT_TRUE(client->requests.front()->data);
+
+  action.halt();
+  EXPECT_EQ(action.tick(), NodeStatus::RUNNING);
+  ASSERT_EQ(client->requests.size(), 2u);
+
+  auto response = std::make_shared<std_srvs::srv::SetBool::Response>();
+  response->success = false;
+  response->message = "motor rejected";
+  client->respond_next(response);
+  EXPECT_EQ(action.tick(), NodeStatus::FAILURE);
+  EXPECT_EQ(bb->get<std::string>("enable_response").value(),
+            "motor rejected");
+}
+
 TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
   bt_ros2::NodeRegistrationCatalog::instance().resetToDefaults();
 
@@ -489,11 +618,13 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
       "Sequence",
       "Fallback",
       "Parallel",
+      "PrioritySelector",
       "Inverter",
       "Retry",
       "Repeat",
       "ForceSuccess",
       "ForceFailure",
+      "TickRate",
       "AlwaysSuccess",
       "AlwaysFailure",
       "PrintMessage",
@@ -513,6 +644,9 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
       "FunctionCondition",
       "RosTopicCondition",
       "RosTopicAction",
+      "RosGraphCondition",
+      "CallTriggerService",
+      "CallSetBoolService",
       "IsObstacleClose",
       "IsFlagTrue",
       "ReadBattery",
@@ -523,7 +657,7 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
       "RechargeTask",
   };
 
-  EXPECT_EQ(factory.size(), 35u);
+  EXPECT_EQ(factory.size(), 40u);
   for (const auto& name : expected) {
     EXPECT_TRUE(factory.isRegistered(name)) << "missing registration: " << name;
   }

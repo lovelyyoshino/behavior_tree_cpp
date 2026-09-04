@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================================
+     generic_scheduled_nav.xml — 通用调度 + 通用导航示例（随仓库分发）。
+
+     本示例只使用「通用核心节点」和「通用 ROS2 适配节点」，演示如何在不写
+     Yuyi 专属插件的前提下覆盖绝大部分行为树需求。
+
+     通用节点：
+       KeepRunningUntilFailure   长驻循环                    bt_nodes
+       TimeCondition              时间门控(interval)          bt_nodes
+       NonBlockingDelay           非阻塞延时                  bt_nodes
+       ReactiveSequence           反应式顺序(条件可抢占)      bt_nodes
+       LoadPathFromFile           轨迹加载→nav_msgs/Path      bt_ros2
+       FollowPath                 nav2 FollowPath 动作客户端  bt_ros2
+       ObstacleSpeedLimiter       激光限速→cmd_vel            bt_ros2
+       RosTopicCondition          Bool 话题条件               bt_ros2
+       CallTriggerService         std_srvs/Trigger           bt_ros2
+       CallSetBoolService         std_srvs/SetBool           bt_ros2
+
+     真正绑定机器人的业务语义（分区/清扫工具）保留在 CustomZoneLogic，
+     通过 BT_PLUGIN_DIR 加载自研插件即可，无需改动本文件的通用部分。
+
+     运行方式：
+        1) 准备轨迹 YAML，本示例默认 config/trajectories/work.yaml。
+        2) 用 ./scripts/dev.sh 启动（自动加载 bt_nodes + bt_ros2 插件）。
+        3) 在编辑器导入本文件 → Run；确认 /api/nodes 返回包含上述通用节点。
+   ============================================================================ -->
+<root main_tree_to_execute="GenericScheduledNav">
+
+  <!-- 启动黑板：BlackboardGate 读取 mode；设为 zone2 使示例开箱即通过门控。 -->
+  <TreeNodesModel>
+    <Blackboard>
+      <Entry key="mode" type="string" value="zone2" description="工作模式（BlackboardGate 使用）"/>
+    </Blackboard>
+  </TreeNodesModel>
+
+  <BehaviorTree ID="GenericScheduledNav">
+    <!-- 保持调度存活，直到路径跟随失败为止。 -->
+    <KeepRunningUntilFailure name="KeepSchedulerAlive">
+      <Fallback name="WaitOrRunScheduledNav">
+        <!-- 到点触发：interval 模式每 1800 秒放行一次。 -->
+        <Sequence name="RunWhenDue">
+          <TimeCondition start_time="06:30:00" end_time="03:00:00"
+                         mode="interval" interval_sec="1800.0"/>
+          <SubTreePlus ID="GenericNavRoute"/>
+        </Sequence>
+        <NonBlockingDelay name="IdleBetweenTriggers" msec="1000"/>
+      </Fallback>
+    </KeepRunningUntilFailure>
+  </BehaviorTree>
+
+  <BehaviorTree ID="GenericNavRoute">
+    <!-- 急停门控：/safety/e_stop 一触发即可打断当前跟随。 -->
+    <ReactiveSequence name="RunRouteWithEmergencyStop">
+      <RosTopicCondition name="NoEmergencyStop" topic="/safety/e_stop" default="false"/>
+      <Sequence name="LoadAndFollowRoute">
+        <!-- 就绪门控：先等 /robot/ready 发布，再校验工作模式。 -->
+        <WaitUntilTopic name="AwaitRobotReady" topic="/robot/ready" timeout_ms="0"/>
+        <BlackboardGate name="WorkModeGate" key="mode" expected="zone2"/>
+        <!-- 通用轨迹加载：读 YAML → 发布到 /reference_path。 -->
+        <LoadPathFromFile path_file="config/trajectories/work.yaml"
+                          frame_id="map" topic="/reference_path"/>
+        <!-- 通用路径跟随：消费 /reference_path，发给 nav2 FollowPath 动作服务器。 -->
+        <Parallel name="FollowWithObstacleLimit" success_threshold="1" failure_threshold="1">
+          <FollowPath server_name="/follow_path" controller_id=""
+                      goal_checker_id="" path_topic="/reference_path"
+                      timeout_sec="0.0"/>
+          <ObstacleSpeedLimiter scan_topic="/scan"
+                                input_cmd_vel_topic="/cmd_vel_nav_raw"
+                                output_cmd_vel_topic="/cmd_vel_smoothed"
+                                slow_distance="3.0" stop_distance="1.5"/>
+        </Parallel>
+      </Sequence>
+    </ReactiveSequence>
+  </BehaviorTree>
+
+  <!-- 自定义层：真正绑定机器人业务的分区/清扫语义，作为少量自定义节点保留。
+       用 BT_PLUGIN_DIR 指向你的插件目录即可注册，无需加入通用核心。
+       若能用通用节点组合表达的可直接用组合。 -->
+  <BehaviorTree ID="CustomZoneLogic">
+    <Parallel name="ZoneLogic" success_threshold="1" failure_threshold="1">
+      <Sequence name="EnterWorkZoneCommands">
+        <CallTriggerService service_name="/sweeper/up/lower" timeout_sec="2.0"/>
+        <CallSetBoolService service_name="/sweeper/up/enable" data="true" timeout_sec="2.0"/>
+      </Sequence>
+      <KeepRunningUntilFailure name="ExitWorkZoneCommands">
+        <Sequence name="RaiseToolsOnZoneExit">
+          <RunOnZoneTransition expected="zone2" delimiter=",">
+            <CallTriggerService service_name="/sweeper/up/raise" timeout_sec="2.0"/>
+            <CallSetBoolService service_name="/sweeper/up/enable" data="false" timeout_sec="2.0"/>
+          </RunOnZoneTransition>
+        </Sequence>
+      </KeepRunningUntilFailure>
+    </Parallel>
+  </BehaviorTree>
+
+</root>

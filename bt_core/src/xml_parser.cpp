@@ -4,9 +4,12 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.2.0
+//  @last_modified 2026-08-18
 //  @changelog
+//    - v1.4.0 (2026-08-18): 重新载入 XML 时原子替换共享黑板初值
+//    - v1.3.0 (2026-08-18): 保留多 BehaviorTree/SubTreePlus 源文档定义
+//    - v1.2.0 (2026-08-18): 支持 TreeNodesModel/Blackboard 初值元数据往返
 //    - v1.1.0 (2026-07-13): 构建前严格校验整份 XML，并按端口名稳定导出
 //
 //  反序列化流程：
@@ -54,6 +57,19 @@ struct ParseContext {
 
 /// @brief 子树最大展开深度,防御逻辑错误导致的失控递归。
 constexpr int kMaxSubTreeDepth = 32;
+
+bool isSubTreeReference(const std::string& registration_name) {
+  return registration_name == "SubTree" ||
+         registration_name == "SubTreePlus";
+}
+
+using BlackboardAliases = std::unordered_map<std::string, std::string>;
+
+std::string applyBlackboardAlias(const std::string& key,
+                                 const BlackboardAliases& aliases) {
+  auto it = aliases.find(key);
+  return it == aliases.end() ? key : it->second;
+}
 
 size_t childElementCount(const XMLElement* elem) {
   size_t count = 0;
@@ -104,7 +120,7 @@ void validateNodeElement(const XMLElement* elem, ParseContext& ctx,
                          int depth) {
   const std::string reg_name = elem->Name();
 
-  if (reg_name == "SubTree") {
+  if (isSubTreeReference(reg_name)) {
     const char* id_attr = elem->Attribute("ID");
     if (!id_attr || !*id_attr) {
       throw std::runtime_error("<SubTree> 缺少 ID 属性" + lineSuffix(elem));
@@ -112,11 +128,24 @@ void validateNodeElement(const XMLElement* elem, ParseContext& ctx,
     const std::string id = id_attr;
     for (const XMLAttribute* attr = elem->FirstAttribute(); attr;
          attr = attr->Next()) {
-      if (std::string(attr->Name()) != "ID") {
+      const std::string attr_name = attr->Name();
+      if (attr_name == "ID" || attr_name == "name") continue;
+      if (reg_name == "SubTree") {
         throw std::runtime_error(
             "<SubTree ID=\"" + id + "\">" + lineSuffix(elem) +
-            " 包含不支持的属性 '" + attr->Name() +
-            "'；当前内联子树仅支持 ID，不支持静默端口重映射");
+            " 包含不支持的属性 '" + attr_name +
+            "'；当前 <SubTree> 仅支持 ID/name，带端口映射请使用 <SubTreePlus>");
+      }
+      const std::string value = attr->Value();
+      const std::string mapped_key =
+          value.size() >= 2 ? value.substr(1, value.size() - 2) : "";
+      if (value.size() < 3 || value.front() != '{' || value.back() != '}' ||
+          mapped_key.empty() ||
+          mapped_key.find_first_of("{}") != std::string::npos) {
+        throw std::runtime_error(
+            "<SubTreePlus ID=\"" + id + "\">" + lineSuffix(elem) +
+            " 的映射属性 '" + attr_name +
+            "' 必须使用完整的 {blackboard_key} 形式");
       }
     }
     if (elem->FirstChildElement()) {
@@ -198,11 +227,12 @@ void validateTreeDefinition(const std::string& id, ParseContext& ctx,
 // 从一个 XML 元素递归构建节点。
 TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
                         Blackboard::Ptr bb, ParseContext& ctx,
+                        const BlackboardAliases& aliases = {},
                         int depth = 0) {
   const std::string reg_name = elem->Name();
 
   // ── <SubTree ID="X"/> 引用:从索引找到目标 BT 的根,带环检测递归内联展开 ──
-  if (reg_name == "SubTree") {
+  if (isSubTreeReference(reg_name)) {
     const char* id_attr = elem->Attribute("ID");
     if (!id_attr || !*id_attr) {
       throw std::runtime_error("<SubTree> 缺少 ID 属性");
@@ -221,7 +251,22 @@ TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
                                " 层(疑似失控递归)");
     }
     ctx.expanding.insert(id);
-    TreeNode::Ptr expanded = buildNode(it->second, factory, bb, ctx, depth + 1);
+    BlackboardAliases subtree_aliases = aliases;
+    if (reg_name == "SubTreePlus") {
+      for (const XMLAttribute* attr = elem->FirstAttribute(); attr;
+           attr = attr->Next()) {
+        if (std::string(attr->Name()) == "ID" ||
+            std::string(attr->Name()) == "name") continue;
+        const std::string value = attr->Value();
+        if (value.size() >= 2 && value.front() == '{' && value.back() == '}') {
+          const std::string parent_key = value.substr(1, value.size() - 2);
+          subtree_aliases[attr->Name()] =
+              applyBlackboardAlias(parent_key, aliases);
+        }
+      }
+    }
+    TreeNode::Ptr expanded =
+        buildNode(it->second, factory, bb, ctx, subtree_aliases, depth + 1);
     ctx.expanding.erase(id);
     return expanded;
   }
@@ -242,7 +287,8 @@ TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
     const std::string val = attr->Value();
     if (val.size() >= 2 && val.front() == '{' && val.back() == '}') {
       // "{bb_key}" -> 端口重映射到黑板 key
-      cfg.port_remap[key] = val.substr(1, val.size() - 2);
+      cfg.port_remap[key] =
+          applyBlackboardAlias(val.substr(1, val.size() - 2), aliases);
     } else {
       // 字面量：仅存入节点本地 port_values(私有端口语义)。
       // 不写共享黑板——否则多个同名端口(如两个 PrintMessage 的 message)会互相
@@ -257,7 +303,7 @@ TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
   if (auto* ctrl = dynamic_cast<ControlNode*>(node.get())) {
     for (const XMLElement* child = elem->FirstChildElement(); child;
          child = child->NextSiblingElement()) {
-      ctrl->addChild(buildNode(child, factory, bb, ctx, depth));
+      ctrl->addChild(buildNode(child, factory, bb, ctx, aliases, depth));
     }
   } else if (auto* deco = dynamic_cast<DecoratorNode*>(node.get())) {
     const XMLElement* child = elem->FirstChildElement();
@@ -267,7 +313,7 @@ TreeNode::Ptr buildNode(const XMLElement* elem, NodeFactory& factory,
     if (child->NextSiblingElement()) {
       throw std::runtime_error("装饰节点 '" + reg_name + "' 只能有一个子节点");
     }
-    deco->setChild(buildNode(child, factory, bb, ctx, depth));
+    deco->setChild(buildNode(child, factory, bb, ctx, aliases, depth));
   } else if (elem->FirstChildElement()) {
     // validateNodeElement 已先拦截；这里保留防御式检查，避免未来绕过全文校验。
     throw std::runtime_error("叶子节点 " + nodeLabel(elem) +
@@ -312,6 +358,117 @@ void writeNode(const TreeNode::Ptr& node, XMLElement* parent,
   } else if (auto* deco = dynamic_cast<DecoratorNode*>(node.get())) {
     if (deco->child()) writeNode(deco->child(), elem, doc);
   }
+}
+
+/** 读取编辑器写入的黑板启动参数；其它 Groot 模型元数据保持忽略。 */
+void loadBlackboardMetadata(const XMLElement* root, Blackboard::Ptr bb) {
+  std::unordered_set<std::string> seen;
+  std::vector<Blackboard::InitialEntry> entries;
+  for (const XMLElement* model = root->FirstChildElement("TreeNodesModel");
+       model; model = model->NextSiblingElement("TreeNodesModel")) {
+    for (const XMLElement* board = model->FirstChildElement("Blackboard");
+         board; board = board->NextSiblingElement("Blackboard")) {
+      for (const XMLElement* entry = board->FirstChildElement(); entry;
+           entry = entry->NextSiblingElement()) {
+        if (std::string(entry->Name()) != "Entry") continue;
+        const char* key_attr = entry->Attribute("key");
+        const char* type_attr = entry->Attribute("type");
+        const char* value_attr = entry->Attribute("value");
+        if (!key_attr || !*key_attr || !type_attr || !*type_attr ||
+            !value_attr) {
+          throw std::runtime_error(
+              "<Blackboard><Entry> 必须包含非空 key、type 和 value 属性");
+        }
+        const std::string key = key_attr;
+        if (!seen.insert(key).second) {
+          throw std::runtime_error("XML 黑板键名重复：" + key);
+        }
+        const char* description = entry->Attribute("description");
+        entries.push_back(Blackboard::InitialEntry{
+            key, type_attr, value_attr, description ? description : ""});
+      }
+    }
+  }
+  // XML 是共享黑板初值的唯一声明源：即使本次没有 Blackboard 元数据，
+  // 也要清掉上一次载入残留的初值，同时保留 ROS node 等运行时句柄。
+  bb->replaceInitialValues(entries);
+}
+
+bool containsSubTreeReference(const XMLElement* element) {
+  for (const XMLElement* child = element->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    if (isSubTreeReference(child->Name())) return true;
+    if (containsSubTreeReference(child)) return true;
+  }
+  return false;
+}
+
+bool needsSourceDocumentPreservation(const XMLDocument& doc) {
+  const XMLElement* root = doc.RootElement();
+  if (!root) return false;
+  size_t behavior_tree_count = 0;
+  for (const XMLElement* child = root->FirstChildElement(); child;
+       child = child->NextSiblingElement()) {
+    if (std::string(child->Name()) == "BehaviorTree") ++behavior_tree_count;
+    if (containsSubTreeReference(child)) return true;
+  }
+  return behavior_tree_count > 1;
+}
+
+void writeBlackboardMetadata(XMLElement* root, const Blackboard::Ptr& bb,
+                             XMLDocument& doc) {
+  for (XMLElement* model = root->FirstChildElement("TreeNodesModel"); model;) {
+    XMLElement* next_model = model->NextSiblingElement("TreeNodesModel");
+    for (XMLElement* board = model->FirstChildElement("Blackboard"); board;) {
+      XMLElement* next_board = board->NextSiblingElement("Blackboard");
+      model->DeleteChild(board);
+      board = next_board;
+    }
+    if (!model->FirstChild()) root->DeleteChild(model);
+    model = next_model;
+  }
+
+  if (!bb) return;
+  const auto entries = bb->initialEntries();
+  if (entries.empty()) return;
+
+  XMLElement* model = root->FirstChildElement("TreeNodesModel");
+  if (!model) {
+    model = doc.NewElement("TreeNodesModel");
+    root->InsertFirstChild(model);
+  }
+  XMLElement* board = doc.NewElement("Blackboard");
+  for (const auto& entry : entries) {
+    XMLElement* element = doc.NewElement("Entry");
+    element->SetAttribute("key", entry.key.c_str());
+    element->SetAttribute("type", entry.type.c_str());
+    element->SetAttribute("value", entry.value.c_str());
+    if (!entry.description.empty()) {
+      element->SetAttribute("description", entry.description.c_str());
+    }
+    board->InsertEndChild(element);
+  }
+  model->InsertEndChild(board);
+}
+
+std::string writePreservedSource(const Tree& tree,
+                                 const std::string& requested_main_tree_id) {
+  XMLDocument doc;
+  if (doc.Parse(tree.sourceXml().c_str()) != XML_SUCCESS) {
+    throw std::runtime_error("保存的 XML 源文档无法再次解析");
+  }
+  XMLElement* root = doc.RootElement();
+  if (!root) throw std::runtime_error("保存的 XML 源文档缺少 <root>");
+  const std::string main_id =
+      (requested_main_tree_id.empty() ||
+       (requested_main_tree_id == "MainTree" && !tree.treeId().empty()))
+          ? tree.treeId()
+          : requested_main_tree_id;
+  root->SetAttribute("main_tree_to_execute", main_id.c_str());
+  writeBlackboardMetadata(root, tree.blackboard(), doc);
+  XMLPrinter printer;
+  doc.Print(&printer);
+  return printer.CStr();
 }
 
 }  // namespace
@@ -417,9 +574,11 @@ Tree XmlParser::loadFromText(const std::string& xml_text,
   const XMLElement* root_node_elem = main_bt->FirstChildElement();
 
   auto bb = blackboard ? blackboard : Blackboard::create();
+  loadBlackboardMetadata(root, bb);
   TreeNode::Ptr root_node = buildNode(root_node_elem, factory_, bb, ctx);
   Tree tree(root_node, bb);
   tree.setTreeId(main_id);
+  tree.setSourceXml(xml_text);
   return tree;
 }
 
@@ -438,10 +597,39 @@ Tree XmlParser::loadFromFile(const std::string& file_path,
 
 std::string XmlParser::writeToText(const Tree& tree,
                                    const std::string& main_tree_id) {
+  if (!tree.sourceXml().empty()) {
+    XMLDocument source_doc;
+    if (source_doc.Parse(tree.sourceXml().c_str()) != XML_SUCCESS) {
+      throw std::runtime_error("保存的 XML 源文档无法再次解析");
+    }
+    if (needsSourceDocumentPreservation(source_doc)) {
+      return writePreservedSource(tree, main_tree_id);
+    }
+  }
   XMLDocument doc;
   XMLElement* root = doc.NewElement("root");
   root->SetAttribute("main_tree_to_execute", main_tree_id.c_str());
   doc.InsertEndChild(root);
+
+  if (tree.blackboard()) {
+    const auto entries = tree.blackboard()->initialEntries();
+    if (!entries.empty()) {
+      XMLElement* model = doc.NewElement("TreeNodesModel");
+      XMLElement* board = doc.NewElement("Blackboard");
+      for (const auto& entry : entries) {
+        XMLElement* element = doc.NewElement("Entry");
+        element->SetAttribute("key", entry.key.c_str());
+        element->SetAttribute("type", entry.type.c_str());
+        element->SetAttribute("value", entry.value.c_str());
+        if (!entry.description.empty()) {
+          element->SetAttribute("description", entry.description.c_str());
+        }
+        board->InsertEndChild(element);
+      }
+      model->InsertEndChild(board);
+      root->InsertEndChild(model);
+    }
+  }
 
   XMLElement* bt = doc.NewElement("BehaviorTree");
   bt->SetAttribute("ID", main_tree_id.c_str());

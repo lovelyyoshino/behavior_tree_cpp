@@ -7,6 +7,13 @@
 //    所有节点都以头文件形式提供（纯虚函数实现 + 模板），这里集中 include 并
 //    在 BT_REGISTER_NODES 入口里把它们全部注册进工厂。PluginLoader 运行时
 //    加载本库 → dlsym 找到 BT_RegisterNodes 符号 → 调用 → 完成自注册。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.1.0 (2026-08-18): 注册 PrioritySelector 与 TickRate 调度节点
 // ============================================================================
 
 #include "bt_core/plugin_register.hpp"
@@ -15,6 +22,7 @@
 #include "control/sequence_node.hpp"
 #include "control/fallback_node.hpp"
 #include "control/parallel_node.hpp"
+#include "control/priority_selector_node.hpp"
 
 // -- 装饰节点 ---------------------------------------------------------------
 #include "decorator/inverter_node.hpp"
@@ -22,6 +30,13 @@
 #include "decorator/repeat_node.hpp"
 #include "decorator/force_success_node.hpp"
 #include "decorator/force_failure_node.hpp"
+#include "decorator/tick_rate_node.hpp"
+#include "decorator/keep_running_until_failure_node.hpp"
+#include "decorator/keep_running_until_success_node.hpp"
+
+// -- 反应式控制节点 ---------------------------------------------------------
+#include "control/reactive_sequence_node.hpp"
+#include "control/reactive_fallback_node.hpp"
 
 // -- 动作/条件节点 ----------------------------------------------------------
 #include "action/always_success_node.hpp"
@@ -36,12 +51,15 @@
 #include "data/cooldown_condition_node.hpp"
 #include "data/set_bool_node.hpp"
 #include "data/blackboard_exists_condition_node.hpp"
+#include "data/blackboard_gate_node.hpp"
 #include "data/clear_blackboard_node.hpp"
 #include "data/scalar_threshold_condition_node.hpp"
 
 // -- 时间节点（延时/到时） --------------------------------------------------
 #include "timer/delay_node.hpp"
 #include "timer/wait_until_elapsed_condition_node.hpp"
+#include "timer/non_blocking_delay_node.hpp"
+#include "timer/time_condition_node.hpp"
 
 // -- 诊断节点（日志/埋点） --------------------------------------------------
 #include "diagnostic/log_event_node.hpp"
@@ -58,6 +76,9 @@ BT_REGISTER_NODES(factory) {
   factory.registerNodeType<bt_nodes::SequenceNode>("Sequence");
   factory.registerNodeType<bt_nodes::FallbackNode>("Fallback");
   factory.registerNodeType<bt_nodes::ParallelNode>("Parallel");
+  factory.registerNodeType<bt_nodes::PrioritySelectorNode>("PrioritySelector");
+  factory.registerNodeType<bt_nodes::ReactiveSequenceNode>("ReactiveSequence");
+  factory.registerNodeType<bt_nodes::ReactiveFallbackNode>("ReactiveFallback");
 
   // 装饰节点
   factory.registerNodeType<bt_nodes::InverterNode>("Inverter");
@@ -65,6 +86,11 @@ BT_REGISTER_NODES(factory) {
   factory.registerNodeType<bt_nodes::RepeatNode>("Repeat");
   factory.registerNodeType<bt_nodes::ForceSuccessNode>("ForceSuccess");
   factory.registerNodeType<bt_nodes::ForceFailureNode>("ForceFailure");
+  factory.registerNodeType<bt_nodes::TickRateNode>("TickRate");
+  factory.registerNodeType<bt_nodes::KeepRunningUntilFailureNode>(
+      "KeepRunningUntilFailure");
+  factory.registerNodeType<bt_nodes::KeepRunningUntilSuccessNode>(
+      "KeepRunningUntilSuccess");
 
   // 动作 / 条件节点
   factory.registerNodeType<bt_nodes::AlwaysSuccessNode>("AlwaysSuccess");
@@ -79,12 +105,15 @@ BT_REGISTER_NODES(factory) {
   factory.registerNodeType<bt_nodes::CooldownConditionNode>("CooldownCondition");
   factory.registerNodeType<bt_nodes::SetBoolNode>("SetBool");
   factory.registerNodeType<bt_nodes::BlackboardExistsConditionNode>("BlackboardExists");
+  factory.registerNodeType<bt_nodes::BlackboardGateNode>("BlackboardGate");
   factory.registerNodeType<bt_nodes::ClearBlackboardNode>("ClearBlackboard");
   factory.registerNodeType<bt_nodes::ScalarThresholdConditionNode>("ScalarThreshold");
 
   // 时间节点（延时 / 到时）
   factory.registerNodeType<bt_nodes::DelayNode>("Delay");
   factory.registerNodeType<bt_nodes::WaitUntilElapsedConditionNode>("WaitUntilElapsed");
+  factory.registerNodeType<bt_nodes::NonBlockingDelayNode>("NonBlockingDelay");
+  factory.registerNodeType<bt_nodes::TimeConditionNode>("TimeCondition");
 
   // 诊断节点（日志 / 埋点）
   factory.registerNodeType<bt_nodes::LogEventNode>("LogEvent");

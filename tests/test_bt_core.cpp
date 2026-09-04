@@ -2,6 +2,15 @@
 //  tests/test_bt_core.cpp
 //  bt_core 核心库单元测试(GoogleTest)。
 //  覆盖：NodeStatus / Blackboard / 三大族基类 / NodeFactory / Tree。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.2.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.3.0 (2026-08-18): 覆盖黑板初值快照替换和键值规范化
+//    - v1.2.0 (2026-08-18): 覆盖可导出的黑板初值与运行时值隔离
+//    - v1.1.0 (2026-08-18): 覆盖 NodeFactory 可选节点文档清单
 // ============================================================================
 #include <gtest/gtest.h>
 
@@ -18,6 +27,9 @@ class StubAction : public ActionNode {
   StubAction(std::string n, NodeConfig c) : ActionNode(std::move(n), std::move(c)) {}
   static PortsList providedPorts() {
     return makePorts(InputPort<std::string>("ret", "SUCCESS", "返回值"));
+  }
+  static NodeDocumentation providedDocumentation() {
+    return {"桩动作", "用于测试", "按 ret 返回状态", "非法输入按默认成功", "<Stub ret=\"SUCCESS\"/>"};
   }
   NodeStatus tick() override {
     auto r = getInput<std::string>("ret").value_or("SUCCESS");
@@ -84,6 +96,55 @@ TEST(Blackboard, SetGetAndTypeSafety) {
   EXPECT_FALSE(bb->get<int>("missing").has_value());
   EXPECT_TRUE(bb->contains("msg"));
   EXPECT_THROW(bb->get<int>("msg"), std::runtime_error);  // 类型不匹配
+}
+
+TEST(Blackboard, InitialEntriesRemainSeparateFromRuntimeUpdates) {
+  auto bb = Blackboard::create();
+  bb->setInitialValue("temperature", "double", "25.5", "启动测试值");
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+  EXPECT_DOUBLE_EQ(bb->get<double>("temperature").value(), 25.5);
+
+  bb->set<double>("temperature", 80.0);
+  EXPECT_DOUBLE_EQ(bb->get<double>("temperature").value(), 80.0);
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+  EXPECT_EQ(bb->initialEntries().front().value, "25.5");
+  EXPECT_EQ(bb->initialEntries().front().description, "启动测试值");
+}
+
+TEST(Blackboard, ReplaceInitialValuesKeepsNonInitialRuntimeData) {
+  auto bb = Blackboard::create();
+  bb->set<std::string>("ros_node_handle", "runtime-only");
+  bb->setInitialValue(" stale ", "string", "old");
+
+  bb->replaceInitialValues({
+      {" fresh ", "int", " 7 ", ""},
+  });
+
+  EXPECT_FALSE(bb->contains("stale"));
+  EXPECT_EQ(bb->get<std::string>("ros_node_handle").value(), "runtime-only");
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+  EXPECT_EQ(bb->initialEntries().front().key, "fresh");
+  EXPECT_EQ(bb->initialEntries().front().value, "7");
+  EXPECT_EQ(bb->get<int>("fresh").value(), 7);
+}
+
+TEST(Blackboard, ReplaceInitialValuesRejectsAsOneTransaction) {
+  auto bb = Blackboard::create();
+  bb->setInitialValue("stable", "int", "3", "旧配置");
+  bb->set<std::string>("runtime_only", "preserve");
+
+  EXPECT_THROW(
+      bb->replaceInitialValues({
+          {"new_value", "double", "1.5", "新配置"},
+          {"broken", "int", "not-a-number", "非法"},
+      }),
+      std::invalid_argument);
+
+  ASSERT_EQ(bb->initialEntries().size(), 1u);
+  EXPECT_EQ(bb->initialEntries().front().key, "stable");
+  EXPECT_EQ(bb->get<int>("stable").value(), 3);
+  EXPECT_FALSE(bb->contains("new_value"));
+  EXPECT_EQ(bb->get<std::string>("runtime_only").value(), "preserve");
 }
 
 TEST(Blackboard, Ports) {
@@ -154,6 +215,8 @@ TEST(NodeFactory, RegisterCreateAndManifest) {
       found_stub = true;
       EXPECT_EQ(m.type, NodeType::ACTION);
       EXPECT_EQ(m.ports.count("ret"), 1u);
+      EXPECT_EQ(m.documentation.summary, "桩动作");
+      EXPECT_EQ(m.documentation.example_xml, "<Stub ret=\"SUCCESS\"/>");
     }
   }
   EXPECT_TRUE(found_stub);

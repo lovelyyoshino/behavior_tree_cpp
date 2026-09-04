@@ -4,10 +4,11 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
+//  @version v1.2.0
 //  @last_modified 2026-07-13
 //  @changelog
 //    - v1.1.0 (2026-07-13): halt 仅触达本轮执行过的根节点，保证空树与重复停止幂等
+//    - v1.2.0 (2026-08-18): 保存 XML 源文档，支持多 BehaviorTree/SubTreePlus 原样导出
 //
 //  设计说明：
 //    Tree 是“一棵可执行的行为树”的运行期载体：
@@ -60,6 +61,12 @@ public:
 
   /// @brief 设置 XML 主树 ID，供运行观察器使用。
   void setTreeId(std::string tree_id) { tree_id_ = std::move(tree_id); }
+
+  /// @brief 原始 XML 文档；用于服务器格式化时保留未展开的子树定义。
+  const std::string& sourceXml() const { return source_xml_; }
+
+  /// @brief 记录载入文档，运行时黑板仍由 blackboard() 单独持有。
+  void setSourceXml(std::string source_xml) { source_xml_ = std::move(source_xml); }
 
   /**
    * @brief 从根执行一拍。
@@ -176,6 +183,7 @@ private:
   TreeNode::Ptr              root_;
   Blackboard::Ptr            blackboard_;
   std::string                tree_id_;
+  std::string                source_xml_;
   std::vector<TreeNode::Ptr> nodes_;
 };
 

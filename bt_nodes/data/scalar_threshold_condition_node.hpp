@@ -43,6 +43,15 @@ class ScalarThresholdConditionNode : public bt_core::ConditionNode {
  public:
   using bt_core::ConditionNode::ConditionNode;
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "把黑板中的数值读数与阈值比较，适合电量、温度和距离等 ROS2 数据门控。",
+        "先由订阅节点把数值写入黑板，再让 key 指向该键；value 使用浮点阈值，op 从下拉框选择。",
+        "黑板值能解析为数字且比较成立返回 SUCCESS，否则返回 FAILURE。",
+        "key 为空、不存在、值无法解析或 op 非法都会返回 FAILURE，不抛异常中断整棵树。",
+        R"(<ScalarThreshold key="temperature" op=">=" value="80"/>)"};
+  }
+
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
         bt_core::InputPort<std::string>("key", "", "要读取的黑板键名（数值）"),
