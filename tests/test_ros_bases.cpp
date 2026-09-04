@@ -651,13 +651,19 @@ TEST_F(RosBasesTest, DefaultRegistrationCatalogExposesFullNodeSet) {
       "IsFlagTrue",
       "ReadBattery",
       "ReadScalar",
+      "CommandSubscriber",
+      "LoadPathFromFile",
+      "ObstacleSpeedLimiter",
+      "FollowPath",
+      "FollowPathTopic",
+      "WaitUntilTopic",
       "IsDocked",
       "PublishRechargeCommand",
       "TaskDoneNotifier",
       "RechargeTask",
   };
 
-  EXPECT_EQ(factory.size(), 40u);
+  EXPECT_EQ(factory.size(), 46u);
   for (const auto& name : expected) {
     EXPECT_TRUE(factory.isRegistered(name)) << "missing registration: " << name;
   }

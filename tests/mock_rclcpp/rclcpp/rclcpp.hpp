@@ -32,6 +32,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -43,6 +44,9 @@
 #include <vector>
 
 #define RCLCPP_INFO(logger, ...) ((void)0)
+#define RCLCPP_WARN(logger, ...) ((void)0)
+#define RCLCPP_ERROR(logger, ...) ((void)0)
+#define RCLCPP_FATAL(logger, ...) ((void)0)
 
 namespace rclcpp {
 
@@ -62,6 +66,49 @@ struct SensorDataQoS : public QoS {
   SensorDataQoS() : QoS(KeepLast(5)) { profile = "sensor_data"; }
 };
 struct Logger {};
+
+// 最小 Duration：真实 rclcpp::Duration 以纳秒存储并提供 seconds()。
+class Duration {
+ public:
+  Duration() = default;
+  explicit Duration(std::int64_t nanoseconds) : ns_(nanoseconds) {}
+  double seconds() const { return static_cast<double>(ns_) / 1e9; }
+  std::int64_t nanoseconds() const { return ns_; }
+
+ private:
+  std::int64_t ns_{0};
+};
+
+// 最小 Time：默认构造为零时间（epoch），与真实 rclcpp::Time 的
+// "未初始化" 哨兵一致；seconds()==0.0 表示从未赋值。
+class Time {
+ public:
+  Time() = default;
+  explicit Time(std::int64_t nanoseconds) : ns_(nanoseconds) {}
+  double seconds() const { return static_cast<double>(ns_) / 1e9; }
+  std::int64_t nanoseconds() const { return ns_; }
+
+  Duration operator-(const Time& other) const {
+    return Duration(ns_ - other.ns_);
+  }
+  bool operator<(const Time& other) const { return ns_ < other.ns_; }
+  bool operator==(const Time& other) const { return ns_ == other.ns_; }
+  bool operator!=(const Time& other) const { return ns_ != other.ns_; }
+
+ private:
+  std::int64_t ns_{0};
+};
+
+// 最小 Clock：now() 返回系统时钟当前时间。
+class Clock {
+ public:
+  Time now() const {
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    return Time(std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
+  }
+};
+
+inline Logger get_logger(const std::string& /*name*/) { return Logger{}; }
 
 template <typename MsgT>
 struct Subscription {
