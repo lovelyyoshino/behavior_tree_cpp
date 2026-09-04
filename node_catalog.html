@@ -111,11 +111,11 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <section id="bt-nodes">
 <h2>bt_nodes<a class="headerlink" href="#bt-nodes" title="Link to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes</span></code> 是开箱即用的动态插件，构建产物位于 <code class="docutils literal notranslate"><span class="pre">build/lib/libbt_nodes.*</span></code>，
-由 <code class="docutils literal notranslate"><span class="pre">NodeFactory::loadPlugin</span></code> 加载。<code class="docutils literal notranslate"><span class="pre">bt_nodes/register_nodes.cpp</span></code> 当前注册 27 个
+由 <code class="docutils literal notranslate"><span class="pre">NodeFactory::loadPlugin</span></code> 加载。<code class="docutils literal notranslate"><span class="pre">bt_nodes/register_nodes.cpp</span></code> 当前注册 34 个
 节点。下表中的端口均为 input；<code class="docutils literal notranslate"><span class="pre">无</span></code> 表示节点没有端口。XML 片段需要放在
 <code class="docutils literal notranslate"><span class="pre">&lt;root&gt;&lt;BehaviorTree&gt;...&lt;/BehaviorTree&gt;&lt;/root&gt;</span></code> 中运行。</p>
 <table class="docutils align-default" id="id3">
-<caption><span class="caption-text">27 个内置节点完整契约</span><a class="headerlink" href="#id3" title="Link to this table">¶</a></caption>
+<caption><span class="caption-text">34 个内置节点完整契约</span><a class="headerlink" href="#id3" title="Link to this table">¶</a></caption>
 <colgroup>
 <col style="width: 12.0%" />
 <col style="width: 9.0%" />
@@ -170,6 +170,24 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/control/priority_selector_node.hpp</span></code></p>
 </td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code></p></td>
+<td><p>Control</p></td>
+<td><p>无</p></td>
+<td><p>每拍从第一个子节点重评；子节点成功后推进，<code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 时 halt 该子节点并复位游标，下一拍重头评估。</p></td>
+<td><p>任一子节点失败或 <code class="docutils literal notranslate"><span class="pre">IDLE</span></code> 时 halt 子树并失败；空节点成功。与 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> 的差异是不保留游标续跑。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;ReactiveSequence&gt;&lt;AlwaysSuccess/&gt;&lt;Delay</span> <span class="pre">delay_ms=&quot;50&quot;/&gt;&lt;/ReactiveSequence&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/control/reactive_sequence_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ReactiveFallback</span></code></p></td>
+<td><p>Control</p></td>
+<td><p>无</p></td>
+<td><p>每拍从第一个候选重评；失败后推进，<code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 时 halt 该子节点并复位游标，下一拍重头评估。</p></td>
+<td><p>首个成功即成功；全部候选失败或 <code class="docutils literal notranslate"><span class="pre">IDLE</span></code> 时失败；空节点失败。与 <code class="docutils literal notranslate"><span class="pre">Fallback</span></code> 的差异是不保留游标续跑。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;ReactiveFallback&gt;&lt;AlwaysFailure/&gt;&lt;AlwaysSuccess/&gt;&lt;/ReactiveFallback&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/control/reactive_fallback_node.hpp</span></code></p>
+</td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Inverter</span></code></p></td>
 <td><p>Decorator</p></td>
 <td><p>无</p></td>
@@ -222,6 +240,24 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <td><p>跳过拍保留子节点上次状态；负周期或未知 tier 抛错；严格 XML 要求一个子节点。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&lt;TickRate</span> <span class="pre">tier=&quot;background&quot;&gt;&lt;AlwaysSuccess/&gt;&lt;/TickRate&gt;</span></code></p>
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/decorator/tick_rate_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">KeepRunningUntilFailure</span></code></p></td>
+<td><p>Decorator</p></td>
+<td><p>无</p></td>
+<td><p>子节点 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code> 或 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 都返回 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 继续拖着跑；子节点 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code> 时立即失败。</p></td>
+<td><p>无子节点时失败。与 <code class="docutils literal notranslate"><span class="pre">Repeat</span></code> 的差异：对成功不计数，只在失败时停止，适合长驻监视/调度分支。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;KeepRunningUntilFailure&gt;&lt;AlwaysSuccess/&gt;&lt;/KeepRunningUntilFailure&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/decorator/keep_running_until_failure_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">KeepRunningUntilSuccess</span></code></p></td>
+<td><p>Decorator</p></td>
+<td><p>无</p></td>
+<td><p>子节点 <code class="docutils literal notranslate"><span class="pre">FAILURE</span></code> 或 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 都返回 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code> 继续拖着跑；子节点 <code class="docutils literal notranslate"><span class="pre">SUCCESS</span></code> 时立即成功。</p></td>
+<td><p>无子节点时失败。与 <code class="docutils literal notranslate"><span class="pre">KeepRunningUntilFailure</span></code> 对称，适合“等待某条件满足”。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;KeepRunningUntilSuccess&gt;&lt;AlwaysFailure/&gt;&lt;/KeepRunningUntilSuccess&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/decorator/keep_running_until_success_node.hpp</span></code></p>
 </td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AlwaysSuccess</span></code></p></td>
@@ -314,7 +350,16 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/data/blackboard_exists_condition_node.hpp</span></code></p>
 </td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ClearBlackboard</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">BlackboardGate</span></code></p></td>
+<td><p>Condition</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">key:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">expected:string=&quot;&quot;</span></code></p></td>
+<td><p>键存在且（<code class="docutils literal notranslate"><span class="pre">expected</span></code> 为空或字符串值等于 <code class="docutils literal notranslate"><span class="pre">expected</span></code>）时成功。</p></td>
+<td><p>空 key、键不存在或值不匹配时失败。用黑板值当“单刀开关”，让同一棵树按配置走不同分支。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;BlackboardGate</span> <span class="pre">key=&quot;mode&quot;</span> <span class="pre">expected=&quot;patrol&quot;/&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/data/blackboard_gate_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ClearBlackboard</span></code></p></td>
 <td><p>Action</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">key:string=&quot;&quot;</span></code></p></td>
 <td><p>删除指定键；键不存在也幂等成功。</p></td>
@@ -323,7 +368,7 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/data/clear_blackboard_node.hpp</span></code></p>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ScalarThreshold</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ScalarThreshold</span></code></p></td>
 <td><p>Condition</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">key:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">op:string=&quot;&gt;=&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">value:double=0</span></code></p></td>
 <td><p>把黑板值解析为 double 并比较；成立时成功。</p></td>
@@ -332,13 +377,22 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/data/scalar_threshold_condition_node.hpp</span></code></p>
 </td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Delay</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Delay</span></code></p></td>
 <td><p>Action</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">delay_ms:int=1000</span></code></p></td>
 <td><p>正数时首拍记时并运行，到期成功后复位；<code class="docutils literal notranslate"><span class="pre">&lt;=0</span></code> 首拍成功。halt 复位计时。</p></td>
 <td><p>无失败路径。</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&lt;Delay</span> <span class="pre">delay_ms=&quot;500&quot;/&gt;</span></code></p>
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/delay_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NonBlockingDelay</span></code></p></td>
+<td><p>Action</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">msec:int=1000</span></code></p></td>
+<td><p>自首拍起计时，未满 <code class="docutils literal notranslate"><span class="pre">msec</span></code> 毫秒持续返回 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>；满则成功并复位以允许再次调度。</p></td>
+<td><p>无失败路径；<code class="docutils literal notranslate"><span class="pre">&lt;=0</span></code> 表示不延时。halt 复位计时，父节点重启后重新计时。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;NonBlockingDelay</span> <span class="pre">msec=&quot;500&quot;/&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/non_blocking_delay_node.hpp</span></code></p>
 </td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WaitUntilElapsed</span></code></p></td>
@@ -350,7 +404,16 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/wait_until_elapsed_condition_node.hpp</span></code></p>
 </td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LogEvent</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TimeCondition</span></code></p></td>
+<td><p>Condition</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">start_time:string=&quot;00:00:00&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">end_time:string=&quot;23:59:59&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">mode:string=&quot;range&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">interval_sec:double=1800</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">range</span></code> 模式每天在 <code class="docutils literal notranslate"><span class="pre">start_time``~``end_time</span></code> 区间内成功；<code class="docutils literal notranslate"><span class="pre">interval</span></code> 模式自首拍起每 <code class="docutils literal notranslate"><span class="pre">interval_sec</span></code> 秒放行一次。</p></td>
+<td><p>区间外或未到间隔时失败。时间源为 <code class="docutils literal notranslate"><span class="pre">system_clock``（本地时区）。周期触发需由</span> <span class="pre">``KeepRunningUntilFailure</span></code> 或 <code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code> 包装。</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;TimeCondition</span> <span class="pre">mode=&quot;interval&quot;</span> <span class="pre">interval_sec=&quot;60&quot;/&gt;</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">bt_nodes/timer/time_condition_node.hpp</span></code></p>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LogEvent</span></code></p></td>
 <td><p>Action</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">message:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">level:string=&quot;info&quot;</span></code></p></td>
 <td><p>输出 <code class="docutils literal notranslate"><span class="pre">[INFO|WARN|ERROR]</span> <span class="pre">message</span></code>；error 走 stderr，其余走 stdout，随后成功。</p></td>
@@ -359,7 +422,7 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/diagnostic/log_event_node.hpp</span></code></p>
 </td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionAction</span></code></p></td>
 <td><p>Action</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">function:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">input:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">output_key:string=&quot;&quot;</span></code></p></td>
 <td><p>调用单例注册表中的 Action 回调并原样返回其状态，包括 <code class="docutils literal notranslate"><span class="pre">RUNNING</span></code>。</p></td>
@@ -368,7 +431,7 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 <p><code class="docutils literal notranslate"><span class="pre">bt_nodes/function/function_registry.*</span></code></p>
 </td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">FunctionCondition</span></code></p></td>
 <td><p>Condition</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">function:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">input:string=&quot;&quot;</span></code>；<code class="docutils literal notranslate"><span class="pre">output_key:string=&quot;&quot;</span></code></p></td>
 <td><p>调用 Condition 回调；true 映射为成功，false 映射为失败。</p></td>
@@ -388,9 +451,18 @@ XML 用 <code class="docutils literal notranslate"><span class="pre">value=&quot
 </section>
 <section id="bt-ros2">
 <h2>bt_ros2<a class="headerlink" href="#bt-ros2" title="Link to this heading">¶</a></h2>
-<p>ROS2 executor 默认注册 40 种节点：上述 bt_nodes 27 种、通用 ROS graph/topic/service 5 种、ROS data
-4 种、recharge 4 种。完整清单以 <code class="docutils literal notranslate"><span class="pre">bt_ros2/README.md</span></code> 和
-<code class="docutils literal notranslate"><span class="pre">bt_ros2/src/node_registration.cpp</span></code> 为准。</p>
+<p>ROS2 executor 默认注册 46 种节点：上述 bt_nodes 中的 27 种，加 19 种 ROS 专属节点
+（graph/topic/service 条件与动作、ROS data 录入、导航与回充）。完整清单以
+<code class="docutils literal notranslate"><span class="pre">bt_ros2/README.md</span></code> 和 <code class="docutils literal notranslate"><span class="pre">bt_ros2/src/node_registration.cpp</span></code> 为准。</p>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>ROS2 executor 复用的是 <code class="docutils literal notranslate"><span class="pre">bt_nodes</span></code> 中的 27 种，而 <strong>不是</strong> 全部 34 种。
+<code class="docutils literal notranslate"><span class="pre">ReactiveSequence</span></code>、<code class="docutils literal notranslate"><span class="pre">ReactiveFallback</span></code>、<code class="docutils literal notranslate"><span class="pre">KeepRunningUntilFailure</span></code>、
+<code class="docutils literal notranslate"><span class="pre">KeepRunningUntilSuccess</span></code>、<code class="docutils literal notranslate"><span class="pre">BlackboardGate</span></code>、<code class="docutils literal notranslate"><span class="pre">NonBlockingDelay</span></code> 和
+<code class="docutils literal notranslate"><span class="pre">TimeCondition</span></code> 尚未加入 <code class="docutils literal notranslate"><span class="pre">bt_ros2/src/node_registration.cpp</span></code>，因此目前
+只能在普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 中执行。在 ROS2 树里使用它们会在严格 XML 载入阶段
+报未注册节点。</p>
+</div>
 <table class="docutils align-default" id="id4">
 <caption><span class="caption-text">ROS2 数据与回充节点</span><a class="headerlink" href="#id4" title="Link to this table">¶</a></caption>
 <colgroup>
@@ -477,7 +549,7 @@ manifest <code class="docutils literal notranslate"><span class="pre">editor_hin
 <span class="nt">&lt;/PrioritySelector&gt;</span>
 </pre></div>
 </div>
-<p>当前 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code> 启动的普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 只加载 27 个非 ROS 插件节点；它不能
+<p>当前 <code class="docutils literal notranslate"><span class="pre">./scripts/dev.sh</span></code> 启动的普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 只加载 34 个非 ROS 插件节点；它不能
 执行需要 <code class="docutils literal notranslate"><span class="pre">rclcpp::Node</span></code> 句柄的 ROS2 节点。上述 ROS2 XML 由 <code class="docutils literal notranslate"><span class="pre">BtExecutorNode</span></code> 加载和
 执行。ROS2 执行、心跳测试、消息发布和只读 Web 监视命令见 <code class="docutils literal notranslate"><span class="pre">bt_ros2/README.md</span></code>。</p>
 <p>打包的 <code class="docutils literal notranslate"><span class="pre">bt_ros2/trees/recharge.xml</span></code> 使用完整 <code class="docutils literal notranslate"><span class="pre">RechargeTask</span></code>，不再用
@@ -505,6 +577,7 @@ manifest <code class="docutils literal notranslate"><span class="pre">editor_hin
 <h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>

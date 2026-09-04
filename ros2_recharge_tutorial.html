@@ -45,7 +45,7 @@
 </a>
 <p>打包树固定为 8 个节点：1 个 <code class="docutils literal notranslate"><span class="pre">Fallback</span></code>、2 个 <code class="docutils literal notranslate"><span class="pre">Sequence</span></code>、1 个
 <code class="docutils literal notranslate"><span class="pre">ReadBattery</span></code>、2 个 <code class="docutils literal notranslate"><span class="pre">CompareBlackboard</span></code>、1 个 <code class="docutils literal notranslate"><span class="pre">RechargeTask</span></code> 和 1 个
-<code class="docutils literal notranslate"><span class="pre">TaskDoneNotifier</span></code>。执行器默认注册 40 种节点。</p>
+<code class="docutils literal notranslate"><span class="pre">TaskDoneNotifier</span></code>。执行器默认注册 46 种节点。</p>
 </section>
 <section id="id2">
 <h2>涉及文件<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
@@ -73,7 +73,7 @@
 <td><p>单次发布、等待、超时、终态锁存和 halt/retry 状态机。</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bt_ros2/src/node_registration.cpp</span></code></p></td>
-<td><p>通过单例 catalog、工厂和注册函数引用注册 40 种节点。</p></td>
+<td><p>通过单例 catalog、工厂和注册函数引用注册 46 种节点。</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bt_ros2/src/bt_executor_node.cpp</span></code></p></td>
 <td><p>建树、周期 tick、根状态、幂等 start/stop service。</p></td>
@@ -450,6 +450,7 @@ ros2<span class="w"> </span>launch<span class="w"> </span>bt_ros2<span class="w"
 <h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>

@@ -228,7 +228,7 @@ SingleThreadedExecutor -&gt; Tree::tickOnce()
 <p>用户项目中常见的 <code class="docutils literal notranslate"><span class="pre">SubTreePlus</span></code>、<code class="docutils literal notranslate"><span class="pre">RunOnZoneTransition</span></code>、<code class="docutils literal notranslate"><span class="pre">TimeCondition</span></code>、
 <code class="docutils literal notranslate"><span class="pre">FollowPath</span></code> 和 ROS2 service/action 节点不属于本仓库当前默认注册目录。编辑器的“自定义
 XML 节点”可以先搭建它们的结构并填写任意属性，但不会凭名称伪造执行能力：严格 XML 解析
-仍会检查普通节点的注册名和 <code class="docutils literal notranslate"><span class="pre">providedPorts()</span></code>，普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 只加载 27 个
+仍会检查普通节点的注册名和 <code class="docutils literal notranslate"><span class="pre">providedPorts()</span></code>，普通 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> 只加载 34 个
 <code class="docutils literal notranslate"><span class="pre">bt_nodes</span></code> 节点，ROS2 节点则必须由 <code class="docutils literal notranslate"><span class="pre">BtExecutorNode</span></code> 注册并提供真实的 <code class="docutils literal notranslate"><span class="pre">rclcpp::Node</span></code>
 句柄。</p>
 <p>这份 Yuyi XML 还需要注意以下兼容性差异：</p>
@@ -327,6 +327,7 @@ curl<span class="w"> </span>-i<span class="w"> </span>-X<span class="w"> </span>
 <h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>

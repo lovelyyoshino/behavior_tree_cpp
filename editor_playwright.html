@@ -58,7 +58,7 @@
 </tr>
 <tr class="row-odd"><td><p>opt-in <code class="docutils literal notranslate"><span class="pre">live-backend.spec.ts</span></code></p></td>
 <td><p>真实 <code class="docutils literal notranslate"><span class="pre">bt_server</span></code> + <code class="docutils literal notranslate"><span class="pre">libbt_nodes</span></code></p></td>
-<td><p>覆盖生产 Vite preview 代理、27 个真实 manifest（编辑器另加 2 个结构条目）、调度节点端口、严格 XML、load/validate/tick。</p></td>
+<td><p>覆盖生产 Vite preview 代理、34 个真实 manifest（编辑器另加 2 个结构条目）、调度节点端口、严格 XML、load/validate/tick。</p></td>
 </tr>
 </tbody>
 </table>
@@ -132,7 +132,7 @@ cmake<span class="w"> </span>--build<span class="w"> </span>/tmp/btx-docs-live-b
 <span class="w">  </span>npm<span class="w"> </span>run<span class="w"> </span>test:e2e:live
 </pre></div>
 </div>
-<p>live 用例会断言真实 manifest 恰好 27 个、<code class="docutils literal notranslate"><span class="pre">AlwaysSuccess</span></code> / <code class="docutils literal notranslate"><span class="pre">AlwaysFailure</span></code> 是
+<p>live 用例会断言真实 manifest 恰好 34 个、<code class="docutils literal notranslate"><span class="pre">AlwaysSuccess</span></code> / <code class="docutils literal notranslate"><span class="pre">AlwaysFailure</span></code> 是
 Condition、<code class="docutils literal notranslate"><span class="pre">PrintMessage.message</span></code> 默认 <code class="docutils literal notranslate"><span class="pre">hello</span> <span class="pre">bt</span></code>，然后执行示例 load、validate、
 tick。它再清空浏览器画布，从 server 导回八节点树并执行 Run，证明生产 preview、编辑器
 状态和真实 C++ 树形成闭环。最后直接请求严格校验接口，确认 <code class="docutils literal notranslate"><span class="pre">messsage</span></code> 这类未声明属性
