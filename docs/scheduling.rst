@@ -189,7 +189,7 @@ Yuyi 专用树接入前检查
 用户项目中常见的 ``SubTreePlus``、``RunOnZoneTransition``、``TimeCondition``、
 ``FollowPath`` 和 ROS2 service/action 节点不属于本仓库当前默认注册目录。编辑器的“自定义
 XML 节点”可以先搭建它们的结构并填写任意属性，但不会凭名称伪造执行能力：严格 XML 解析
-仍会检查普通节点的注册名和 ``providedPorts()``，普通 ``bt_server`` 只加载 27 个
+仍会检查普通节点的注册名和 ``providedPorts()``，普通 ``bt_server`` 只加载 34 个
 ``bt_nodes`` 节点，ROS2 节点则必须由 ``BtExecutorNode`` 注册并提供真实的 ``rclcpp::Node``
 句柄。
 

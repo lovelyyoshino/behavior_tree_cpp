@@ -26,7 +26,7 @@ XML 属性有两种语义：
 
 ## 2. 内置节点速查
 
-当前 `bt_nodes` 插件共注册 25 个内置节点。完整端口表、失败语义和新增节点细节见 Sphinx 版 [`docs/node_catalog.rst`](../node_catalog.rst)。
+当前 `bt_nodes` 插件共注册 27 个内置节点。完整端口表、失败语义和新增节点细节见 Sphinx 版 [`docs/node_catalog.rst`](../node_catalog.rst)。
 
 | 节点 | 类型 | 用途 |
 |---|---|---|
@@ -213,7 +213,7 @@ XML：
 { registerBtNodes, registerRosTopicNodes, registerRosDataNodes, registerRechargeNodes }
 ```
 
-这意味着 ROS2 XML 可以直接使用控制节点、数据节点、函数节点和回充节点，不需要用户手动修改 executor。默认目录共注册 35 个类型；打包的 8 节点回充树使用 `RechargeTask`，`PublishRechargeCommand` 与 `IsDocked` 仅作为兼容节点继续保留。
+这意味着 ROS2 XML 可以直接使用控制节点、数据节点、函数节点、graph 检查、Trigger/SetBool 服务和回充节点，不需要用户手动修改 executor。默认目录共注册 40 个类型；打包的 8 节点回充树使用 `RechargeTask`，`PublishRechargeCommand` 与 `IsDocked` 仅作为兼容节点继续保留。
 
 ## 7. 推荐开发流程
 

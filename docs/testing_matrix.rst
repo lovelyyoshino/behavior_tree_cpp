@@ -41,7 +41,7 @@ PowerShell/CMD 未验证。
      - mocked 编辑器闭环，含 XML、Run、状态上色、离线/manifest 恢复、删除/重置/清空，以及 1280/768/390 响应式和触控添加。
      - 每轮 14/14，三轮均通过；CI retry-pass 仍按 flaky 失败。
    * - ``cd bt_editor && BT_SERVER_BIN=... BT_NODES_PLUGIN=... npm run test:e2e:live``
-     - 生产 preview 代理到真实 ``bt_server + libbt_nodes``，验证 25 manifest、load/validate/tick、清空后导回、Run 和严格 XML 错误。
+     - 生产 preview 代理到真实 ``bt_server + libbt_nodes``，验证 27 manifest、调度节点端口、load/validate/tick、清空后导回、Run 和严格 XML 错误。
      - 1/1；调用方显式提供刚构建的 Release 产物。
    * - 临时目录 ``docs-screenshots.spec.ts`` + ``screenshots:check``
      - 固定 mocked 状态生成四张临时图片，验证 PNG/IHDR/尺寸和 SHA-256；Linux canonical gate 还会逐字节对比已提交文档图。
@@ -59,7 +59,7 @@ PowerShell/CMD 未验证。
 ROS2 真机验证
 -------------
 
-当前机器已在 ROS2 Humble 环境完成 35 个默认注册、八节点安装树、幂等 start/stop 和
+当前机器已在 ROS2 Humble 环境完成 40 个默认注册、八节点安装树、幂等 start/stop 和
 单次 battery/command/dock/notifier 的端到端验证。可复制命令集中在
 :doc:`ros2_recharge_tutorial`；按 observer-first 顺序启动观察者，不要用连续
 ``ros2 topic pub`` 代替 one-shot 事件流程。

@@ -66,12 +66,18 @@ XML 配置的属性都必须由节点的 ``providedPorts()`` 声明。
    * - ``Parallel``
      - Control
      - 逻辑并行 tick 子节点，按阈值判定。
+   * - ``PrioritySelector``
+     - Control
+     - 每拍重评高优先级输入，并抢占低优先级运行分支。
    * - ``Retry`` / ``Repeat``
      - Decorator
      - 重试失败或重复成功。
    * - ``ForceSuccess`` / ``ForceFailure``
      - Decorator
      - 强制改写子节点终态。
+   * - ``TickRate``
+     - Decorator
+     - 按 critical/normal/background 或自定义周期降低子树 tick 频率。
    * - ``SetBlackboard`` / ``SetBool``
      - Action
      - 写黑板数据。
@@ -106,7 +112,8 @@ XML 配置的属性都必须由节点的 ``providedPorts()`` 声明。
      - Action / Condition
      - 按函数名调用 C++ 函数注册表。
 
-内置节点共 25 个，完整端口表与失败语义见 :doc:`node_catalog`。
+内置节点共 34 个，完整端口表与失败语义见 :doc:`node_catalog`；调度组合见
+:doc:`scheduling`。
 
 用单例函数注册表接业务函数
 --------------------------

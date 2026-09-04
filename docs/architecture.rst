@@ -41,6 +41,8 @@
 * 高频业务优先用函数注册表快速复用，稳定后再沉淀节点类。
 * ROS2 消息先进入黑板，决策逻辑尽量保持普通行为树节点。
 * 编辑器不硬编码节点端口，而是依赖 ``NodeFactory`` manifest。
+* 外部回调只更新线程安全输入快照；一棵树只由一个 tick 所有者推进。
+* 输入抢占用 ``PrioritySelector``，子树频率分级用 ``TickRate``，详见 :doc:`scheduling`。
 
 HTTP API
 --------

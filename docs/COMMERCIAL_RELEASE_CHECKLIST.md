@@ -7,7 +7,7 @@ This checklist separates engineering readiness from legal authority to distribut
 - [x] `./scripts/test.sh` covers Release CTest, ASan/UBSan plugin lifetime, installed SDK consumption, server API integration, frontend unit/build, mocked/live Playwright, temporary screenshot hashes, and Sphinx HTML/linkcheck.
 - [x] ROS2 Humble mock, build, launch, service, and one-event DDS evidence exists.
 - [x] Jazzy is disclosed exactly as: **unverified: ROS 2 Jazzy is not installed on this machine.**
-- [x] The 25-node catalog, strict XML migration rules, and eight-node `RechargeTask` tutorial match current code.
+- [x] The 27-node catalog, scheduling rules, strict XML migration rules, and eight-node `RechargeTask` tutorial match current code.
 - [x] `THIRD_PARTY_NOTICES.md` inventories vendored C++, direct frontend, and documentation dependencies.
 
 ## Owner And Legal Gates

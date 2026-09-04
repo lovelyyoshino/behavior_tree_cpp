@@ -79,11 +79,11 @@
 
 | 注册组 | 数量 |
 |---|---:|
-| `registerBtNodes` | 25 |
-| `registerRosTopicNodes` | 2 |
+| `registerBtNodes` | 27 |
+| `registerRosTopicNodes` | 5 |
 | `registerRosDataNodes` | 4 |
 | `registerRechargeNodes` | 4 |
-| 合计 | 35 |
+| 合计 | 40 |
 
 项目可用 `NodeRegistrationCatalog::instance().add(registerMyRobotNodes)` 追加一组注册函数，最终仍由 `NodeFactory` 创建节点。
 
@@ -92,7 +92,9 @@
 ```bash
 source /opt/ros/humble/setup.bash
 cd ~/bt_ws
-colcon build --packages-select bt_ros2
+colcon build \
+  --base-paths "$PWD/src/behavior_tree_cpp/bt_ros2" \
+  --packages-select bt_ros2
 source install/setup.bash
 
 TREE_FILE="$(ros2 pkg prefix bt_ros2)/share/bt_ros2/trees/recharge.xml"
@@ -183,7 +185,7 @@ cmake --build build --target test_ros_bases --parallel
 
 mock gate 覆盖 QoS、发布者等待、`RechargeTask` 的七端口、单次发布、dock 成功、超时、成功优先、终态锁存、halt/retry 和 endpoint 复用。
 
-真实 Humble 验收直接使用第 5、6 节的可复制命令，覆盖 35 个注册、8 节点安装树、幂等
+真实 Humble 验收直接使用第 5、6 节的可复制命令，覆盖 40 个注册、8 节点安装树、幂等
 start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。需要隔离并行 ROS 图时，
 在各终端设置同一个未占用的 `ROS_DOMAIN_ID`。
 

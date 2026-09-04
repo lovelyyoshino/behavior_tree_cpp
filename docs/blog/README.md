@@ -256,7 +256,7 @@ cd bt_editor && npm install && npm run dev
 **① 编辑器工作区加载，mocked manifest 分类正确**
 ![编辑器加载](screenshots/01_editor_loaded.png)
 
-**② 载入示例树**（Sequence + Fallback + Inverter + Retry 的 8 节点树，画布渲染 + 连线）
+**② 导入示例 XML**（Sequence + Fallback + Inverter + Retry 的 8 节点树，画布渲染 + 连线）
 ![示例树](screenshots/02_sample_tree.png)
 
 **③ Tick 后运行态高亮**（绿=SUCCESS，灰=IDLE/未走到，逐节点对应后端 tick 返回）
@@ -265,7 +265,7 @@ cd bt_editor && npm install && npm run dev
 **④ 选中节点编辑实例名和端口，XML 立即同步**
 ![属性与 XML 编辑](screenshots/04_tick_highlight_fixed.png)
 
-截图可以用 `cd bt_editor && npm run screenshots` 重建；脚本会拒绝过小或内容重复的图片。1200 像素文档视口会隐藏容易遮挡节点的 MiniMap/运行态浮层，1280/768/390 的非遮挡与无横向溢出另有 Playwright 几何回归。浏览器到真实 C++ 后端的闭环由独立 live 项目验证：先构建 `bt_server` 和 `libbt_nodes`，再显式设置 `BT_SERVER_BIN`、`BT_NODES_PLUGIN` 并运行 `npm run test:e2e:live`。该用例检查 25 个真实 manifest、示例 load/validate/tick、清空后导回、Run 和严格 XML 错误，不把 mocked 图片当作真实后端证据。
+截图可以用 `cd bt_editor && npm run screenshots` 重建；脚本会拒绝过小或内容重复的图片。1200 像素文档视口会隐藏容易遮挡节点的 MiniMap/运行态浮层，1280/768/390 的非遮挡与无横向溢出另有 Playwright 几何回归。浏览器到真实 C++ 后端的闭环由独立 live 项目验证：先构建 `bt_server` 和 `libbt_nodes`，再显式设置 `BT_SERVER_BIN`、`BT_NODES_PLUGIN` 并运行 `npm run test:e2e:live`。该用例检查 27 个真实 manifest、调度节点端口、示例 load/validate/tick、清空后导回、Run 和严格 XML 错误，不把 mocked 图片当作真实后端证据。
 
 > **活体验证抓到的真实 bug（构建测试发现不了）**：Tick 后所有节点一开始都不上色。根因是**编辑器节点 id（`n0,n1...`）和后端节点 id（数字 `1,2...`）是两套独立空间**，前端拿 `n0` 去匹配后端 `1` 永远匹配不上。修复方法是按 **DFS 前序位置**对齐——前端导出 XML、后端构树遍历用的是同一套前序，所以第 i 个节点必然对应。这类 bug 只有真启动浏览器点 Tick 看染色才会暴露，`npm run build` 和 `ctest` 全绿也照样漏。**UI 功能必须做活体运行验证。**
 

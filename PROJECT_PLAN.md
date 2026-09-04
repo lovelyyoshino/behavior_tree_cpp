@@ -2,7 +2,7 @@
 
 > 当前版本目标：把已有的 C++ 行为树核心、插件节点、HTTP 后端和 Web 编辑器，推进成一个可编辑、可排版、可测试、可读脚本、可一键启动的工程化工具链。
 
-更新时间：2026-07-13
+更新时间：2026-08-18
 
 ---
 
@@ -24,12 +24,12 @@
 | 模块 | 当前能力 | 结论 |
 |---|---|---|
 | `bt_core` | C++17 行为树核心：节点基类、黑板、端口、工厂、插件加载、树 tick、XML parser、SubTree 展开 | 已形成可用核心 |
-| `bt_nodes` | 25 个内置插件节点：控制、装饰、动作/条件、数据、时间、诊断、函数节点 | 已可给编辑器动态枚举 |
+| `bt_nodes` | 27 个内置插件节点：新增响应式 `PrioritySelector` 与分级 `TickRate` | 已可给编辑器动态枚举和配置 |
 | `bt_server` | `cpp-httplib` HTTP 服务，`TreeApiService` 承载树状态/API 逻辑；支持 health/nodes/load/validate/format/export/tick/run/structure/trees/open/save | 后端协议已能支撑编辑器核心闭环和 workspace 文件管理 |
 | `bt_editor` | React + TypeScript + React Flow；稳定布局、类型化属性、XML 导入导出、Tick 上色、Vitest 4/13、6 个 mocked Playwright 和 1 个 live-backend 用例 | 编辑与浏览器闭环已验证 |
-| `bt_ros2` | 可选 ROS2 wrapper、35 节点默认注册、八节点 `RechargeTask` 回充树、幂等 start/stop、mock 和 Humble DDS smoke | Humble 回充闭环已验证；Jazzy 未验证 |
+| `bt_ros2` | 可选 ROS2 wrapper、37 节点默认注册、八节点 `RechargeTask` 回充树、幂等 start/stop、mock 和 Humble DDS smoke | Humble 回充闭环已验证；Jazzy 未验证 |
 | `tests` | GoogleTest 覆盖核心、严格 XML、数据/ROS mock、SubTree、插件回滚/生命周期；另有安装 consumer 和 HTTP smoke | Release 与 sanitizer gate 已接入统一脚本 |
-| `docs` | 25 节点完整契约、函数手册、ROS2 教程、四张截图、Sphinx HTML/linkcheck | 查询手册与验证说明完整 |
+| `docs` | 27 节点完整契约、函数手册、ROS2 教程、四张截图、Sphinx HTML/linkcheck | 查询手册与验证说明完整 |
 
 ### 1.2 本次实测证据
 
@@ -54,7 +54,7 @@ npx playwright test
 - `./scripts/build_docs.sh`：Sphinx HTML 与 linkcheck 均以 warning-as-error 通过。
 - 临时启动 `bt_server` 并加载当前平台的 `libbt_nodes.so` / `libbt_nodes.dylib` 后，接口 smoke 通过：
   - `/api/health` 返回 `ok=true`
-  - `/api/nodes` 枚举到 25 个插件节点
+  - `/api/nodes` 枚举到 27 个插件节点，并提供 `TickRate.tier` 枚举端口
   - `/api/tree/load` 加载 3 节点 XML 成功
   - `/api/tree/export` 能导出格式化 XML
   - `/api/tree/tick` 返回根状态 `SUCCESS`
@@ -234,7 +234,7 @@ Vitest 已覆盖 `xml.ts`、`connection.ts` 和端口控件推断；后续可继
 ./scripts/smoke_ros2.sh
 ```
 
-Humble smoke 已覆盖 35 个注册、八节点安装树、幂等 start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。Jazzy 状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
+Humble smoke 已覆盖 37 个注册、八节点安装树、幂等 start/stop、各一条 battery/command/dock/notifier 和最终 `SUCCESS`。Jazzy 状态：**unverified: ROS 2 Jazzy is not installed on this machine.**
 
 ### Phase 17 — SDK、插件生命周期与安装消费（P0）
 
@@ -252,7 +252,7 @@ Humble smoke 已覆盖 35 个注册、八节点安装树、幂等 start/stop、�
 
 ### Phase 19 — 手册与浏览器证据（P0）
 
-- [x] Sphinx 25 节点契约、严格 XML 迁移、ROS2 教程和函数手册完成。
+- [x] Sphinx 27 节点契约、严格 XML 迁移、ROS2 教程和函数手册完成。
 - [x] mocked 浏览器错误路径、真实 `bt_server + libbt_nodes` 流程完成。
 - [x] 四张 mocked 文档图来源如实标注并通过 hash/pixel gate。
 
@@ -263,6 +263,25 @@ Humble smoke 已覆盖 35 个注册、八节点安装树、幂等 start/stop、�
 - [ ] 产品 owner 批准根许可证文本并提交根 `LICENSE`。
 - [ ] 产品 owner 提供真实 copyright/maintainer 名称与联系方式，替换 ROS package placeholder。
 - [ ] 法务/产品 owner 审核第三方 notice bundle 和目标分发方式。
+
+### Phase 21 — 单树分级调度（P0）
+
+- [x] ROS2 入口显式使用单线程 executor，tick、服务、reload 和调试覆盖统一串行化。
+- [x] ROS subscription 回调只更新线程安全快照，tick 复制后再访问黑板和业务状态。
+- [x] 新增 `PrioritySelector`：每拍重评高优先级输入，并 halt 被抢占的低优先级运行分支。
+- [x] 新增 `TickRate`：提供 critical/normal/background 档位和 `every_n_ticks` 覆盖。
+- [x] 两个调度节点进入 bt_nodes 插件、ROS2 默认注册目录、HTTP manifest 和编辑器属性面板。
+- [x] 新增单树调度示例、核心单测、ROS mock 并发边界、server smoke 和编辑器往返测试。
+- [x] 增加 `docs/scheduling.rst`，明确使用方式、线程所有权、抢占契约和非硬实时边界。
+
+验收证据：
+
+```bash
+ctest --test-dir build -R 'PrioritySelector|TickRate|RosBases' --output-on-failure
+./build/bin/example_load_xml ./build/lib/libbt_nodes.so examples/trees/priority_tick_scheduler.xml
+./scripts/smoke_server.sh
+cd bt_editor && npm test && npm run test:e2e:live
+```
 
 ---
 

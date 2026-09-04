@@ -94,7 +94,7 @@ static PortsList providedPorts() {
 
 这满足“单例 + 工厂 + 注册函数引用”的扩展方式：`NodeRegistrationCatalog::instance()` 保存注册函数列表，最终仍由 `bt_core::NodeFactory` 创建节点。
 
-默认目录共注册 35 种节点：bt_nodes 25、ROS topic 2、ROS data 4、recharge 4。打包的 `recharge.xml` 固定为 8 个节点，并使用 `RechargeTask`；`PublishRechargeCommand` 和 `IsDocked` 仅为旧 XML 兼容保留。
+默认目录共注册 40 种节点：bt_nodes 27、通用 ROS graph/topic/service 5、ROS data 4、recharge 4。打包的 `recharge.xml` 固定为 8 个节点，并使用 `RechargeTask`；`PublishRechargeCommand` 和 `IsDocked` 仅为旧 XML 兼容保留。
 
 ## 已验证（exit=0，mock rclcpp + 纯逻辑单测）
 1. data_freshness 全部边界
@@ -102,6 +102,6 @@ static PortsList providedPorts() {
 3. RosInputNode：onData 写黑板 + SUCCESS
 4. providedPorts 合并订阅公共端口（含 `qos_profile`）+ 自定义阈值读取
 5. `RechargeTask` 七端口、单次发布、dock 成功、超时、成功优先、终态锁存、halt/retry 和端点复用
-6. ROS2 Humble 端到端验证：35 个注册、8 节点安装树、幂等 start/stop、单次 battery/command/dock/notifier、最终 `SUCCESS`
+6. ROS2 Humble 编译验证 40 个默认注册；回充 smoke 继续验证 8 节点安装树、幂等 start/stop、单次 battery/command/dock/notifier 和最终 `SUCCESS`
 
 Jazzy 环境状态：**unverified: ROS 2 Jazzy is not installed on this machine.**

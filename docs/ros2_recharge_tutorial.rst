@@ -14,7 +14,7 @@ ROS2 回充教程
 
 打包树固定为 8 个节点：1 个 ``Fallback``、2 个 ``Sequence``、1 个
 ``ReadBattery``、2 个 ``CompareBlackboard``、1 个 ``RechargeTask`` 和 1 个
-``TaskDoneNotifier``。执行器默认注册 35 种节点。
+``TaskDoneNotifier``。执行器默认注册 46 种节点。
 
 涉及文件
 --------
@@ -34,7 +34,7 @@ ROS2 回充教程
    * - ``bt_ros2/src/recharge_task.cpp``
      - 单次发布、等待、超时、终态锁存和 halt/retry 状态机。
    * - ``bt_ros2/src/node_registration.cpp``
-     - 通过单例 catalog、工厂和注册函数引用注册 35 种节点。
+     - 通过单例 catalog、工厂和注册函数引用注册 46 种节点。
    * - ``bt_ros2/src/bt_executor_node.cpp``
      - 建树、周期 tick、根状态、幂等 start/stop service。
    * - ``bt_ros2/trees/recharge.xml``
@@ -138,12 +138,12 @@ RechargeTask 状态机
 
 ``NodeRegistrationCatalog::instance()`` 默认保存四个注册函数引用：
 
-* ``registerBtNodes``：25
-* ``registerRosTopicNodes``：2
+* ``registerBtNodes``：27
+* ``registerRosTopicNodes``：5
 * ``registerRosDataNodes``：4
 * ``registerRechargeNodes``：4
 
-合计 35 个注册类型。
+合计 40 个注册类型。
 项目可在 executor 构造前追加一组专用注册函数：
 
 .. code-block:: cpp
@@ -242,7 +242,7 @@ RechargeTask 状态机
    ./build/bin/test_ros_bases
 
 真实 ROS2 Humble 验收使用本页“启动执行器与观察者”和“只发布一次事件”的可复制命令。
-验收范围是 35 个注册、8 节点安装树、幂等 start/stop、各一条
+验收范围是 40 个注册、8 节点安装树、幂等 start/stop、各一条
 battery/command/dock/notifier 和最终 ``SUCCESS``。需要隔离并行 ROS 图时，在各终端设置
 同一个未占用的 ``ROS_DOMAIN_ID``。
 

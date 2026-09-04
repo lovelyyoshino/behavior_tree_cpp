@@ -93,6 +93,16 @@ FAILURE  执行失败
 - XML ↔ 内存树双向转换,格式兼容 BehaviorTree.CPP。
 - 反序列化时通过 `NodeFactory` 按节点名实例化。
 
+### 3.9 单树分级调度
+
+- ROS2 进程显式使用 `SingleThreadedExecutor`，一棵树只允许一个 tick 所有者。
+- subscription 回调只更新线程安全输入快照，不直接写黑板或切换业务状态。
+- `PrioritySelector` 每拍从高到低重评输入；高优先级分支就绪时 halt 当前低优先级运行分支。
+- `TickRate` 在同一线程内按 critical/normal/background 或自定义周期推进子树。
+- `Parallel` 是逻辑并行，不产生工作线程；长任务通过异步 Action 的 `RUNNING`/`halt()` 协议推进。
+
+完整语义、XML 示例和编辑器流程见 `docs/scheduling.rst`。
+
 ---
 
 ## 4. 扩展机制：写一个自定义节点（关键流程）

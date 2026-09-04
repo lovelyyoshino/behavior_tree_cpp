@@ -71,7 +71,7 @@
 | `CompareBlackboard` | Condition | 比较黑板 `key` 的值与 `value`：两侧都是数字走数值比较，否则字符串比较（==/!= 按相等，序关系按字典序）；key 不存在或 op 非法 → FAILURE | `key` / input / `""`<br>`op` / input / `"=="`（`== != < <= > >=`）<br>`value` / input / `""` | `<CompareBlackboard key="score" op="&gt;=" value="60"/>` |
 | `CheckBool` | Condition | 读黑板 `key` 的 bool 值，等于 `expected` 返回 SUCCESS（兼容 bool 与 "true"/"1" 字符串两种存法）；不存在/不可解析 → FAILURE | `key` / input / `""`<br>`expected` / input / `"true"` | `<CheckBool key="is_ready" expected="true"/>` |
 
-> ✅ **这些数据节点均已注册、开箱可用**：`SetBlackboard` / `SetBool` / `CompareBlackboard` / `CheckBool` / `Counter` / `CooldownCondition` 全部已在 `bt_nodes/register_nodes.cpp` 注册。加载 `libbt_nodes` 动态库后工厂共暴露 **25 个节点**（控制 3 + 装饰 5 + 动作/条件 3 + 数据 9 + 时间 2 + 诊断 1 + 函数 2），XML 里可直接写 `<SetBlackboard>` / `<Counter>` / `<FunctionAction>` / `<ScalarThreshold>` / `<Delay>` 等标签构建运行。（已用真实加载实测确认 25 个注册名。）
+> ✅ **这些数据节点均已注册、开箱可用**：`SetBlackboard` / `SetBool` / `CompareBlackboard` / `CheckBool` / `Counter` / `CooldownCondition` 全部已在 `bt_nodes/register_nodes.cpp` 注册。加载 `libbt_nodes` 动态库后工厂共暴露 **27 个节点**（控制 4 + 装饰 6 + 动作/条件 3 + 数据 9 + 时间 2 + 诊断 1 + 函数 2），XML 里可直接写 `<PrioritySelector>` / `<TickRate>` / `<SetBlackboard>` / `<Counter>` / `<FunctionAction>` / `<ScalarThreshold>` / `<Delay>` 等标签构建运行。（真实加载 smoke 会核对 27 个注册名。）
 
 ### 5. 黑板与端口：数据流动的载体
 
