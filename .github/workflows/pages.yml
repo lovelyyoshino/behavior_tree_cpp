@@ -51,6 +51,8 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -58,3 +60,29 @@ jobs:
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify:
+    name: Verify deployed site with Playwright
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: bt_editor/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: bt_editor
+        run: npm ci
+      - name: Install Playwright Chromium
+        working-directory: bt_editor
+        run: npx playwright install --with-deps chromium
+      - name: Smoke-test the deployed Pages URL
+        working-directory: bt_editor
+        env:
+          BT_PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+        run: npm run verify:pages

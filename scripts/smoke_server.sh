@@ -165,10 +165,18 @@ import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 names = {item.get("registration_name") for item in data}
-assert len(data) == 27, (len(data), data)
-assert {"Sequence", "Fallback", "PrioritySelector", "TickRate", "PrintMessage", "FunctionAction", "FunctionCondition"}.issubset(names), names
-# 本轮新增的 6 个商用级内置节点也必须被后端枚举到。
-assert {"Delay", "WaitUntilElapsed", "BlackboardExists", "ClearBlackboard", "LogEvent", "ScalarThreshold"}.issubset(names), names
+# bt_nodes 插件注册的 34 个标准节点必须全部被后端枚举到。
+assert len(data) == 34, (len(data), sorted(names))
+assert {"Sequence", "Fallback", "Parallel", "PrioritySelector", "ReactiveSequence",
+        "ReactiveFallback"}.issubset(names), names
+assert {"Inverter", "Retry", "Repeat", "ForceSuccess", "ForceFailure", "TickRate",
+        "KeepRunningUntilFailure", "KeepRunningUntilSuccess"}.issubset(names), names
+assert {"AlwaysSuccess", "AlwaysFailure", "PrintMessage"}.issubset(names), names
+assert {"SetBlackboard", "CompareBlackboard", "CheckBool", "Counter", "CooldownCondition",
+        "SetBool", "BlackboardExists", "BlackboardGate", "ClearBlackboard",
+        "ScalarThreshold"}.issubset(names), names
+assert {"Delay", "WaitUntilElapsed", "NonBlockingDelay", "TimeCondition"}.issubset(names), names
+assert {"LogEvent", "FunctionAction", "FunctionCondition"}.issubset(names), names
 tick_rate = next(item for item in data if item.get("registration_name") == "TickRate")
 tier = next(port for port in tick_rate.get("ports", []) if port.get("name") == "tier")
 assert tier.get("default_value") == "normal", tier

@@ -13,6 +13,7 @@
     "test:e2e": "npm run build && playwright test",
     "test:e2e:headed": "npm run build && playwright test --headed",
     "test:e2e:live": "npm run build && BT_E2E_LIVE=1 BT_BACKEND_URL=http://127.0.0.1:18080 playwright test e2e/live-backend.spec.ts --project=chromium",
+    "verify:pages": "node e2e/gh-pages-verify.mjs",
     "screenshots:check": "node e2e/check-screenshot-hashes.mjs",
     "screenshots": "npm run build && BT_UPDATE_SCREENSHOTS=1 playwright test e2e/docs-screenshots.spec.ts e2e/basics-screenshots.spec.ts --project=chromium && npm run screenshots:check"
   },

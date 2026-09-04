@@ -1383,7 +1383,10 @@ test('recovers the palette after a failed manifest request', async ({ page }) =>
 
   manifestsAvailable = true;
   await page.getByRole('button', { name: '刷新', exact: true }).click();
-  await expect(page.locator('[draggable="true"]')).toHaveCount(manifests.length + 6);
+  // The fallback palette contains five structural entries (Sequence, Fallback,
+  // Parallel, SubTree and SubTreePlus); runtime manifests replace those entries
+  // rather than adding a sixth duplicate.
+  await expect(page.locator('[draggable="true"]')).toHaveCount(manifests.length + 5);
   await expect(page.getByText('PrintMessage').first()).toBeVisible();
 });
 

@@ -49,6 +49,28 @@ Environment 拒绝部署
 规则。按上一节允许 ``main``，然后在失败的 Actions run 中选择
 ``Re-run failed jobs``。不需要改 Sphinx、重新生成截图或切换发布分支。
 
+部署成功后的浏览器验收
+------------------------
+
+``pages`` workflow 的 ``verify`` job 会在 ``Deploy Pages`` 成功后自动启动
+Chromium，访问 deployment job 输出的 ``page_url``，逐页检查 HTTP 200、非空标题和
+正文，并在 ``behavior_tree_basics.html`` 中断言序列、选择、装饰、并行以及
+``ReactiveSequence``/``ReactiveFallback``、``PrioritySelector``、``TickRate`` 等
+节点语义仍然存在。这样 ``Deploy`` 变绿不仅代表 artifact 上传完成，也代表发布站点
+可访问且关键设计说明没有被构建筛选遗漏。
+
+本地复现同一检查：
+
+.. code-block:: bash
+
+   cd bt_editor
+   npm ci
+   npx playwright install chromium
+   BT_PAGES_URL=https://lovelyyoshino.github.io/behavior_tree_cpp npm run verify:pages
+
+如果仓库使用自定义域名，只需替换 ``BT_PAGES_URL``；脚本会去掉末尾斜杠并以非零状态
+码报告任一页面、标题、正文或关键节点术语缺失。
+
 备用分支模式
 ------------
 
