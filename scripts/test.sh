@@ -117,6 +117,13 @@ echo "[test] run C++ unit tests"
 ctest --test-dir "$BUILD_DIR" -C "$BUILD_CONFIG" --output-on-failure
 
 echo "[test] configure ASan/UBSan plugin-runtime build"
+# GitHub-hosted Linux runners may execute test discovery under ptrace. In that
+# environment LeakSanitizer aborts before GoogleTest starts ("does not work
+# under ptrace"). Keep ASan/UBSan active while disabling only leak scanning for
+# this release-gate subprocess; dedicated leak jobs can run on an unrestricted
+# runner when needed.
+export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0:abort_on_error=1}"
+export LSAN_OPTIONS="${LSAN_OPTIONS:-detect_leaks=0}"
 cmake -S "$REPO_ROOT" -B "$SANITIZER_BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DBT_BUILD_NODES=ON \
