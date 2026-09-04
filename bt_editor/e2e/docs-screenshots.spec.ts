@@ -1,9 +1,11 @@
 /**
  * @author lovelyyoshino
  * @date 2026-06-30
- * @version v1.3.0
- * @last_modified 2026-07-13
+ * @version v1.5.0
+ * @last_modified 2026-08-21
  * @changelog
+ *   - v1.5.0 (2026-08-21): 文档截图使用导入树与自动 ROS2 图界面
+ *   - v1.4.0 (2026-08-18): 对齐 ROS2 能力来源统计文案
  *   - v1.3.0 (2026-07-13): 文档视口断言辅助浮层不再遮挡节点
  *   - v1.1.0 (2026-07-13): 第四张截图改为真实属性/XML 编辑状态
  *   - v1.1.1 (2026-07-13): 首图聚焦空画布工作区，避免把无树导出提示当成功状态
@@ -13,6 +15,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { importTreeFile } from './tree-import-fixture';
 
 const screenshotDir = path.resolve(
   process.cwd(),
@@ -52,6 +55,13 @@ const manifests = [
         enum_values: [],
       },
     ],
+    documentation: {
+      summary: '向日志输出一条文本通知。',
+      usage: '把 message 设为固定值，或切换为读取黑板后绑定 {event_text}。',
+      status_semantics: '写入日志后立即返回 SUCCESS。',
+      failure_conditions: '输出通道不可用时返回 FAILURE。',
+      example_xml: '<PrintMessage name="notice" message="{event_text}"/>',
+    },
   },
 ];
 
@@ -72,6 +82,23 @@ async function mockBackend(page: Page) {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify(manifests),
+    });
+  });
+
+  await page.route('**/api/v1/bt/capabilities', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        available: true,
+        capabilities: {
+          schema: 'bt_ros2.capabilities.v1',
+          seq: 8,
+          executor_node: '/bt_executor',
+          ros_nodes: ['/planner'],
+          topics: [{ name: '/planner/healthy', types: ['std_msgs/msg/Bool'] }],
+          manifests,
+        },
+      }),
     });
   });
 
@@ -114,7 +141,7 @@ test('capture documentation screenshots', async ({ page }) => {
     clip: { x: 0, y: 0, width: 1200, height: 370 },
   });
 
-  await page.getByRole('button', { name: '载入示例' }).first().click();
+  await importTreeFile(page);
   await expect(page.getByText('巡逻序列').first()).toBeVisible();
   await expect(page.locator('.react-flow__minimap')).toBeHidden();
   await expect(page.locator('.bt-canvas-legend')).toBeHidden();
@@ -123,7 +150,7 @@ test('capture documentation screenshots', async ({ page }) => {
     fullPage: true,
   });
 
-  await page.getByRole('button', { name: /Tick/ }).click();
+  await page.getByRole('button', { name: '▶ Tick', exact: true }).click();
   await expect(page.getByText('Tick 完成，根状态：SUCCESS')).toBeVisible();
   await expect(page.locator('[data-testid="bt-node"][data-status="SUCCESS"]').first()).toBeVisible();
   await page.screenshot({
@@ -135,8 +162,10 @@ test('capture documentation screenshots', async ({ page }) => {
     .locator('[data-testid="bt-node"][data-registration="PrintMessage"]')
     .first();
   await printNode.click();
-  await page.getByPlaceholder('可选，XML name 属性').fill('recharge_notice');
-  await page.getByPlaceholder('默认: hello bt').fill('Docking workflow complete');
+  await expect(page.getByText('向日志输出一条文本通知。')).toBeVisible();
+  await expect(page.getByText(/已连接 \/bt_executor：1 个 ROS node、1 个 topic/)).toBeVisible();
+  await page.getByLabel('实例名').fill('recharge_notice');
+  await page.getByLabel('message 固定值').fill('Docking workflow complete');
   await expect(page.locator('textarea')).toContainText(
     '<PrintMessage name="recharge_notice" message="Docking workflow complete"/>',
   );

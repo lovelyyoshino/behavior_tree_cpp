@@ -3,13 +3,16 @@
  *
  * @author pony
  * @date 2026-06-30
- * @version v1.1.0
- * @last_modified 2026-07-13
+ * @version v1.4.0
+ * @last_modified 2026-08-21
  * @changelog
+ *   - v1.4.0 (2026-08-21): 用“导入树 + 黑板”替换示例树入口
+ *   - v1.3.0 (2026-08-18): 增加黑板初始化参数面板入口
+ *   - v1.2.0 (2026-08-18): 明确 Run 自动同步画布及 Tick 的载入前置条件
  *   - v1.1.0 (2026-07-13): 工具栏改为可换行的响应式结构
  *
  * 集中放置全局操作按钮：
- * - 载入示例：用内置示例 XML 填充画布（无需后端）
+ * - 导入树 + 黑板：从本地 XML 或 .bt.json 恢复完整文档
  * - 载入到服务器：把画布转 XML 并 POST /api/tree/load
  * - 从服务器导入：GET /api/tree/export 取 XML 并还原画布
  * - Tick：POST /api/tree/tick 执行一拍并按状态上色
@@ -29,7 +32,7 @@ interface Props {
   healthChecking: boolean;
   /** 任意后端请求进行中（禁用按钮，防重复点击） */
   busy: boolean;
-  onLoadSample: () => void;
+  onImportTreeBlackboard: () => void;
   onLoad: () => void;
   onExport: () => void;
   onTick: () => void;
@@ -39,6 +42,8 @@ interface Props {
   onClear: () => void;
   onCollapseAll: () => void;
   onExpandAll: () => void;
+  blackboardOpen: boolean;
+  onToggleBlackboard: () => void;
   /** 重新检测后端健康 */
   onRecheckHealth: () => void;
 }
@@ -47,7 +52,7 @@ export function Toolbar({
   health,
   healthChecking,
   busy,
-  onLoadSample,
+  onImportTreeBlackboard,
   onLoad,
   onExport,
   onTick,
@@ -57,6 +62,8 @@ export function Toolbar({
   onClear,
   onCollapseAll,
   onExpandAll,
+  blackboardOpen,
+  onToggleBlackboard,
   onRecheckHealth,
 }: Props) {
   const connected = health !== null;
@@ -98,8 +105,8 @@ export function Toolbar({
       >
         <strong style={{ marginRight: 8 }}>🌳 BT Editor</strong>
 
-        <button style={btnStyle} disabled={busy} onClick={onLoadSample}>
-          载入示例
+        <button style={btnStyle} disabled={busy} onClick={onImportTreeBlackboard}>
+          导入树 + 黑板
         </button>
 
         <span style={{ width: 1, height: 24, background: '#e5e7eb' }} />
@@ -128,7 +135,7 @@ export function Toolbar({
           }}
           disabled={busy || !connected}
           onClick={onTick}
-          title={connected ? '执行一拍并按运行态上色' : '后端未连接'}
+          title={connected ? '执行已载入树的一拍并按运行态上色' : '后端未连接'}
         >
           ▶ Tick
         </button>
@@ -140,7 +147,7 @@ export function Toolbar({
           }}
           disabled={busy || !connected}
           onClick={onRun}
-          title={connected ? '运行到终态并回放最终节点状态' : '后端未连接'}
+          title={connected ? '先同步当前画布，再运行到终态并回放最终节点状态' : '后端未连接'}
         >
           ▶ Run
         </button>
@@ -163,6 +170,15 @@ export function Toolbar({
         </button>
         <button style={btnStyle} disabled={busy} onClick={onExpandAll} title="展开所有节点">
           展开全部
+        </button>
+        <button
+          style={{ ...btnStyle, background: blackboardOpen ? '#eff6ff' : '#fff' }}
+          disabled={busy}
+          aria-expanded={blackboardOpen}
+          onClick={onToggleBlackboard}
+          title="编辑载入前写入运行树的黑板初始值"
+        >
+          黑板参数
         </button>
 
         {/* 右侧健康状态 */}
@@ -208,8 +224,8 @@ export function Toolbar({
             fontSize: 12.5,
           }}
         >
-          ⚠ 后端未连接（/api/health 不可达）。可继续在本地编辑画布与载入示例，
-          但「载入到服务器 / 从服务器导入 / Tick」需要后端在线。请确认 bt_server
+          ⚠ 后端未连接（/api/health 不可达）。可继续在本地编辑或导入树 + 黑板，
+          但「载入到服务器 / 从服务器导入 / Tick / Run」需要后端在线。请确认 bt_server
           已在 localhost:8080 运行后点击「重新检测」。
         </div>
       )}

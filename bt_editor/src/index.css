@@ -3,9 +3,11 @@
  *
  * @author pony
  * @date 2026-06-30
- * @version v1.1.0
- * @last_modified 2026-07-13
+ * @version v1.3.0
+ * @last_modified 2026-08-18
  * @changelog
+ *   - v1.3.0 (2026-08-18): 手机端黑板参数改为带标签的响应式表单布局
+ *   - v1.2.0 (2026-08-18): 增加黑板参数与 XML 初值摘要，并隔离窄屏表格的横向滚动
  *   - v1.1.0 (2026-07-13): 增加窄屏纵向工作区并避免 React Flow 浮层遮挡节点
  */
 /* 全局基础样式：重置默认边距，铺满视口，统一字体 */
@@ -44,6 +46,113 @@ button {
 
 .bt-toolbar-row {
   min-height: 48px;
+}
+
+.bt-tree-definitions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.bt-tree-definitions-title {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 150px;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.bt-tree-definitions-title span {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.bt-tree-tabs {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bt-tree-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.bt-tree-tab.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.bt-tree-main-badge {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #bfdbfe;
+  color: #1e40af;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.bt-tree-definition-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 0 1 auto;
+}
+
+.bt-tree-definition-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.bt-tree-definition-actions input {
+  width: 118px;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.bt-tree-definition-actions button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.bt-tree-definition-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .bt-toolbar-row > strong,
@@ -86,6 +195,195 @@ button {
   min-height: 42px;
 }
 
+.bt-xml-blackboard-strip {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: #172033;
+  color: #cbd5e1;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+
+.bt-xml-blackboard-strip strong {
+  flex: 0 0 auto;
+  color: #bfdbfe;
+}
+
+.bt-xml-blackboard-strip span {
+  flex: 0 1 auto;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.bt-xml-blackboard-strip code {
+  min-width: 0;
+  overflow: hidden;
+  color: #bbf7d0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bt-blackboard-panel {
+  flex: 0 0 auto;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+  padding: 10px 12px;
+}
+
+.bt-blackboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bt-blackboard-count {
+  margin-left: 8px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.bt-blackboard-help,
+.bt-blackboard-empty {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.bt-blackboard-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.bt-blackboard-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .bt-blackboard-table-wrap {
+    overflow-x: visible;
+  }
+
+  .bt-blackboard-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .bt-blackboard-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .bt-blackboard-table tbody {
+    display: block;
+  }
+
+  .bt-blackboard-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 7px 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .bt-blackboard-table td {
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .bt-blackboard-table td:first-child,
+  .bt-blackboard-table td:nth-child(4),
+  .bt-blackboard-table td:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .bt-blackboard-table td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: #64748b;
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .bt-blackboard-table input:not([type='checkbox']),
+  .bt-blackboard-table select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.bt-blackboard-table th {
+  padding: 5px 6px;
+  border-bottom: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.bt-blackboard-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.bt-blackboard-error {
+  margin-top: 3px;
+  color: #b91c1c;
+  font-size: 10px;
+}
+
+.bt-blackboard-bool {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+}
+
+.bt-blackboard-remove {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fff1f2;
+  color: #be123c;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 受限画布没有安全的浮层保留区，隐藏辅助浮层可避免遮住可编辑节点。 */
 @media (max-width: 1439px) {
   .bt-editor-canvas .react-flow__minimap,
@@ -110,7 +408,8 @@ button {
     height: auto;
     min-height: 100vh;
     min-height: 100dvh;
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .bt-toolbar-row {
@@ -163,10 +462,31 @@ button {
     flex: 0 0 320px;
   }
 
+  .bt-blackboard-panel {
+    overflow-x: hidden;
+  }
+
+  .bt-blackboard-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .bt-xml-toolbar {
     height: auto;
     padding: 8px 12px !important;
     flex-wrap: wrap;
+  }
+
+  .bt-xml-blackboard-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bt-xml-blackboard-strip span,
+  .bt-xml-blackboard-strip code {
+    max-width: 100%;
   }
 
   .bt-xml-toolbar > span:not(.bt-xml-spacer) {

@@ -3,18 +3,25 @@
  *
  * @author pony
  * @date 2026-06-30
- * @version v1.1.0
- * @last_modified 2026-07-13
+ * @version v1.3.0
+ * @last_modified 2026-08-18
  * @changelog
+ *   - v1.3.0 (2026-08-18): 增加 XML 下载和 XML + 黑板配置包导出
+ *   - v1.2.0 (2026-08-18): 增加黑板初值摘要，区分 XML 重映射与运行前注入
  *   - v1.1.0 (2026-07-13): 预览工具条支持窄屏换行
  */
+import type { BlackboardEntry } from '../types';
+
 interface Props {
   xml: string;
   error: string | null;
   busy: boolean;
   connected: boolean;
   lastRunSummary: string | null;
+  blackboardEntries: BlackboardEntry[];
   onCopy: () => void;
+  onDownloadXml: () => void;
+  onDownloadBundle: () => void;
   onValidate: () => void;
   onFormat: () => void;
 }
@@ -25,7 +32,10 @@ export function XmlPreviewPanel({
   busy,
   connected,
   lastRunSummary,
+  blackboardEntries,
   onCopy,
+  onDownloadXml,
+  onDownloadBundle,
   onValidate,
   onFormat,
 }: Props) {
@@ -64,12 +74,36 @@ export function XmlPreviewPanel({
         <button type="button" disabled={Boolean(error)} onClick={onCopy}>
           复制
         </button>
+        <button type="button" disabled={busy || Boolean(error)} onClick={onDownloadXml}>
+          下载 XML
+        </button>
+        <button type="button" disabled={busy || Boolean(error)} onClick={onDownloadBundle}>
+          导出树 + 黑板
+        </button>
         <button type="button" disabled={disabled} onClick={onValidate}>
           后端校验
         </button>
         <button type="button" disabled={disabled} onClick={onFormat}>
           后端格式化
         </button>
+      </div>
+      <div className="bt-xml-blackboard-strip" aria-label="黑板初值摘要">
+        <strong>黑板初值</strong>
+        {blackboardEntries.length === 0 ? (
+          <span>暂无；XML 中仍会保留端口的 {'{key}'} 重映射。</span>
+        ) : (
+          <>
+            <span>
+              {blackboardEntries.length} 项，XML 的 TreeNodesModel/Blackboard 区会保存初值；
+              ROS 输入节点运行后可以覆盖运行时值。
+            </span>
+            <code>
+              {blackboardEntries
+                .map((entry) => `${entry.key || '<空键名>'} = ${entry.value} (${entry.type})`)
+                .join(' · ')}
+            </code>
+          </>
+        )}
       </div>
       <textarea
         readOnly

@@ -1,8 +1,18 @@
 /**
- * API 客户端
+ * client.ts - bt_server HTTP API 客户端。
  *
- * 封装与 bt_server 的所有 HTTP 交互。开发期由 Vite proxy 把 /api 代理到
- * http://localhost:8080，因此这里统一使用相对路径 /api/xxx。
+ * 封装与 bt_server 的所有 HTTP 交互。树 API 统一使用 /api 相对路径；ROS2 图通过
+ * App 指定的本机 bridge 代理读取，不能把只读 ROS 网关冒充树执行后端。
+ *
+ * @author pony
+ * @date 2026-06-30
+ * @version v1.4.0
+ * @last_modified 2026-08-21
+ * @changelog
+ *   - v1.4.0 (2026-08-21): ROS2 图由编辑器固定连接本机 bridge 代理
+ *   - v1.3.0 (2026-08-19): normalize legacy ROS capability snapshots without service/action arrays
+ *   - v1.2.0 (2026-08-18): ROS2 能力请求支持独立来源地址
+ *   - v1.1.0 (2026-08-18): 保留后端 JSON 错误详情，避免只显示 HTTP 状态码
  */
 
 import type {
@@ -14,6 +24,8 @@ import type {
   ValidateResult,
   FormatResult,
   HealthResult,
+  RosCapabilitiesResponse,
+  BlackboardEntry,
 } from '../types';
 
 /** 统一的 JSON 请求封装：检查 HTTP 状态码并解析 JSON */
@@ -23,8 +35,20 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!resp.ok) {
-    // 非 2xx 直接抛错，交由调用方捕获并提示
-    throw new Error(`HTTP ${resp.status} ${resp.statusText} @ ${url}`);
+    // bt_server 会在 error 字段中返回可操作原因，不能只保留模糊的 HTTP 状态码。
+    const text = await resp.text();
+    let detail = text.trim();
+    if (detail) {
+      try {
+        const body = JSON.parse(detail) as { error?: unknown; message?: unknown };
+        if (typeof body.error === 'string') detail = body.error;
+        else if (typeof body.message === 'string') detail = body.message;
+      } catch {
+        // 非 JSON 错误（例如代理返回纯文本）原样保留，便于定位代理或旧后端问题。
+      }
+    }
+    const suffix = detail ? `：${detail}` : '';
+    throw new Error(`HTTP ${resp.status} ${resp.statusText} @ ${url}${suffix}`);
   }
   return (await resp.json()) as T;
 }
@@ -39,6 +63,14 @@ export async function loadTree(xml: string): Promise<LoadResult> {
   return requestJson<LoadResult>('/api/tree/load', {
     method: 'POST',
     body: JSON.stringify({ xml }),
+  });
+}
+
+/** POST /api/tree/blackboard —— 给已加载的普通 bt_server 写入一个初始化值。 */
+export async function seedBlackboard(entry: BlackboardEntry): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>('/api/tree/blackboard', {
+    method: 'POST',
+    body: JSON.stringify(entry),
   });
 }
 
@@ -76,4 +108,23 @@ export async function runTree(): Promise<RunResult> {
 /** GET /api/health —— 健康检查，返回后端版本 */
 export async function checkHealth(): Promise<HealthResult> {
   return requestJson<HealthResult>('/api/health');
+}
+
+/**
+ * GET /api/v1/bt/capabilities —— 可选 ROS-aware backend 的运行时能力快照。
+ * 普通 bt_server 没有该接口，调用方应把 404 当成“无动态发现”而不是错误弹窗。
+ */
+export async function fetchRosCapabilities(
+  url = '/api/v1/bt/capabilities',
+): Promise<RosCapabilitiesResponse> {
+  const response = await requestJson<RosCapabilitiesResponse>(url);
+  if (!response.capabilities) return response;
+  return {
+    ...response,
+    capabilities: {
+      ...response.capabilities,
+      services: response.capabilities.services ?? [],
+      actions: response.capabilities.actions ?? [],
+    },
+  };
 }

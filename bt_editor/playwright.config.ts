@@ -1,9 +1,10 @@
 /**
  * @author lovelyyoshino
  * @date 2026-06-30
- * @version v1.2.0
- * @last_modified 2026-07-13
+ * @version v1.3.0
+ * @last_modified 2026-09-03
  * @changelog
+ *   - v1.3.0 (2026-09-03): 基础概念配图 spec 与文档截图同批次运行，默认不进常规 e2e
  *   - v1.2.0 (2026-07-13): CI 拒绝 flaky、保留报告并严格占用 preview 端口
  *   - v1.1.0 (2026-07-13): 增加 opt-in 真实 bt_server 浏览器项目
  *   - v1.1.1 (2026-07-13): 默认禁止复用本地 preview，避免验证陈旧前端产物
@@ -16,14 +17,23 @@ const reusePreview =
   process.env.BT_E2E_REUSE_SERVER === '1' && !process.env.CI && !liveBackend;
 const outputDir = process.env.BT_PLAYWRIGHT_OUTPUT_DIR ?? 'test-results';
 const reportDir = process.env.BT_PLAYWRIGHT_REPORT_DIR ?? 'playwright-report';
+const livePort = process.env.BT_LIVE_PORT ?? '18080';
 
 export default defineConfig({
   testDir: './e2e',
   testIgnore: updateScreenshots
     ? ['**/live-backend.spec.ts']
     : liveBackend
-      ? ['**/editor.spec.ts', '**/docs-screenshots.spec.ts']
-      : ['**/docs-screenshots.spec.ts', '**/live-backend.spec.ts'],
+      ? [
+          '**/editor.spec.ts',
+          '**/docs-screenshots.spec.ts',
+          '**/basics-screenshots.spec.ts',
+        ]
+      : [
+          '**/docs-screenshots.spec.ts',
+          '**/basics-screenshots.spec.ts',
+          '**/live-backend.spec.ts',
+        ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   failOnFlakyTests: !!process.env.CI,
@@ -54,7 +64,7 @@ export default defineConfig({
           {
             name: 'bt-server',
             command: 'bash e2e/start-live-backend.sh',
-            url: 'http://127.0.0.1:18080/api/health',
+            url: `http://127.0.0.1:${livePort}/api/health`,
             reuseExistingServer: false,
             stdout: 'pipe',
           },

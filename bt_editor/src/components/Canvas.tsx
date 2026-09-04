@@ -3,9 +3,10 @@
  *
  * @author pony
  * @date 2026-06-30
- * @version v1.1.0
- * @last_modified 2026-07-13
+ * @version v1.2.0
+ * @last_modified 2026-08-18
  * @changelog
+ *   - v1.2.0 (2026-08-18): 显式启用受控节点的拖动、连线和选择交互
  *   - v1.1.0 (2026-07-13): 标记响应式画布和可折叠浮层
  *
  * 基于 React Flow，负责：
@@ -58,8 +59,8 @@ interface Props {
   onCreateNode: (manifest: NodeManifest, position: { x: number; y: number }) => void;
   /** 非法连线时回调，携带中文原因，供上层弹 toast 提示 */
   onInvalidConnection: (reason: string) => void;
-  /** 空状态点击"载入示例"回调 */
-  onLoadSample: () => void;
+  /** 空状态点击"导入树 + 黑板"回调 */
+  onImportTreeBlackboard: () => void;
 }
 
 /** 内部画布（需要被 ReactFlowProvider 包裹才能用 useReactFlow） */
@@ -73,7 +74,7 @@ function CanvasInner({
   onSelectNode,
   onCreateNode,
   onInvalidConnection,
-  onLoadSample,
+  onImportTreeBlackboard,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -132,6 +133,10 @@ function CanvasInner({
         nodes={nodes as Node<BtNodeData>[]}
         edges={edges}
         nodeTypes={nodeTypes}
+        // Explicit values keep interactions enabled when React Flow receives controlled nodes.
+        nodesDraggable
+        nodesConnectable
+        elementsSelectable
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
@@ -151,7 +156,7 @@ function CanvasInner({
         </Panel>
       </ReactFlow>
       {/* 画布为空时叠加引导层（覆盖在 ReactFlow 之上，不拦截拖放） */}
-      {nodes.length === 0 && <EmptyState onLoadSample={onLoadSample} />}
+      {nodes.length === 0 && <EmptyState onImportTreeBlackboard={onImportTreeBlackboard} />}
     </div>
   );
 }

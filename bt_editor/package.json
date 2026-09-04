@@ -14,7 +14,7 @@
     "test:e2e:headed": "npm run build && playwright test --headed",
     "test:e2e:live": "npm run build && BT_E2E_LIVE=1 BT_BACKEND_URL=http://127.0.0.1:18080 playwright test e2e/live-backend.spec.ts --project=chromium",
     "screenshots:check": "node e2e/check-screenshot-hashes.mjs",
-    "screenshots": "npm run build && BT_UPDATE_SCREENSHOTS=1 playwright test e2e/docs-screenshots.spec.ts --project=chromium && npm run screenshots:check"
+    "screenshots": "npm run build && BT_UPDATE_SCREENSHOTS=1 playwright test e2e/docs-screenshots.spec.ts e2e/basics-screenshots.spec.ts --project=chromium && npm run screenshots:check"
   },
   "dependencies": {
     "react": "^18.3.1",

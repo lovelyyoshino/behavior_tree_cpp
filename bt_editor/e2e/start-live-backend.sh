@@ -4,9 +4,10 @@
 #
 # @author lovelyyoshino
 # @date 2026-07-13
-# @version v1.0.0
-# @last_modified 2026-07-13
+# @version v1.1.0
+# @last_modified 2026-08-18
 # @changelog
+#   - v1.1.0 (2026-08-18): 支持 BT_LIVE_PORT，避免验证环境端口冲突
 #   - v1.0.0 (2026-07-13): 初始实现，要求调用方显式提供二进制与插件路径
 #
 set -euo pipefail
@@ -24,4 +25,4 @@ if [[ ! -f "$BT_NODES_PLUGIN" ]]; then
 fi
 
 export BT_TREE_WORKSPACE="${BT_TREE_WORKSPACE:-../examples/trees}"
-exec "$BT_SERVER_BIN" 127.0.0.1 18080 "$BT_NODES_PLUGIN"
+exec "$BT_SERVER_BIN" 127.0.0.1 "${BT_LIVE_PORT:-18080}" "$BT_NODES_PLUGIN"

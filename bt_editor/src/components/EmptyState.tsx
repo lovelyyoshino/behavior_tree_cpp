@@ -3,25 +3,26 @@
  *
  * @author pony
  * @date 2026-06-30
- * @version v1.1.0
- * @last_modified 2026-07-13
+ * @version v1.2.0
+ * @last_modified 2026-08-21
  * @changelog
+ *   - v1.2.0 (2026-08-21): 空画布入口改为导入树与 XML 黑板
  *   - v1.1.0 (2026-07-13): 文案覆盖点击添加和桌面拖放两条路径
  *
  * 画布没有任何节点时覆盖在画布上方，引导用户两条上手路径：
  * - 从左侧节点面板拖入节点
- * - 一键载入内置示例树
+ * - 从本地导入树与黑板
  *
  * 用 pointerEvents 控制：容器本身不拦截画布交互（便于拖放落点计算），
- * 仅"载入示例"按钮可点击。
+ * 仅"导入树 + 黑板"按钮可点击。
  */
 
 interface Props {
-  /** 点击"载入示例"回调 */
-  onLoadSample: () => void;
+  /** 点击"导入树 + 黑板"回调 */
+  onImportTreeBlackboard: () => void;
 }
 
-export function EmptyState({ onLoadSample }: Props) {
+export function EmptyState({ onImportTreeBlackboard }: Props) {
   return (
     <div
       style={{
@@ -45,10 +46,10 @@ export function EmptyState({ onLoadSample }: Props) {
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
         从节点面板<strong>点击添加</strong>开始搭建，
         <br />
-        桌面端也可拖放，或直接载入一棵示例树。
+        桌面端也可拖放，或导入已有的树与黑板。
       </div>
       <button
-        onClick={onLoadSample}
+        onClick={onImportTreeBlackboard}
         style={{
           pointerEvents: 'auto', // 按钮可点击
           marginTop: 4,
@@ -62,7 +63,7 @@ export function EmptyState({ onLoadSample }: Props) {
           boxShadow: '0 2px 6px #3b82f655',
         }}
       >
-        载入示例
+        导入树 + 黑板
       </button>
     </div>
   );
