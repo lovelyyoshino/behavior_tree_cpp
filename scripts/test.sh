@@ -122,8 +122,8 @@ echo "[test] configure ASan/UBSan plugin-runtime build"
 # under ptrace"). Keep ASan/UBSan active while disabling only leak scanning for
 # this release-gate subprocess; dedicated leak jobs can run on an unrestricted
 # runner when needed.
-export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0:abort_on_error=1}"
-export LSAN_OPTIONS="${LSAN_OPTIONS:-detect_leaks=0}"
+export ASAN_OPTIONS="detect_leaks=0:abort_on_error=1"
+export LSAN_OPTIONS="detect_leaks=0"
 cmake -S "$REPO_ROOT" -B "$SANITIZER_BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DBT_BUILD_NODES=ON \
