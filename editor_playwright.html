@@ -140,10 +140,42 @@ tick。它再清空浏览器画布，从 server 导回八节点树并执行 Run�
 </section>
 <section id="id2">
 <h2>截图资料<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<p>以下四张图片由固定 viewport、固定 mocked API 响应生成，目的不是冒充真实 server，
+<p>文档截图由固定 viewport、固定 mocked API 响应生成，目的不是冒充真实 server，
 而是提供稳定、可重现的文档视觉基线。真实后端闭环由上一节的独立 live 用例证明。
 1200 像素文档画布会隐藏 MiniMap/运行态浮层，避免辅助浮层遮挡可编辑节点；1280、768、
 390 像素的几何回归由 <code class="docutils literal notranslate"><span class="pre">responsive.spec.ts</span></code> 单独证明。</p>
+<p>两个截图 spec 分工明确，都默认不进常规 E2E：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>spec</p></th>
+<th class="head"><p>产出</p></th>
+<th class="head"><p>覆盖内容</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">e2e/docs-screenshots.spec.ts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">01</span></code> - <code class="docutils literal notranslate"><span class="pre">04</span></code></p></td>
+<td><p>编辑器通用工作区四态：加载、导入树、Tick 上色、属性/XML 编辑。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">e2e/basics-screenshots.spec.ts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15</span></code> - <code class="docutils literal notranslate"><span class="pre">17</span></code></p></td>
+<td><p><a class="reference internal" href="behavior_tree_basics.html"><span class="doc">行为树基础</span></a> 需要的四种基本节点类型配图：面板分组、
+<code class="docutils literal notranslate"><span class="pre">Sequence</span></code>/<code class="docutils literal notranslate"><span class="pre">Fallback</span></code>/<code class="docutils literal notranslate"><span class="pre">Parallel</span></code> + 装饰器的完整树、混合状态上色。</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p><code class="docutils literal notranslate"><span class="pre">docs/blog/screenshots/</span></code> 下的 <code class="docutils literal notranslate"><span class="pre">05</span></code> 到 <code class="docutils literal notranslate"><span class="pre">14</span></code> 是早期手工补充的图片，
+没有对应的生成 spec，因此不在 hash gate 清单内。新增文档配图必须写进 spec
+并登记到 <code class="docutils literal notranslate"><span class="pre">e2e/check-screenshot-hashes.mjs</span></code>，否则 UI 改动后无法判断哪张图
+已经过期。</p>
+</div>
 <a class="reference internal image-reference" href="_images/01_editor_loaded.png"><img alt="编辑器和分类正确的 mocked 节点面板加载完成" src="_images/01_editor_loaded.png" style="width: 100%;" />
 </a>
 <a class="reference internal image-reference" href="_images/02_sample_tree.png"><img alt="导入八节点 XML 后的画布及实时 XML 预览" src="_images/02_sample_tree.png" style="width: 100%;" />
@@ -152,14 +184,34 @@ tick。它再清空浏览器画布，从 server 导回八节点树并执行 Run�
 </a>
 <a class="reference internal image-reference" href="_images/04_tick_highlight_fixed.png"><img alt="选中带节点契约说明的 PrintMessage 后编辑实例名和 message，并查看 ROS2 能力状态" src="_images/04_tick_highlight_fixed.png" style="width: 100%;" />
 </a>
+<p>下面三张对应 <a class="reference internal" href="behavior_tree_basics.html"><span class="doc">行为树基础</span></a> 的四种基本节点类型：</p>
+<a class="reference internal image-reference" href="_images/15_basics_node_categories.png"><img alt="节点面板按 Control/Decorator/Action/Condition 四类分组，每组显示节点数量" src="_images/15_basics_node_categories.png" style="width: 45%;" />
+</a>
+<a class="reference internal image-reference" href="_images/16_basics_four_node_types.png"><img alt="演示树：Sequence 包裹 Fallback 与 Parallel，含 Retry/Inverter 装饰器和条件/动作叶子" src="_images/16_basics_four_node_types.png" style="width: 100%;" />
+</a>
+<a class="reference internal image-reference" href="_images/17_basics_tick_status.png"><img alt="Tick 后混合状态上色：SUCCESS 绿、RUNNING 黄、FAILURE 红、IDLE 灰" src="_images/17_basics_tick_status.png" style="width: 100%;" />
+</a>
 <p>重新生成并验证：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>bt_editor
 npm<span class="w"> </span>run<span class="w"> </span>screenshots
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">run</span> <span class="pre">screenshots</span></code> 先运行生产构建，再写入四张 PNG，最后调用
-<code class="docutils literal notranslate"><span class="pre">screenshots:check</span></code>。hash gate 会拒绝缺失、过小或内容重复的图片；默认 E2E 不会
-改写文档截图。</p>
+<p><code class="docutils literal notranslate"><span class="pre">npm</span> <span class="pre">run</span> <span class="pre">screenshots</span></code> 先运行生产构建，再依次运行两个截图 spec 写入 PNG，最后
+调用 <code class="docutils literal notranslate"><span class="pre">screenshots:check</span></code>。默认 E2E 不会改写文档截图。</p>
+<p>hash gate 会拒绝四类问题：</p>
+<ul class="simple">
+<li><p>文件缺失，或小于 10KB（通常意味着截到了空白页）。</p></li>
+<li><p>不是合法 PNG（校验 8 字节签名和 IHDR 头）。</p></li>
+<li><p>尺寸与登记值不符，用于捕捉 viewport 或 <code class="docutils literal notranslate"><span class="pre">deviceScaleFactor</span></code> 被改动。</p></li>
+<li><p>出现两张内容完全相同的图，用于捕捉”多个状态其实截了同一屏”。</p></li>
+</ul>
+<p>只校验不重新生成，或产出到临时目录而不动已提交图片：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>npm<span class="w"> </span>run<span class="w"> </span>screenshots:check
+
+<span class="nv">BT_UPDATE_SCREENSHOTS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">BT_SCREENSHOT_DIR</span><span class="o">=</span>/tmp/shots<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>e2e/basics-screenshots.spec.ts<span class="w"> </span>--project<span class="o">=</span>chromium
+</pre></div>
+</div>
 </section>
 <section id="id3">
 <h2>稳定性与边界<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
@@ -199,6 +251,7 @@ retry-pass 仍然失败；每一轮使用独立输出目录，HTML 报告、trac
 <h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>

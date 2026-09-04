@@ -15,7 +15,7 @@
     <script src="_static/translations.js?v=beaddf03"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="搜索" href="search.html" />
-    <link rel="next" title="快速开始" href="quickstart.html" />
+    <link rel="next" title="行为树基础" href="behavior_tree_basics.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -42,7 +42,8 @@
 <section id="id1">
 <h2>推荐路径<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p>先跑 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，用统一验证入口确认 C++、server API、前端和 Playwright。</p></li>
+<li><p>先读 <a class="reference internal" href="behavior_tree_basics.html"><span class="doc">行为树基础</span></a>，理解四种基本控制节点、tick 机制和黑板。</p></li>
+<li><p>再跑 <a class="reference internal" href="quickstart.html"><span class="doc">快速开始</span></a>，用统一验证入口确认 C++、server API、前端和 Playwright。</p></li>
 <li><p>再读 <a class="reference internal" href="function_manual.html"><span class="doc">函数手册</span></a>，理解工厂、端口、黑板、函数注册表和常用节点。</p></li>
 <li><p>用 <a class="reference internal" href="singleton_factory_function.html"><span class="doc">单例 + 工厂 + 生成器引用函数</span></a> 打通“单例 + 工厂 + 生成器引用函数”三模式与回充闭环。</p></li>
 <li><p>用 <a class="reference internal" href="scheduling.html"><span class="doc">单树优先级与分级 Tick 调度</span></a> 把输入优先级、抢占和 tick 分级收敛到一棵树。</p></li>
@@ -53,6 +54,24 @@
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id2">为什么需要行为树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id3">状态只有四种</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id4">节点分两大类</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id5">四种基本控制节点</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#decorator">装饰节点 Decorator（◇）</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id6">叶子节点：条件与动作</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#tick">执行机制：tick 怎么走</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id7">黑板与端口：节点间怎么通信</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id8">完整例子：一棵简化导航树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id9">扩展调度能力</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id10">高频追问</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id11">动手：跑一棵真实的树</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#web">Web 编辑器：可视化搭建</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#github-actions">GitHub Actions 与文档发布</a></li>
+<li class="toctree-l2"><a class="reference internal" href="behavior_tree_basics.html#id20">下一步</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#id2">一键准备</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#id3">一键验证</a></li>
@@ -234,6 +253,7 @@
 <h3>导航</h3>
 <p class="caption" role="heading"><span class="caption-text">使用手册</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="behavior_tree_basics.html">行为树基础</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
 <li class="toctree-l1"><a class="reference internal" href="function_manual.html">函数手册</a></li>
 <li class="toctree-l1"><a class="reference internal" href="singleton_factory_function.html">单例 + 工厂 + 生成器引用函数</a></li>
@@ -260,7 +280,7 @@
 <h3>Related Topics</h3>
 <ul>
   <li><a href="#">Documentation overview</a><ul>
-      <li>Next: <a href="quickstart.html" title="下一章">快速开始</a></li>
+      <li>Next: <a href="behavior_tree_basics.html" title="下一章">行为树基础</a></li>
   </ul></li>
 </ul>
 </div>
