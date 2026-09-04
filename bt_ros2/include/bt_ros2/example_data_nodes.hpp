@@ -62,6 +62,14 @@ public:
 class IsFlagTrue : public RosConditionNode<std_msgs::msg::Bool> {
 public:
   using RosConditionNode::RosConditionNode;
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "订阅 Bool 心跳，只有最近一帧为 true 且没有超过 timeout_ms 才算健康。",
+        "把 topic 指向被监控节点的 heartbeat 话题；timeout_ms 应大于发布周期并覆盖少量通信抖动。",
+        "收到新鲜 true 返回 SUCCESS；未收到、超时或收到 false 返回 FAILURE。",
+        "仅监控 ROS graph 节点名不能证明业务循环健康；timeout_ms=0 表示不做新鲜度限制。",
+        R"(<IsFlagTrue topic="/planner/healthy" timeout_ms="1500" qos_profile="default"/>)"};
+  }
   bool evaluate(const std_msgs::msg::Bool& msg) override { return msg.data; }
 };
 
@@ -95,6 +103,15 @@ class ReadBattery : public RosInputNode<sensor_msgs::msg::BatteryState> {
 public:
   using RosInputNode::RosInputNode;
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "订阅 sensor_msgs/msg/BatteryState，把 percentage 写入行为树黑板。",
+        "输出端口 level 要显式绑定成 {battery_level}；下游用 ScalarThreshold 或 CompareBlackboard 的 key=\"battery_level\" 读取。",
+        "收到新鲜消息并写入黑板后返回 SUCCESS；等待首帧或数据过期时返回 RUNNING。",
+        "topic 为空、ROS 句柄不可用或持续无新鲜消息会阻塞后续 Sequence；输出类型是 double。",
+        R"(<ReadBattery topic="/battery_state" timeout_ms="2000" level="{battery_level}"/>)"};
+  }
+
   static bt_core::PortsList providedPorts() {
     auto ports = subscriberPorts();
     ports.insert(bt_core::OutputPort<double>("level", "电量百分比(0~1 或 0~100)"));
@@ -122,6 +139,15 @@ protected:
 class ReadScalar : public RosInputNode<std_msgs::msg::Float64> {
 public:
   using RosInputNode::RosInputNode;
+
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "订阅 std_msgs/msg/Float64，把 data 字段写入行为树黑板。",
+        "输出端口 value 用 {temperature} 绑定黑板；下游按相同键名读取，timeout_ms 控制数据新鲜度。",
+        "收到新鲜消息写入 double 并返回 SUCCESS；没有新鲜消息时按订阅基类策略等待。",
+        "topic 无效或数据持续过期时不会把旧值重复写入黑板；请保证下游 getInput 类型为 double。",
+        R"(<ReadScalar topic="/temperature" timeout_ms="1000" value="{temperature}"/>)"};
+  }
 
   static bt_core::PortsList providedPorts() {
     auto ports = subscriberPorts();

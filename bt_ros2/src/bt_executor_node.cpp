@@ -4,14 +4,17 @@
 //
 //  @author lovelyyoshino
 //  @date 2026-06-30
-//  @version v1.1.0
-//  @last_modified 2026-07-13
+//  @version v1.3.0
+//  @last_modified 2026-08-19
 //  @changelog
+//    - v1.3.0 (2026-08-19): capability snapshot adds dynamic service/action graph data
+//    - v1.2.0 (2026-08-18): 统一串行化 tick、服务、reload 与输入覆盖回调
 //    - v1.1.0 (2026-07-13): 实现幂等服务控制与终态树显式复位
 // ============================================================================
 #include "bt_ros2/bt_executor_node.hpp"
 
 #include <chrono>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -20,9 +23,11 @@
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "bt_ros2/node_registration.hpp"
 #include "bt_ros2/ros_blackboard_keys.hpp"
+#include "bt_ros2/ros_graph_utils.hpp"
 
 #include "bt_core/blackboard.hpp"
 #include "bt_core/xml_parser.hpp"
@@ -59,6 +64,26 @@ void appendJsonString(std::ostringstream& output, std::string_view value) {
     }
   }
   output << '"';
+}
+
+void appendGraphInterfaces(
+    std::ostringstream& output,
+    const std::map<std::string, std::vector<std::string>>& interfaces) {
+  output << '[';
+  bool first_interface = true;
+  for (const auto& [name, types] : interfaces) {
+    if (!first_interface) output << ',';
+    first_interface = false;
+    output << "{\"name\":";
+    appendJsonString(output, name);
+    output << ",\"types\":[";
+    for (std::size_t i = 0; i < types.size(); ++i) {
+      if (i) output << ',';
+      appendJsonString(output, types[i]);
+    }
+    output << "]}";
+  }
+  output << ']';
 }
 
 std::string treeRevision(const std::string& tree_file) {
@@ -126,6 +151,8 @@ BtExecutorNode::BtExecutorNode(const rclcpp::NodeOptions& options)
       snapshot_topic_, rclcpp::QoS(1).reliable().transient_local());
   service_event_pub_ = create_publisher<std_msgs::msg::String>(
       service_event_topic_, rclcpp::QoS(64).reliable().transient_local());
+  capabilities_pub_ = create_publisher<std_msgs::msg::String>(
+      capabilities_topic_, rclcpp::QoS(1).reliable().transient_local());
   if (debug_mode_) {
     debug_state_pub_ = create_publisher<std_msgs::msg::String>(
         debug_state_topic_, rclcpp::QoS(1).reliable().transient_local());
@@ -135,6 +162,7 @@ BtExecutorNode::BtExecutorNode(const rclcpp::NodeOptions& options)
   }
 
   loadTree();
+  publishCapabilities();
   publishTreeSnapshot(bt_core::NodeStatus::IDLE);
   publishDebugState();
 
@@ -178,6 +206,8 @@ void BtExecutorNode::declareAndLoadParameters() {
   snapshot_topic_ = declare_parameter<std::string>("snapshot_topic", "~/tree_snapshot");
   service_event_topic_ =
       declare_parameter<std::string>("service_event_topic", "~/service_event");
+  capabilities_topic_ =
+      declare_parameter<std::string>("capabilities_topic", "~/capabilities");
   autostart_     = declare_parameter<bool>("autostart", true);
   stop_on_terminal_ = declare_parameter<bool>("stop_on_terminal", false);
   debug_mode_ = declare_parameter<bool>("debug_mode", false);
@@ -209,6 +239,7 @@ void BtExecutorNode::registerNodeTypes() {
 }
 
 void BtExecutorNode::loadTree() {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   // 关键步骤：先把本 ROS 节点的裸指针注入黑板，适配器节点 tick 时才能桥接 ROS。
   // 顺序很重要——必须在 XmlParser 建树/节点 tick 之前完成。
   setRosNodeHandle(blackboard_, this);
@@ -230,6 +261,7 @@ void BtExecutorNode::loadTree() {
 }
 
 void BtExecutorNode::start() {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   if (timer_) {
     return;  // 已在运行。
   }
@@ -242,6 +274,7 @@ void BtExecutorNode::start() {
 }
 
 void BtExecutorNode::stop() {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   if (timer_) {
     timer_->cancel();
     timer_.reset();
@@ -256,11 +289,13 @@ void BtExecutorNode::stop() {
 }
 
 void BtExecutorNode::onTick() {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   if (!tree_) {
     return;
   }
   // 执行一拍；BtExecutorNode 由 ROS executor 单线程驱动，tick 之间不阻塞。
   const bt_core::NodeStatus status = tree_->tickOnce();
+  publishCapabilities();
   publishTreeSnapshot(status);
   publishDebugState();
 
@@ -280,6 +315,98 @@ void BtExecutorNode::onTick() {
     }
     publishDebugState();
   }
+}
+
+void BtExecutorNode::publishCapabilities() {
+  if (!capabilities_pub_) return;
+
+  const auto now = std::chrono::steady_clock::now();
+  if (last_capabilities_publish_ != std::chrono::steady_clock::time_point{} &&
+      now - last_capabilities_publish_ < 1s) {
+    return;
+  }
+  last_capabilities_publish_ = now;
+
+  const RosGraphSnapshot graph = inspectRosGraph(*this);
+  auto manifests = factory_.manifests();
+  std::sort(manifests.begin(), manifests.end(),
+            [](const auto& left, const auto& right) {
+              return left.registration_name < right.registration_name;
+            });
+
+  std::ostringstream output;
+  output << "{\"schema\":\"bt_ros2.capabilities.v1\",\"seq\":"
+         << ++capabilities_sequence_ << ",\"executor_node\":";
+  appendJsonString(output, get_fully_qualified_name());
+
+  output << ",\"ros_nodes\":[";
+  for (std::size_t i = 0; i < graph.nodes.size(); ++i) {
+    if (i) output << ',';
+    appendJsonString(output, graph.nodes[i]);
+  }
+  output << "],\"topics\":";
+  appendGraphInterfaces(output, graph.topics);
+  output << ",\"services\":";
+  appendGraphInterfaces(output, graph.services);
+  output << ",\"actions\":";
+  appendGraphInterfaces(output, graph.actions);
+  output << ",\"manifests\":[";
+  for (std::size_t i = 0; i < manifests.size(); ++i) {
+    if (i) output << ',';
+    const auto& manifest = manifests[i];
+    output << "{\"registration_name\":";
+    appendJsonString(output, manifest.registration_name);
+    output << ",\"type\":";
+    appendJsonString(output, bt_core::toStr(manifest.type));
+    output << ",\"documentation\":{";
+    output << "\"summary\":";
+    appendJsonString(output, manifest.documentation.summary);
+    output << ",\"usage\":";
+    appendJsonString(output, manifest.documentation.usage);
+    output << ",\"status_semantics\":";
+    appendJsonString(output, manifest.documentation.status_semantics);
+    output << ",\"failure_conditions\":";
+    appendJsonString(output, manifest.documentation.failure_conditions);
+    output << ",\"example_xml\":";
+    appendJsonString(output, manifest.documentation.example_xml);
+    output << "},\"ports\":[";
+
+    std::vector<std::string> port_names;
+    port_names.reserve(manifest.ports.size());
+    for (const auto& [name, unused] : manifest.ports) {
+      (void)unused;
+      port_names.push_back(name);
+    }
+    std::sort(port_names.begin(), port_names.end());
+    for (std::size_t port_index = 0; port_index < port_names.size(); ++port_index) {
+      if (port_index) output << ',';
+      const auto& port = manifest.ports.at(port_names[port_index]);
+      output << "{\"name\":";
+      appendJsonString(output, port.name);
+      output << ",\"direction\":";
+      appendJsonString(output, bt_core::toStr(port.direction));
+      output << ",\"type_name\":";
+      appendJsonString(output, port.type_name);
+      output << ",\"default_value\":";
+      appendJsonString(output, port.default_value);
+      output << ",\"description\":";
+      appendJsonString(output, port.description);
+      output << ",\"editor_hint\":";
+      appendJsonString(output, port.editor_hint);
+      output << ",\"enum_values\":[";
+      for (std::size_t enum_index = 0; enum_index < port.enum_values.size(); ++enum_index) {
+        if (enum_index) output << ',';
+        appendJsonString(output, port.enum_values[enum_index]);
+      }
+      output << "]}";
+    }
+    output << "]}";
+  }
+  output << "]}";
+
+  std_msgs::msg::String message;
+  message.data = output.str();
+  capabilities_pub_->publish(message);
 }
 
 void BtExecutorNode::publishTreeSnapshot(bt_core::NodeStatus root_status) {
@@ -358,6 +485,7 @@ void BtExecutorNode::publishServiceEvent(const std::string& interface_name,
 void BtExecutorNode::handleStart(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string interface_name = std::string(get_fully_qualified_name()) + "/start";
   const std::string call_id = "start-" + std::to_string(++service_call_sequence_);
@@ -375,6 +503,7 @@ void BtExecutorNode::handleStart(
 void BtExecutorNode::handleStop(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string interface_name = std::string(get_fully_qualified_name()) + "/stop";
   const std::string call_id = "stop-" + std::to_string(++service_call_sequence_);
@@ -444,6 +573,7 @@ void BtExecutorNode::publishDebugServiceEvent(const std::string& action,
 void BtExecutorNode::handlePause(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string call_id = "pause-" + std::to_string(++service_call_sequence_);
   publishDebugServiceEvent("pause", call_id, "started", true, "", 0);
@@ -464,6 +594,7 @@ void BtExecutorNode::handlePause(
 void BtExecutorNode::handleResume(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string call_id = "resume-" + std::to_string(++service_call_sequence_);
   publishDebugServiceEvent("resume", call_id, "started", true, "", 0);
@@ -480,6 +611,7 @@ void BtExecutorNode::handleResume(
 void BtExecutorNode::handleStep(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string call_id = "step-" + std::to_string(++service_call_sequence_);
   publishDebugServiceEvent("step", call_id, "started", true, "", 0);
@@ -501,6 +633,7 @@ void BtExecutorNode::handleStep(
 void BtExecutorNode::handleReload(
     const std::shared_ptr<Trigger::Request>,
     std::shared_ptr<Trigger::Response> response) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   const auto started_at = std::chrono::steady_clock::now();
   const std::string call_id = "reload-" + std::to_string(++service_call_sequence_);
   publishDebugServiceEvent("reload", call_id, "started", true, "", 0);
@@ -532,6 +665,7 @@ void BtExecutorNode::handleReload(
 }
 
 void BtExecutorNode::handleDebugOverrides(const std_msgs::msg::String& message) {
+  std::lock_guard<std::recursive_mutex> lock(execution_mutex_);
   if (!debug_mode_ || !tree_) return;
   try {
     const auto separator = message.data.find('|');

@@ -212,7 +212,7 @@ fixed_line_count_is() {
 }
 
 launch_contract_ready() {
-  [[ "$(fragment_count "$LAUNCH_LOG" "已注册 35 种节点类型。")" -eq 1 ]] &&
+  [[ "$(fragment_count "$LAUNCH_LOG" "已注册 40 种节点类型。")" -eq 1 ]] &&
     [[ "$(fragment_count "$LAUNCH_LOG" "加载行为树，共 8 个节点。")" -eq 1 ]]
 }
 
@@ -324,7 +324,7 @@ setsid env PYTHONUNBUFFERED=1 ros2 topic echo --no-daemon --field data \
   /bt_executor/bt_status std_msgs/msg/String >"$STATUS_LOG" 2>&1 &
 BACKGROUND_GROUPS+=("$!")
 
-wait_until "registration catalog 35 and recharge tree node count 8" 12 \
+wait_until "registration catalog 40 and recharge tree node count 8" 12 \
   launch_contract_ready
 wait_until "one /robot/command echo subscriber" 12 \
   subscription_count_is /robot/command 1

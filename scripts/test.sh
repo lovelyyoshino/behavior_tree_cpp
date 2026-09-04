@@ -4,9 +4,10 @@
 #
 # @author pony
 # @date 2026-07-06
-# @version v2.2.0
-# @last_modified 2026-07-13
+# @version v2.3.0
+# @last_modified 2026-09-04
 # @changelog
+#   - v2.3.0 (2026-09-04): 截图 gate 同时产出并比对 basics-screenshots(15-17)
 #   - v2.2.0 (2026-07-13): 分轮保留 Playwright 报告、trace 与 CI 文档截图证据
 #   - v2.1.0 (2026-07-13): 锁定前端依赖，并让 Linux gate 对比临时截图与已提交文档基准
 #   - v2.0.1 (2026-07-13): 将默认 sanitizer 构建放入已忽略的主构建目录
@@ -153,6 +154,7 @@ for tree in \
   "$REPO_ROOT/examples/trees/minimal_sequence_fallback.xml" \
   "$REPO_ROOT/examples/trees/blackboard_data_flow.xml" \
   "$REPO_ROOT/examples/trees/diagnostic_demo.xml" \
+  "$REPO_ROOT/examples/trees/priority_tick_scheduler.xml" \
   "$REPO_ROOT/examples/trees/subtree_reuse.xml"; do
   "$EXAMPLE_LOAD_XML" "$PLUGIN" "$tree" >/dev/null
 done
@@ -221,19 +223,28 @@ else
   SCREENSHOT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/btx-screenshots.XXXXXX")"
   TEMP_DIRS+=("$SCREENSHOT_DIR")
 fi
+# 两个截图 spec 必须一起产出：screenshots:check 的清单同时覆盖
+# docs-screenshots(01-04) 和 basics-screenshots(15-17)，只跑其中一个会让
+# 门禁因文件缺失而失败。
 BT_UPDATE_SCREENSHOTS=1 \
 BT_SCREENSHOT_DIR="$SCREENSHOT_DIR" \
 BT_E2E_REUSE_SERVER=0 \
 BT_PLAYWRIGHT_OUTPUT_DIR="test-results/docs-screenshots" \
 BT_PLAYWRIGHT_REPORT_DIR="playwright-report/docs-screenshots" \
-  npx playwright test e2e/docs-screenshots.spec.ts --project=chromium
+  npx playwright test \
+    e2e/docs-screenshots.spec.ts \
+    e2e/basics-screenshots.spec.ts \
+    --project=chromium
 BT_SCREENSHOT_DIR="$SCREENSHOT_DIR" npm run screenshots:check
 if [[ "$(uname -s)" == "Linux" ]]; then
   for screenshot in \
     01_editor_loaded.png \
     02_sample_tree.png \
     03_tick_colored.png \
-    04_tick_highlight_fixed.png; do
+    04_tick_highlight_fixed.png \
+    15_basics_node_categories.png \
+    16_basics_four_node_types.png \
+    17_basics_tick_status.png; do
     cmp "$SCREENSHOT_DIR/$screenshot" \
       "$REPO_ROOT/docs/blog/screenshots/$screenshot"
   done

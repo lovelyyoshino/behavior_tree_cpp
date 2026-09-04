@@ -84,7 +84,9 @@ public:
   ///        providedPorts() 里合并本函数返回值即可（同 RosSubscriberNodeBase）。
   static bt_core::PortsList publisherPorts() {
     return bt_core::makePorts(
-        bt_core::InputPort<std::string>("topic", "", "要发布到的话题名"),
+        bt_core::withEditorHint(
+            bt_core::InputPort<std::string>("topic", "", "要发布到的话题名"),
+            "ros_topic"),
         bt_core::InputPort<int>("qos_depth", "10", "发布 QoS 队列深度"),
         bt_core::InputPort<int>(
             "subscriber_wait_timeout_ms", "0",

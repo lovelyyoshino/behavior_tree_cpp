@@ -17,6 +17,7 @@ def generate_launch_description():
         DeclareLaunchArgument('http_port', default_value='8088'),
         DeclareLaunchArgument('snapshot_topic', default_value='/bt_executor/tree_snapshot'),
         DeclareLaunchArgument('service_event_topic', default_value='/bt_executor/service_event'),
+        DeclareLaunchArgument('capabilities_topic', default_value='/bt_executor/capabilities'),
         DeclareLaunchArgument('history_limit', default_value='240'),
     ]
     viewer = Node(
@@ -30,6 +31,7 @@ def generate_launch_description():
             'http_port': LaunchConfiguration('http_port'),
             'snapshot_topic': LaunchConfiguration('snapshot_topic'),
             'service_event_topic': LaunchConfiguration('service_event_topic'),
+            'capabilities_topic': LaunchConfiguration('capabilities_topic'),
             'history_limit': LaunchConfiguration('history_limit'),
         }],
     )

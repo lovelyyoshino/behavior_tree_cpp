@@ -49,7 +49,14 @@ pnpm-debug.log*
 # ---- ROS2 (bt_ros2) colcon 产物 -------------------------------------------
 install/
 log/
+install_ros2/
+log_ros2/
 # 注意：保留 bt_ros2/launch/*.py 与 bt_ros2/trees/*.xml（它们是源文件）
+
+# ---- MCP / 调试残留 --------------------------------------------------------
+# Playwright MCP 浏览器会话产物（截图、console 日志、页面快照），只用于本地
+# 排查，不是可复现的文档证据；文档配图一律由 e2e/*-screenshots.spec.ts 产出。
+.playwright-mcp/
 
 # ---- IDE / 编辑器 ----------------------------------------------------------
 .vscode/

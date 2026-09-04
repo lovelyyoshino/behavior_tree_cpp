@@ -23,10 +23,14 @@ namespace bt_ros2 {
 
 bt_core::PortsList RechargeTask::providedPorts() {
   return bt_core::makePorts(
-      bt_core::InputPort<std::string>(
-          "command_topic", "/robot/command", "回充命令话题"),
-      bt_core::InputPort<std::string>(
-          "dock_topic", "/dock/is_docked", "对接状态话题"),
+      bt_core::withEditorHint(
+          bt_core::InputPort<std::string>(
+              "command_topic", "/robot/command", "回充命令话题"),
+          "ros_topic"),
+      bt_core::withEditorHint(
+          bt_core::InputPort<std::string>(
+              "dock_topic", "/dock/is_docked", "对接状态话题"),
+          "ros_topic"),
       bt_core::InputPort<std::string>("target", "main_dock", "目标充电桩"),
       bt_core::InputPort<int>(
           "timeout_ms", "30000", "等待超时；<=0 表示不超时"),
@@ -34,9 +38,11 @@ bt_core::PortsList RechargeTask::providedPorts() {
           "command_qos_depth", "10", "命令发布队列深度"),
       bt_core::InputPort<int>(
           "dock_qos_depth", "10", "对接订阅队列深度"),
-      bt_core::InputPort<std::string>(
-          "dock_qos_profile", "default", "对接订阅 QoS",
-          {"default", "sensor_data"}));
+      bt_core::withEditorHint(
+          bt_core::InputPort<std::string>(
+              "dock_qos_profile", "default", "对接订阅 QoS",
+              {"default", "sensor_data"}),
+          "ros_qos_profile"));
 }
 
 void RechargeTask::ensureRosInterfaces() {

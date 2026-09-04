@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# smoke_server.sh — 普通 HTTP 后端的完整接口冒烟测试
+#
+# @author pony
+# @date 2026-06-30
+# @version v1.1.0
+# @last_modified 2026-08-18
+# @changelog
+#   - v1.1.0 (2026-08-18): 验证普通后端以显式空快照降级 ROS2 能力探测
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -137,6 +146,17 @@ assert data.get("version"), data
 PY
 echo "[smoke] health ok"
 
+CAPABILITIES_JSON="$TMP_DIR/capabilities.json"
+curl -fsS "$BASE_URL/api/v1/bt/capabilities" -o "$CAPABILITIES_JSON" >/dev/null
+python3 - "$CAPABILITIES_JSON" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+assert data == {"available": False, "capabilities": None}, data
+PY
+echo "[smoke] ROS2 capabilities degrade cleanly"
+
 NODES_JSON="$TMP_DIR/nodes.json"
 curl -fsS "$BASE_URL/api/nodes" -o "$NODES_JSON" >/dev/null
 python3 - "$NODES_JSON" <<'PY'
@@ -145,10 +165,14 @@ import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 names = {item.get("registration_name") for item in data}
-assert len(data) == 25, (len(data), data)
-assert {"Sequence", "Fallback", "PrintMessage", "FunctionAction", "FunctionCondition"}.issubset(names), names
+assert len(data) == 27, (len(data), data)
+assert {"Sequence", "Fallback", "PrioritySelector", "TickRate", "PrintMessage", "FunctionAction", "FunctionCondition"}.issubset(names), names
 # 本轮新增的 6 个商用级内置节点也必须被后端枚举到。
 assert {"Delay", "WaitUntilElapsed", "BlackboardExists", "ClearBlackboard", "LogEvent", "ScalarThreshold"}.issubset(names), names
+tick_rate = next(item for item in data if item.get("registration_name") == "TickRate")
+tier = next(port for port in tick_rate.get("ports", []) if port.get("name") == "tier")
+assert tier.get("default_value") == "normal", tier
+assert tier.get("enum_values") == ["critical", "normal", "background"], tier
 PY
 echo "[smoke] nodes ok"
 
@@ -467,5 +491,42 @@ assert nodes, data
 assert any(node.get("children") for node in nodes), data
 PY
 echo "[smoke] structure ok"
+
+SCHEDULER_PAYLOAD="$TMP_DIR/scheduler_payload.json"
+python3 - "$REPO_ROOT/examples/trees/priority_tick_scheduler.xml" "$SCHEDULER_PAYLOAD" <<'PY'
+import json
+import sys
+
+xml = open(sys.argv[1], encoding="utf-8").read()
+with open(sys.argv[2], "w", encoding="utf-8") as out:
+    json.dump({"xml": xml}, out, ensure_ascii=False)
+PY
+SCHEDULER_LOAD_JSON="$TMP_DIR/scheduler_load.json"
+curl -fsS \
+  -H 'Content-Type: application/json' \
+  --data-binary "@$SCHEDULER_PAYLOAD" \
+  "$BASE_URL/api/tree/load" \
+  -o "$SCHEDULER_LOAD_JSON" >/dev/null
+python3 - "$SCHEDULER_LOAD_JSON" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+assert data.get("ok") is True, data
+assert data.get("node_count") == 10, data
+PY
+
+SCHEDULER_TICK_JSON="$TMP_DIR/scheduler_tick.json"
+curl -fsS -X POST "$BASE_URL/api/tree/tick" -o "$SCHEDULER_TICK_JSON" >/dev/null
+python3 - "$SCHEDULER_TICK_JSON" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+assert data.get("status") == "SUCCESS", data
+names = {node.get("registration_name") for node in data.get("nodes", [])}
+assert {"PrioritySelector", "TickRate"}.issubset(names), data
+PY
+echo "[smoke] priority/tick scheduler backend round trip ok"
 
 echo "[smoke] server smoke passed"

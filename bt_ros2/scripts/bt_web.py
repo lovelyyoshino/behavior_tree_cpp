@@ -1,18 +1,32 @@
 #!/usr/bin/env python3
-"""ROS2-to-HTTP adapter for read-only behavior-tree visualization."""
+"""bt_web.py - 从 ROS2 graph 向编辑器提供只读 HTTP 观察接口。
+
+@author pony
+@date 2026-08-17
+@version v1.2.0
+@last_modified 2026-08-21
+@changelog
+    - v1.2.0 (2026-08-21): 支持未安装 bt_ros2 包时从仓库源码直接启动
+    - v1.1.0 (2026-08-21): bt_web 直接发现 ROS graph，并合并 executor manifest
+    - v1.0.0 (2026-08-17): 初始实现
+"""
 
 from __future__ import annotations
 
 from http.server import ThreadingHTTPServer
+import json
 from pathlib import Path
 import threading
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 from bt_web_core import (
+    build_ros_graph_capabilities,
+    CapabilitiesStore,
     DebugStateStore,
     load_tree_definition,
     make_request_handler,
     ServiceEventStore,
+    select_live_executor_manifests,
     SnapshotStore,
 )
 import rclpy
@@ -26,13 +40,19 @@ class BtWebNode(Node):
 
     def __init__(self) -> None:
         super().__init__('bt_web')
-        package_share = Path(get_package_share_directory('bt_ros2'))
+        # 开发工作区可能尚未 colcon install；这时仍使用仓库内 trees/web，避免把
+        # “ROS 包未安装”误报成“ROS graph 不存在”。安装包时优先使用 ament share 路径。
+        try:
+            package_share = Path(get_package_share_directory('bt_ros2'))
+        except PackageNotFoundError:
+            package_share = Path(__file__).resolve().parents[1]
         self.declare_parameter('bind_address', '127.0.0.1')
         self.declare_parameter('http_port', 8088)
         self.declare_parameter('monitor_http_port', 8090)
         self.declare_parameter('tree_file', str(package_share / 'trees' / 'example.xml'))
         self.declare_parameter('snapshot_topic', '/bt_executor/tree_snapshot')
         self.declare_parameter('service_event_topic', '/bt_executor/service_event')
+        self.declare_parameter('capabilities_topic', '/bt_executor/capabilities')
         self.declare_parameter('history_limit', 240)
         self.declare_parameter('debug_mode', False)
         self.declare_parameter('debug_state_topic', '/bt_debug_executor/debug_state')
@@ -58,6 +78,8 @@ class BtWebNode(Node):
         tree_definition = load_tree_definition(self.get_parameter('tree_file').value)
         self._snapshots = SnapshotStore(tree_definition['tree_revision'], history_limit)
         self._service_events = ServiceEventStore(tree_definition['tree_revision'], history_limit)
+        self._capabilities = CapabilitiesStore()
+        self._capability_seq = 0
         self._debug_state = (
             DebugStateStore(tree_definition['tree_revision']) if debug_mode else None
         )
@@ -80,6 +102,7 @@ class BtWebNode(Node):
             self._apply_overrides if debug_mode else None,
             self._call_control if debug_mode else None,
             monitor_http_port - http_port if debug_mode else None,
+            self._capabilities,
         )
         self._server = ThreadingHTTPServer((bind_address, http_port), handler)
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -104,6 +127,19 @@ class BtWebNode(Node):
             self._on_service_event,
             event_qos,
         )
+        self._capabilities_subscription = self.create_subscription(
+            String,
+            self.get_parameter('capabilities_topic').value,
+            self._on_capabilities,
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
+        # Web 适配器直接读取 DDS graph；executor 快照只补充实际注册的节点 manifest。
+        self._graph_timer = self.create_timer(2.0, self._refresh_ros_graph)
+        self._refresh_ros_graph()
         self._debug_state_subscription = None
         if debug_mode:
             self._debug_state_subscription = self.create_subscription(
@@ -135,6 +171,37 @@ class BtWebNode(Node):
             self._service_events.update_json(message.data)
         except (ValueError, TypeError) as error:
             self.get_logger().error(f'rejected service event: {error}')
+
+    def _on_capabilities(self, message: String) -> None:
+        try:
+            self._capabilities.update_json(message.data)
+            payload = json.loads(message.data)
+            self._capability_seq = max(self._capability_seq, int(payload.get('seq', 0)))
+        except (ValueError, TypeError) as error:
+            self.get_logger().error(f'rejected ROS capabilities: {error}')
+
+    def _refresh_ros_graph(self) -> None:
+        """读取一次本机 DDS graph，并原子替换 HTTP 侧的最新快照。"""
+        try:
+            previous = self._capabilities.latest().get('capabilities') or {}
+            node_names = self.get_node_names_and_namespaces()
+            executor_node, manifests = select_live_executor_manifests(
+                previous,
+                node_names,
+                self.get_fully_qualified_name(),
+            )
+            self._capability_seq += 1
+            payload = build_ros_graph_capabilities(
+                self._capability_seq,
+                executor_node,
+                node_names,
+                self.get_topic_names_and_types(),
+                self.get_service_names_and_types(),
+                manifests,
+            )
+            self._capabilities.update_json(json.dumps(payload))
+        except (AttributeError, TypeError, ValueError, RuntimeError) as error:
+            self.get_logger().warn(f'ROS graph refresh failed: {error}')
 
     def _on_debug_state(self, message: String) -> None:
         try:

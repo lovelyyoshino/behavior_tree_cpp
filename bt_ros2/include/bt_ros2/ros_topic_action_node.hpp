@@ -17,6 +17,13 @@
 //    若要桥接 ROS2 Action / 长耗时服务，应在首拍发起请求并返回 RUNNING，
 //    后续拍轮询 future/回调结果，完成时返回 SUCCESS/FAILURE，并在 onHalted() 取消。
 //    这里给出最常见的“发一条 topic 即成功”的范式，保持示例聚焦、易读。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.1.0 (2026-08-18): 暴露 ROS2 发布节点用途、状态与 XML 示例元数据
 // ============================================================================
 #ifndef BT_ROS2_ROS_TOPIC_ACTION_NODE_HPP
 #define BT_ROS2_ROS_TOPIC_ACTION_NODE_HPP
@@ -42,11 +49,22 @@ class RosTopicActionNode : public bt_core::ActionNode {
 public:
   using bt_core::ActionNode::ActionNode;  // 继承 (std::string, NodeConfig) 构造
 
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "向 std_msgs/msg/String 话题发布一条消息，作为同步通知或告警动作。",
+        "topic 填目标话题，message 可填固定文本或 {event_text} 读取黑板；它只代表消息交给 middleware，不代表下游已处理。",
+        "发布器创建成功且 publish 调用完成后返回 SUCCESS；这是瞬时动作，不会等待订阅者业务确认。",
+        "ROS 句柄未注入、topic 为空或发布器创建失败返回 FAILURE；长耗时 ROS2 Action/Service 应另写 RUNNING 状态节点。",
+        R"(<RosTopicAction name="notify" topic="/bt/events" message="planner heartbeat missing"/>)"};
+  }
+
   /// @brief 声明端口。
   static bt_core::PortsList providedPorts() {
     return bt_core::makePorts(
-        bt_core::InputPort<std::string>("topic", "/bt/chatter",
-                                        "要发布到的 std_msgs/String topic 名"),
+        bt_core::withEditorHint(
+            bt_core::InputPort<std::string>("topic", "/bt/chatter",
+                                            "要发布到的 std_msgs/String topic 名"),
+            "ros_topic"),
         bt_core::InputPort<std::string>("message", "hello",
                                         "要发布的消息内容(可用 {key} 从黑板取)"));
   }

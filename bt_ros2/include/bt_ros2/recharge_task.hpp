@@ -3,9 +3,10 @@
  *
  * @author pony
  * @date 2026-07-12
- * @version v1.0.1
- * @last_modified 2026-07-12
+ * @version v1.1.0
+ * @last_modified 2026-08-18
  * @changelog
+ *   - v1.1.0 (2026-08-18): 暴露回充动作状态机用途、边界与 XML 示例元数据
  *   - v1.0.1 (2026-07-12): 消除回调并发数据竞争与销毁期悬空访问
  *   - v1.0.0 (2026-07-12): 初始实现持久接口、单次发布与跨 tick 状态机
  */
@@ -31,6 +32,15 @@ namespace bt_ros2 {
 class RechargeTask final : public bt_core::ActionNode {
  public:
   using bt_core::ActionNode::ActionNode;
+
+  static bt_core::NodeDocumentation providedDocumentation() {
+    return {
+        "发布一次回充命令并跨 tick 等待 dock Bool 结果的有状态 ROS2 动作。",
+        "放在低电量 Sequence 中；首拍发 command_topic，后续拍等待 dock_topic=true，timeout_ms 控制最大等待时间。",
+        "首拍发布后返回 RUNNING；收到 dock=true 返回 SUCCESS；超时返回 FAILURE；halt 会清理本轮状态，允许下一轮重试。",
+        "发布成功不等于底盘接受命令；dock 话题超时、ROS 句柄缺失或服务端拒绝时返回 FAILURE，必须在系统层保留安全停车策略。",
+        R"(<RechargeTask command_topic="/robot/command" dock_topic="/dock/is_docked" target="main_dock" timeout_ms="30000"/>)"};
+  }
 
   static bt_core::PortsList providedPorts();
   bt_core::NodeStatus tick() override;

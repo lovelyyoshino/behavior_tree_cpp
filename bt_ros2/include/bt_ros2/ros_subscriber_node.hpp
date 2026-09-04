@@ -27,10 +27,16 @@
 //  ────────────────────────────────────────────────────────────────────────
 //  线程模型(重要前提)
 //  ────────────────────────────────────────────────────────────────────────
-//    约定由 BtExecutorNode 用**单线程 executor** 驱动：timer 的 tick 回调与
-//    subscription 回调在同一线程里交替执行，**不会并发**。因此 tick 读缓存、
-//    回调写缓存之间没有数据竞争，无需加锁。若你改用多线程 executor，需自行
-//    给 last_msg_/last_recv_ 加锁——这点在 README 里也会强调。
+//    默认由 BtExecutorNode 用**单线程 executor**驱动。为兼容下游误接或主动接入
+//    MultiThreadedExecutor，subscription 回调只写共享输入快照，tick 在短临界区内
+//    复制快照后再执行业务钩子；在途回调也不捕获节点 this，避免销毁期悬空访问。
+//
+//  @author pony
+//  @date 2026-06-30
+//  @version v1.1.0
+//  @last_modified 2026-08-18
+//  @changelog
+//    - v1.1.0 (2026-08-18): 输入缓存改为线程安全共享快照
 //
 //  ────────────────────────────────────────────────────────────────────────
 //  公共端口(所有子类自动拥有)
@@ -44,6 +50,7 @@
 #define BT_ROS2_ROS_SUBSCRIBER_NODE_HPP
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "bt_core/leaf_node.hpp"
@@ -75,13 +82,17 @@ public:
   ///        子类如需额外端口，可在自己的 providedPorts() 里合并本函数返回值。
   static bt_core::PortsList subscriberPorts() {
     return bt_core::makePorts(
-        bt_core::InputPort<std::string>("topic", "", "要订阅的话题名"),
+        bt_core::withEditorHint(
+            bt_core::InputPort<std::string>("topic", "", "要订阅的话题名"),
+            "ros_topic"),
         bt_core::InputPort<int>("timeout_ms", "0",
                                 "数据时效窗口(ms)，<=0 表示永不过期"),
         bt_core::InputPort<int>("qos_depth", "10", "订阅 QoS 队列深度"),
-        bt_core::InputPort<std::string>(
-            "qos_profile", "default", "订阅 QoS 配置",
-            {"default", "sensor_data"}));
+        bt_core::withEditorHint(
+            bt_core::InputPort<std::string>(
+                "qos_profile", "default", "订阅 QoS 配置",
+                {"default", "sensor_data"}),
+            "ros_qos_profile"));
   }
 
   /// 默认 providedPorts 即公共端口（子类可覆盖以追加自有端口）。
@@ -104,16 +115,33 @@ protected:
   bt_core::NodeStatus tickImpl() {
     ensureSubscription();
 
-    const bool fresh = isFresh(received_, last_recv_,
+    MsgT last_msg{};
+    SteadyTime last_recv{};
+    bool received = false;
+    {
+      std::lock_guard<std::mutex> lock(input_state_->mutex);
+      last_msg = input_state_->last_msg;
+      last_recv = input_state_->last_recv;
+      received = input_state_->received;
+    }
+
+    const bool fresh = isFresh(received, last_recv,
                                std::chrono::steady_clock::now(), timeout_ms_);
     if (!fresh) {
       return onNoFreshData();
     }
-    onMessage(last_msg_);          // 数据录入钩子(RosInputNode 用)
-    return onFreshData(last_msg_); // 状态判定钩子(RosConditionNode 用)
+    onMessage(last_msg);          // 数据录入钩子(RosInputNode 用)
+    return onFreshData(last_msg); // 状态判定钩子(RosConditionNode 用)
   }
 
 private:
+  struct InputState {
+    std::mutex mutex;
+    MsgT last_msg{};
+    SteadyTime last_recv{};
+    bool received{false};
+  };
+
   /// @brief 首次 tick 时惰性创建订阅(此时才能从黑板拿到 ROS 句柄)。
   void ensureSubscription() {
     if (sub_) return;
@@ -130,20 +158,19 @@ private:
     const std::string profile =
         this->template getInput<std::string>("qos_profile").value_or("default");
 
+    const auto input_state = input_state_;
     sub_ = node->template create_subscription<MsgT>(
         topic, makeSubscriptionQos(depth, profile),
-        [this](const typename MsgT::SharedPtr msg) {
-          // 回调与 tick 同线程(单线程 executor)，直接写缓存即可。
-          last_msg_ = *msg;
-          last_recv_ = std::chrono::steady_clock::now();
-          received_ = true;
+        [input_state](const typename MsgT::SharedPtr msg) {
+          std::lock_guard<std::mutex> lock(input_state->mutex);
+          input_state->last_msg = *msg;
+          input_state->last_recv = std::chrono::steady_clock::now();
+          input_state->received = true;
         });
   }
 
   typename rclcpp::Subscription<MsgT>::SharedPtr sub_;  ///< 订阅句柄(惰性)
-  MsgT       last_msg_{};                 ///< 最近一次收到的消息
-  SteadyTime last_recv_{};                ///< 最近一次接收时刻
-  bool       received_{false};            ///< 是否至少收到过一次
+  std::shared_ptr<InputState> input_state_{std::make_shared<InputState>()};
   int        timeout_ms_{0};              ///< 时效窗口(首次 tick 时从端口读)
 };
 
